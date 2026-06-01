@@ -83,9 +83,50 @@ cd backend
 alembic upgrade head
 ```
 
+## Testing
+
+### Backend
+
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+
+# Type check
+mypy .
+
+# Run unit tests
+python -m pytest
+```
+
+### Frontend
+
+```powershell
+cd frontend
+
+# Lint
+pnpm run lint
+
+# Format check
+pnpm run format:check
+
+# Type check
+pnpm exec tsc -b
+
+# Unit tests
+pnpm exec vitest run
+
+# E2E tests (requires dev server or CI)
+pnpm exec playwright test
+
+# Production build (full verification)
+pnpm run build
+```
+
 ## Code Quality
 
-Backend:
+Run these before pushing:
+
+### Backend
 
 ```powershell
 cd backend
@@ -93,22 +134,31 @@ cd backend
 mypy .
 ```
 
-Frontend:
+### Frontend
 
 ```powershell
 cd frontend
 pnpm run lint
 pnpm run format:check
+pnpm exec tsc -b
 pnpm run build
 ```
 
-Pre-commit:
+### Pre-push hooks (lefthook)
+
+Lefthook runs lint, format check, type check, and audit automatically on `git push`.
+Install once per clone:
 
 ```powershell
-cd ..
-pip install pre-commit
-pre-commit install
-pre-commit run --all-files
+cd frontend
+pnpm exec lefthook install
+```
+
+To run all hooks manually:
+
+```powershell
+pnpm exec lefthook run pre-commit
+pnpm exec lefthook run pre-push
 ```
 
 ## Makefile
