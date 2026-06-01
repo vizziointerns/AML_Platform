@@ -1,0 +1,16 @@
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      glob: '*.{js,ts,tsx,css,scss,md,json,yml,yaml}'
+      run: pnpm exec prettier --check {staged_files}
+    eslint:
+      glob: '*.{js,ts,tsx}'
+      run: pnpm exec eslint {staged_files}
+
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm exec tsc -b
+    audit:
+      run: pnpm audit --audit-level high
