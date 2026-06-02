@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
 	LayoutDashboard,
 	Database,
@@ -11,245 +11,317 @@ import {
 	Menu,
 	Bell,
 	Search,
-	ChevronDown,
 	Sun,
 	Moon,
 	PanelLeftClose,
 	PanelLeftOpen,
 	User,
 	ChevronRight,
-	Layers
+	Layers,
+	Home,
+	ChevronLeft
 } from 'lucide-react'
 import AuthFlow from './pages/AuthFlow'
-import Dashboard from './pages/Dashboard'
+
+import HomePage from './pages/Home'
 import DatasetsView from './pages/DatasetsView'
 import Uploader from './components/Uploader'
 import AnnotationStudio from './pages/AnnotationStudio'
 import WorkflowBuilder from './pages/WorkflowBuilder'
 import ProjectsView from './pages/projects/ProjectsView'
+import { use_navigation_store, type AppRoute, type ProjectRoute } from './store/navigationStore'
+import { use_project_store } from './store/projectStore'
 
-// --- Types ---
-export type Route =
-	| 'dashboard'
-	| 'datasets'
-	| 'annotation'
-	| 'models'
-	| 'training'
-	| 'deployments'
-	| 'workflow'
-	| 'settings'
-	| 'projects'
-
-interface NavItem {
-	id: Route
+// --- Level 1 navigation config (app-level) ---
+interface AppNavItem {
+	id: AppRoute
 	label: string
 	icon: React.ElementType
 }
 
-// --- Navigation Configuration ---
-const TOP_NAV_ITEMS: NavItem[] = [
+const APP_NAV_ITEMS: AppNavItem[] = [
+	{ id: 'home', label: 'Home', icon: Home },
+	{ id: 'projects', label: 'Projects', icon: Layers }
+]
+
+const APP_BOTTOM_ITEMS: AppNavItem[] = [{ id: 'settings', label: 'Settings', icon: Settings }]
+
+// --- Level 2 navigation config (project-level) ---
+interface ProjectNavItem {
+	id: ProjectRoute
+	label: string
+	icon: React.ElementType
+}
+
+const PROJECT_NAV_ITEMS: ProjectNavItem[] = [
 	{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-	{ id: 'projects', label: 'Projects', icon: Layers },
 	{ id: 'datasets', label: 'Datasets', icon: Database },
 	{ id: 'annotation', label: 'Annotation', icon: PenTool }
 ]
 
-const ML_NAV_ITEMS: NavItem[] = [
+const PROJECT_ML_ITEMS: ProjectNavItem[] = [
 	{ id: 'models', label: 'Models', icon: Box },
 	{ id: 'training', label: 'Training', icon: Cpu },
-	{ id: 'deployments', label: 'Deployments', icon: Rocket },
+	{ id: 'deployment', label: 'Deployment', icon: Rocket },
 	{ id: 'workflow', label: 'Workflow', icon: GitBranch }
 ]
 
-const BOTTOM_NAV_ITEMS: NavItem[] = [{ id: 'settings', label: 'Team Settings', icon: Settings }]
-
 // --- Custom Hooks ---
 
-function use_keyboard_shortcuts(
-	is_authenticated: boolean,
-	set_is_sidebar_open: React.Dispatch<React.SetStateAction<boolean>>
-) {
+function use_keyboard_shortcuts(is_authenticated: boolean, on_toggle: () => void) {
 	useEffect(() => {
 		if (!is_authenticated) return
 		const handle_key_down = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
 				e.preventDefault()
-				set_is_sidebar_open((prev) => !prev)
+				on_toggle()
 			}
 			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
 				e.preventDefault()
 				console.info('Search triggered')
 			}
 		}
-
 		window.addEventListener('keydown', handle_key_down)
 		return () => window.removeEventListener('keydown', handle_key_down)
-	}, [is_authenticated, set_is_sidebar_open])
+	}, [is_authenticated, on_toggle])
 }
 
-function use_responsive_sidebar(
-	is_authenticated: boolean,
-	set_is_sidebar_open: React.Dispatch<React.SetStateAction<boolean>>
-) {
-	useEffect(() => {
-		if (!is_authenticated) return
-		const handle_resize = () => {
-			if (window.innerWidth < 1024) {
-				set_is_sidebar_open(false)
-			} else {
-				set_is_sidebar_open(true)
-			}
-		}
+// --- Sidebar Components ---
 
-		window.addEventListener('resize', handle_resize)
-		handle_resize()
-		return () => window.removeEventListener('resize', handle_resize)
-	}, [is_authenticated, set_is_sidebar_open])
-}
-
-// --- Helpers ---
-
-function get_active_label(active_route: Route): string {
-	const all_items = [...TOP_NAV_ITEMS, ...ML_NAV_ITEMS, ...BOTTOM_NAV_ITEMS]
-	return all_items.find((item) => item.id === active_route)?.label || 'Dashboard'
-}
-
-// --- Sub-components ---
-
-function nav_group({
-	title,
-	items,
-	active_route,
-	is_sidebar_open,
-	on_navigate
+function nav_button({
+	icon: Icon,
+	label,
+	is_active,
+	is_expanded,
+	on_click
 }: {
-	title?: string
-	items: NavItem[]
-	active_route: Route
-	is_sidebar_open: boolean
-	on_navigate: (route: Route) => void
+	icon: React.ElementType
+	label: string
+	is_active: boolean
+	is_expanded: boolean
+	on_click: () => void
 }) {
 	return (
-		<div className="mb-6">
-			{title && is_sidebar_open && (
-				<div className="px-4 mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 transition-opacity duration-200">
-					{title}
-				</div>
-			)}
-			<ul className="space-y-1 px-2">
-				{items.map((item) => {
-					const is_active = active_route === item.id
-					return (
-						<li key={item.id}>
-							<button
-								onClick={() => on_navigate(item.id)}
-								className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ${
-									is_active
-										? 'bg-blue-600 text-white shadow-sm'
-										: 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'
-								} ${!is_sidebar_open && 'justify-center px-0'}`}
-								title={!is_sidebar_open ? item.label : undefined}
-							>
-								<item.icon size={18} className={is_active ? 'text-white' : 'text-zinc-400'} />
-								{is_sidebar_open && <span>{item.label}</span>}
-							</button>
-						</li>
-					)
-				})}
-			</ul>
-		</div>
+		<button
+			onClick={on_click}
+			className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ${
+				is_active
+					? 'bg-blue-600 text-white shadow-sm'
+					: 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'
+			} ${!is_expanded && 'justify-center px-0'}`}
+			title={!is_expanded ? label : undefined}
+		>
+			<Icon size={18} className={is_active ? 'text-white' : 'text-zinc-400'} />
+			{is_expanded && <span>{label}</span>}
+		</button>
 	)
 }
 
-function sidebar_content({
-	is_sidebar_open,
-	is_dark_mode,
-	is_mobile_menu_open,
-	active_route,
-	on_navigate,
-	on_toggle_collapse
+function nav_section({
+	items,
+	current_id,
+	is_expanded,
+	on_click
 }: {
-	is_sidebar_open: boolean
-	is_dark_mode: boolean
-	is_mobile_menu_open: boolean
-	active_route: Route
-	on_navigate: (route: Route) => void
-	on_toggle_collapse: () => void
+	items: { id: string; label: string; icon: React.ElementType }[]
+	current_id: string | null
+	is_expanded: boolean
+	on_click: (id: string) => void
 }) {
+	return (
+		<ul className="space-y-1 px-2">
+			{items.map((item) => (
+				<li key={item.id}>
+					{nav_button({
+						icon: item.icon,
+						label: item.label,
+						is_active: current_id === item.id,
+						is_expanded,
+						on_click: () => on_click(item.id)
+					})}
+				</li>
+			))}
+		</ul>
+	)
+}
+
+function level1_sidebar({
+	is_expanded,
+	is_hover_expanded,
+	is_dark_mode,
+	is_mobile_open,
+	app_route,
+	on_navigate,
+	on_toggle,
+	on_leave_project,
+	on_logo_click
+}: {
+	is_expanded: boolean
+	is_hover_expanded: boolean
+	is_dark_mode: boolean
+	is_mobile_open: boolean
+	app_route: AppRoute
+	on_navigate: (route: AppRoute) => void
+	on_toggle: () => void
+	on_leave_project: () => void
+	on_logo_click: () => void
+}) {
+	const is_now_expanded = is_expanded || is_hover_expanded
 	const sidebar_classes = is_dark_mode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'
+	const width_expanded = is_now_expanded ? 'w-64' : 'w-16'
 
 	return (
 		<aside
-			className={`fixed lg:static top-0 left-0 z-50 h-full shrink-0 flex flex-col border-r transition-all duration-300 ease-in-out ${sidebar_classes} ${
-				is_sidebar_open ? 'w-64 translate-x-0' : 'w-20 -translate-x-full lg:translate-x-0'
-			} ${is_mobile_menu_open ? 'translate-x-0' : ''}`}
+			className={`fixed lg:static top-0 left-0 z-50 h-full shrink-0 flex flex-col border-r transition-all duration-300 ease-in-out ${sidebar_classes} ${width_expanded} ${
+				is_mobile_open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+			}`}
 		>
 			<div
-				className={`h-16 flex items-center border-b ${is_dark_mode ? 'border-zinc-800/60' : 'border-zinc-200'} shrink-0 ${is_sidebar_open ? 'px-4' : 'px-0 justify-center'}`}
+				className={`h-16 flex items-center border-b ${is_dark_mode ? 'border-zinc-800/60' : 'border-zinc-200'} shrink-0 ${is_now_expanded ? 'px-4' : 'px-0 justify-center'}`}
 			>
 				<button
-					className={`w-full flex items-center justify-between rounded-md hover:bg-zinc-800/50 transition-colors ${is_sidebar_open ? 'px-2 py-1.5' : 'p-2 justify-center'}`}
+					onClick={on_logo_click}
+					className={`w-full flex items-center gap-3 rounded-md hover:bg-zinc-800/50 transition-colors ${is_now_expanded ? 'px-2 py-1.5' : 'p-2 justify-center'}`}
 				>
-					<div className="flex items-center gap-3">
-						<div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-							<Box size={16} className="text-white" />
-						</div>
-						{is_sidebar_open && (
-							<div className="flex flex-col items-start overflow-hidden">
-								<span className="text-sm font-semibold truncate w-32 text-left">Acme Corp</span>
-								<span className="text-[10px] text-zinc-500 truncate w-32 text-left">
-									Production Workspace
-								</span>
-							</div>
-						)}
+					<div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
+						<Box size={16} className="text-white" />
 					</div>
-					{is_sidebar_open && <ChevronDown size={14} className="text-zinc-500" />}
+					{is_now_expanded && (
+						<div className="flex flex-col items-start overflow-hidden">
+							<span className="text-sm font-semibold truncate w-32 text-left">Acme Corp</span>
+							<span className="text-[10px] text-zinc-500 truncate w-32 text-left">
+								Production Workspace
+							</span>
+						</div>
+					)}
 				</button>
 			</div>
 
 			<nav className="flex-1 overflow-y-auto py-6 hide-scrollbar">
-				{nav_group({ items: TOP_NAV_ITEMS, active_route, is_sidebar_open, on_navigate })}
-				{nav_group({
-					title: 'Machine Learning',
-					items: ML_NAV_ITEMS,
-					active_route,
-					is_sidebar_open,
-					on_navigate
-				})}
-				{nav_group({
-					title: 'Configuration',
-					items: BOTTOM_NAV_ITEMS,
-					active_route,
-					is_sidebar_open,
-					on_navigate
-				})}
+				<div className="mb-6">
+					{nav_section({
+						items: APP_NAV_ITEMS,
+						current_id: app_route,
+						is_expanded: is_now_expanded,
+						on_click: (id) => {
+							on_leave_project()
+							on_navigate(id as AppRoute)
+						}
+					})}
+				</div>
+				<div className="mb-6">
+					{is_now_expanded && (
+						<div className="px-4 mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+							Configuration
+						</div>
+					)}
+					{nav_section({
+						items: APP_BOTTOM_ITEMS,
+						current_id: app_route,
+						is_expanded: is_now_expanded,
+						on_click: (id) => {
+							on_leave_project()
+							on_navigate(id as AppRoute)
+						}
+					})}
+				</div>
 			</nav>
 
 			<div
 				className={`p-4 border-t ${is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'} shrink-0 flex flex-col gap-2`}
 			>
 				<button
-					onClick={on_toggle_collapse}
-					className={`hidden lg:flex items-center gap-2 p-2 rounded-md hover:bg-zinc-800/50 transition-colors text-zinc-400 hover:text-zinc-100 ${!is_sidebar_open && 'justify-center'}`}
+					onClick={on_toggle}
+					className={`hidden lg:flex items-center gap-2 p-2 rounded-md hover:bg-zinc-800/50 transition-colors text-zinc-400 hover:text-zinc-100 ${!is_now_expanded && 'justify-center'}`}
 					title="Toggle Sidebar (Cmd+B)"
 				>
-					{is_sidebar_open ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-					{is_sidebar_open && <span className="text-sm font-medium">Collapse Sidebar</span>}
+					{is_now_expanded ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+					{is_now_expanded && <span className="text-sm font-medium">Collapse Sidebar</span>}
 				</button>
 			</div>
 		</aside>
 	)
 }
 
+function level2_sidebar({
+	is_dark_mode,
+	project_route,
+	project_name,
+	on_navigate,
+	on_back
+}: {
+	is_dark_mode: boolean
+	project_route: ProjectRoute
+	project_name: string
+	on_navigate: (route: ProjectRoute) => void
+	on_back: () => void
+}) {
+	const sidebar_classes = is_dark_mode
+		? 'bg-zinc-900/80 border-zinc-800'
+		: 'bg-zinc-50/80 border-zinc-200'
+
+	return (
+		<aside className={`hidden lg:flex w-64 h-full shrink-0 flex-col border-r ${sidebar_classes}`}>
+			<div
+				className={`h-16 flex items-center border-b ${is_dark_mode ? 'border-zinc-800/60' : 'border-zinc-200'} shrink-0 px-4 gap-3`}
+			>
+				<button
+					onClick={on_back}
+					className="p-1 rounded-md hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-100 transition-colors"
+					title="Back to projects"
+				>
+					<ChevronLeft size={16} />
+				</button>
+				<div className="flex flex-col items-start overflow-hidden min-w-0">
+					<span
+						className={`text-sm font-semibold truncate w-36 text-left ${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'}`}
+					>
+						{project_name}
+					</span>
+					<span className="text-[10px] text-zinc-500 truncate w-36 text-left">
+						Project Workspace
+					</span>
+				</div>
+			</div>
+
+			<nav className="flex-1 overflow-y-auto py-4 hide-scrollbar">
+				<div className="mb-4">
+					{nav_section({
+						items: PROJECT_NAV_ITEMS,
+						current_id: project_route,
+						is_expanded: true,
+						on_click: (id) => on_navigate(id as ProjectRoute)
+					})}
+				</div>
+				<div>
+					<div
+						className={`px-4 mb-2 text-[10px] font-bold uppercase tracking-widest ${is_dark_mode ? 'text-zinc-500' : 'text-zinc-400'}`}
+					>
+						Machine Learning
+					</div>
+					{nav_section({
+						items: PROJECT_ML_ITEMS,
+						current_id: project_route,
+						is_expanded: true,
+						on_click: (id) => on_navigate(id as ProjectRoute)
+					})}
+				</div>
+			</nav>
+		</aside>
+	)
+}
+
+// --- Header ---
+
 function header_content({
 	is_dark_mode,
-	active_route,
+	breadcrumbs,
 	on_toggle_theme,
 	on_signout,
 	on_open_mobile_menu
 }: {
 	is_dark_mode: boolean
-	active_route: Route
+	breadcrumbs: { label: string }[]
 	on_toggle_theme: () => void
 	on_signout: () => void
 	on_open_mobile_menu: () => void
@@ -271,11 +343,20 @@ function header_content({
 				</button>
 
 				<div className="hidden md:flex items-center gap-2 text-sm">
-					<span className="text-zinc-500">Workspace</span>
-					<ChevronRight size={14} className="text-zinc-600" />
-					<span className={`${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'} font-medium`}>
-						{get_active_label(active_route)}
-					</span>
+					{breadcrumbs.map((crumb, i) => (
+						<span key={i} className="flex items-center gap-2">
+							{i > 0 && <ChevronRight size={14} className="text-zinc-600" />}
+							<span
+								className={
+									i === breadcrumbs.length - 1
+										? `${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'} font-medium`
+										: 'text-zinc-500'
+								}
+							>
+								{crumb.label}
+							</span>
+						</span>
+					))}
 				</div>
 			</div>
 
@@ -333,146 +414,141 @@ function header_content({
 	)
 }
 
-function app_content({
-	active_route,
+// --- Page Content ---
+
+function page_placeholder({
+	label,
 	is_dark_mode,
+	text_muted
+}: {
+	label: string
+	is_dark_mode: boolean
+	text_muted: string
+}) {
+	return (
+		<div className="flex-1 overflow-y-auto p-4 lg:p-8">
+			<div className="max-w-7xl mx-auto space-y-6">
+				<div>
+					<h1 className="text-2xl font-semibold tracking-tight">{label}</h1>
+					<p className={`text-sm mt-1 ${text_muted}`}>{label} overview and management.</p>
+				</div>
+				<div
+					className={`rounded-xl border p-12 flex items-center justify-center ${is_dark_mode ? 'border-zinc-800 bg-zinc-900' : 'border-zinc-200 bg-white'}`}
+				>
+					<p className={text_muted}>{label} page — coming soon.</p>
+				</div>
+			</div>
+		</div>
+	)
+}
+
+function page_project_dashboard({
+	project,
+	is_dark_mode,
+	text_muted,
 	on_open_uploader
 }: {
-	active_route: Route
+	project: {
+		name: string
+		datasetCount: number
+		annotationProgress: number
+		type: string
+		members: string[]
+	}
 	is_dark_mode: boolean
+	text_muted: string
 	on_open_uploader: () => void
 }) {
 	const card_classes = is_dark_mode
 		? 'bg-zinc-900 border-zinc-800'
 		: 'bg-white border-zinc-200 shadow-sm'
-	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
-	const text_muted_secondary = is_dark_mode ? 'text-zinc-500' : 'text-zinc-400'
-	const text_icon = is_dark_mode ? 'text-zinc-800' : 'text-zinc-300'
-	const bg_skeleton = is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'
-	const bg_skeleton_light = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
-	const bg_dot = is_dark_mode ? 'bg-zinc-700' : 'bg-zinc-200'
-	const skeleton_bar = (w: string) => <div className={`h-3 rounded ${bg_dot} ${w}`} />
-	const skeleton_line = (w: string) => <div className={`h-2 rounded ${bg_dot} ${w}`} />
-
-	if (active_route === 'workflow') {
-		return (
-			<div className="flex-1 overflow-hidden relative">
-				<WorkflowBuilder is_dark_mode={is_dark_mode} />
-			</div>
-		)
-	}
-
-	if (active_route === 'projects') {
-		return (
-			<div className="flex-1 overflow-y-auto">
-				<ProjectsView is_dark_mode={is_dark_mode} />
-			</div>
-		)
-	}
-
-	if (active_route === 'dashboard') {
-		return (
-			<div className="flex-1 overflow-y-auto p-4 lg:p-8">
-				<div className="max-w-7xl mx-auto space-y-6">
-					<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-						<div>
-							<h1 className="text-2xl font-semibold tracking-tight">
-								{get_active_label(active_route)}
-							</h1>
-							<p className={`text-sm mt-1 ${text_muted}`}>
-								Manage your {get_active_label(active_route).toLowerCase()} and configure workspace
-								settings.
-							</p>
-						</div>
-						<div className="flex gap-2">
-							<button
-								onClick={on_open_uploader}
-								className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors"
-							>
-								Upload Data
-							</button>
-						</div>
-					</div>
-					<Dashboard isDarkMode={is_dark_mode} />
-				</div>
-			</div>
-		)
-	}
-
-	if (active_route === 'datasets') {
-		return (
-			<div className="flex-1 overflow-y-auto p-4 lg:p-8">
-				<div className="max-w-7xl mx-auto space-y-6">
-					<DatasetsView isDarkMode={is_dark_mode} onUpload={on_open_uploader} />
-				</div>
-			</div>
-		)
-	}
+	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
 
 	return (
 		<div className="flex-1 overflow-y-auto p-4 lg:p-8">
 			<div className="max-w-7xl mx-auto space-y-6">
 				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
 					<div>
-						<h1 className="text-2xl font-semibold tracking-tight">
-							{get_active_label(active_route)}
-						</h1>
+						<h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
 						<p className={`text-sm mt-1 ${text_muted}`}>
-							Manage your {get_active_label(active_route).toLowerCase()} and configure workspace
-							settings.
+							{project.name} — project overview and statistics.
 						</p>
+					</div>
+					<div className="flex gap-2">
+						<button
+							onClick={on_open_uploader}
+							className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors"
+						>
+							Upload Data
+						</button>
 					</div>
 				</div>
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-					<div
-						className={`col-span-1 md:col-span-2 rounded-xl border p-6 min-h-[300px] flex items-center justify-center flex-col gap-4 ${card_classes}`}
-					>
-						{React.createElement(
-							[...TOP_NAV_ITEMS, ...ML_NAV_ITEMS, ...BOTTOM_NAV_ITEMS].find(
-								(i) => i.id === active_route
-							)?.icon || LayoutDashboard,
-							{ size: 48, className: text_icon }
-						)}
-						<p className={`text-sm ${text_muted_secondary}`}>
-							Primary content area for {get_active_label(active_route)}
-						</p>
-					</div>
 
-					<div className="col-span-1 space-y-6">
-						<div
-							className={`rounded-xl border p-6 min-h-[140px] flex flex-col justify-between ${card_classes}`}
-						>
-							<div className="text-sm font-medium">Quick Actions</div>
-							<div className="space-y-2 mt-4">
-								<div className={`h-8 rounded ${bg_skeleton} w-full animate-pulse`}></div>
-								<div className={`h-8 rounded ${bg_skeleton} w-2/3 animate-pulse`}></div>
-							</div>
-						</div>
-						<div
-							className={`rounded-xl border p-6 min-h-[136px] flex flex-col justify-between ${card_classes}`}
-						>
-							<div className="text-sm font-medium">Recent Activity</div>
-							<div className="space-y-2 mt-4">
-								<div className={`h-4 rounded ${bg_skeleton} w-full animate-pulse`}></div>
-								<div className={`h-4 rounded ${bg_skeleton} w-4/5 animate-pulse`}></div>
-								<div className={`h-4 rounded ${bg_skeleton} w-3/4 animate-pulse`}></div>
-							</div>
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+					<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
+						<div className={`text-sm font-medium ${text_muted} mb-3`}>Images</div>
+						<div className="text-2xl font-bold tracking-tight">
+							{project.datasetCount.toLocaleString()}
 						</div>
 					</div>
+					<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
+						<div className={`text-sm font-medium ${text_muted} mb-3`}>Annotation Progress</div>
+						<div className="text-2xl font-bold tracking-tight">{project.annotationProgress}%</div>
+						<div
+							className={`mt-2 h-1.5 rounded-full overflow-hidden ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+						>
+							<div
+								className="h-full bg-blue-500 rounded-full"
+								style={{ width: `${project.annotationProgress}%` }}
+							/>
+						</div>
+					</div>
+					<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
+						<div className={`text-sm font-medium ${text_muted} mb-3`}>Type</div>
+						<div className="text-lg font-bold tracking-tight">{project.type}</div>
+					</div>
+					<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
+						<div className={`text-sm font-medium ${text_muted} mb-3`}>Members</div>
+						<div className="text-2xl font-bold tracking-tight">{project.members.length}</div>
+					</div>
 				</div>
-				<div className={`mt-6 w-full rounded-xl border p-6 min-h-[400px] ${card_classes}`}>
-					<div className={`h-6 rounded ${bg_skeleton} w-48 mb-6`}></div>
-					<div className="space-y-4">
-						{[1, 2, 3, 4].map((i) => (
+
+				<div className={`rounded-xl border ${card_classes} p-5`}>
+					<h3 className="font-semibold text-base tracking-tight mb-4">Quick Actions</h3>
+					<div className="flex flex-wrap gap-3">
+						<button
+							onClick={on_open_uploader}
+							className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+						>
+							Upload Data
+						</button>
+						<button
+							className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+						>
+							Start Annotation
+						</button>
+						<button
+							className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+						>
+							Export Dataset
+						</button>
+					</div>
+				</div>
+
+				<div className={`rounded-xl border ${card_classes} p-5`}>
+					<h3 className="font-semibold text-base tracking-tight mb-4">Team Members</h3>
+					<div className="flex flex-wrap gap-2">
+						{project.members.map((member, i) => (
 							<div
 								key={i}
-								className={`h-16 rounded-lg ${bg_skeleton_light} w-full flex items-center px-4 gap-4`}
+								className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${bg_subtle} ${is_dark_mode ? 'text-zinc-300' : 'text-zinc-700'}`}
 							>
-								<div className={`h-8 w-8 rounded-full ${bg_dot}`}></div>
-								<div className="space-y-2 flex-1">
-									{skeleton_bar('w-1/4')}
-									{skeleton_line('w-1/3')}
+								<div
+									className={`w-6 h-6 rounded-full text-[10px] font-medium flex items-center justify-center ${is_dark_mode ? 'bg-zinc-700' : 'bg-zinc-300'}`}
+								>
+									{member[0]}
 								</div>
+								{member}
 							</div>
 						))}
 					</div>
@@ -482,33 +558,169 @@ function app_content({
 	)
 }
 
+function page_app_home({
+	is_dark_mode,
+	on_open_uploader
+}: {
+	is_dark_mode: boolean
+	on_open_uploader: () => void
+}) {
+	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
+
+	return (
+		<div className="flex-1 overflow-y-auto p-4 lg:p-8">
+			<div className="max-w-7xl mx-auto space-y-6">
+				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+					<div>
+						<h1 className="text-2xl font-semibold tracking-tight">Home</h1>
+						<p className={`text-sm mt-1 ${text_muted}`}>
+							Welcome to your workspace. Overview of all projects.
+						</p>
+					</div>
+					<div className="flex gap-2">
+						<button
+							onClick={on_open_uploader}
+							className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors"
+						>
+							Upload Data
+						</button>
+					</div>
+				</div>
+				<HomePage is_dark_mode={is_dark_mode} />
+			</div>
+		</div>
+	)
+}
+
+function page_content({
+	app_route,
+	project_route,
+	is_in_project,
+	is_dark_mode,
+	on_open_uploader,
+	active_project
+}: {
+	app_route: AppRoute
+	project_route: ProjectRoute
+	is_in_project: boolean
+	is_dark_mode: boolean
+	on_open_uploader: () => void
+	active_project:
+		| {
+				name: string
+				datasetCount: number
+				annotationProgress: number
+				type: string
+				members: string[]
+		  }
+		| undefined
+}) {
+	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
+
+	if (is_in_project) {
+		if (project_route === 'workflow') {
+			return (
+				<div className="flex-1 overflow-hidden relative">
+					<WorkflowBuilder is_dark_mode={is_dark_mode} />
+				</div>
+			)
+		}
+		if (project_route === 'annotation') {
+			return <AnnotationStudio isDarkMode={is_dark_mode} />
+		}
+		if (project_route === 'datasets') {
+			return (
+				<div className="flex-1 overflow-y-auto p-4 lg:p-8">
+					<div className="max-w-7xl mx-auto">
+						<DatasetsView isDarkMode={is_dark_mode} onUpload={on_open_uploader} />
+					</div>
+				</div>
+			)
+		}
+		if (project_route === 'dashboard') {
+			return page_project_dashboard({
+				project: active_project!,
+				is_dark_mode,
+				text_muted,
+				on_open_uploader
+			})
+		}
+		return page_placeholder({
+			label: project_route.charAt(0).toUpperCase() + project_route.slice(1),
+			is_dark_mode,
+			text_muted
+		})
+	}
+
+	if (app_route === 'projects') {
+		return (
+			<div className="flex-1 overflow-y-auto">
+				<ProjectsView is_dark_mode={is_dark_mode} />
+			</div>
+		)
+	}
+
+	if (app_route === 'home') {
+		return page_app_home({ is_dark_mode, on_open_uploader })
+	}
+
+	return page_placeholder({
+		label: 'Settings',
+		is_dark_mode,
+		text_muted
+	})
+}
+
 // --- Main Component ---
 
 export default function app() {
 	const [is_authenticated, set_is_authenticated] = useState(false)
-	const [active_route, set_active_route] = useState<Route>('dashboard')
-	const [is_sidebar_open, set_is_sidebar_open] = useState(true)
 	const [is_dark_mode, set_is_dark_mode] = useState(true)
 	const [is_mobile_menu_open, set_is_mobile_menu_open] = useState(false)
 	const [is_uploader_open, set_is_uploader_open] = useState(false)
+	const [is_l1_hovered, set_is_l1_hovered] = useState(false)
 
-	use_keyboard_shortcuts(is_authenticated, set_is_sidebar_open)
-	use_responsive_sidebar(is_authenticated, set_is_sidebar_open)
+	const {
+		appRoute: app_route,
+		projectRoute: project_route,
+		activeProjectId: active_project_id,
+		setAppRoute: set_app_route,
+		setProjectRoute: set_project_route,
+		leaveProject: leave_project
+	} = use_navigation_store()
+
+	const projects = use_project_store((s) => s.projects)
+	const active_project = projects.find((p) => p.id === active_project_id)
+	const is_in_project = active_project_id !== undefined
+
+	const [is_l1_expanded, set_is_l1_expanded] = useState(true)
+
+	use_keyboard_shortcuts(is_authenticated, () => set_is_l1_expanded((prev) => !prev))
+
+	useEffect(() => {
+		if (!is_authenticated) return
+		if (window.innerWidth < 1024) {
+			set_is_l1_expanded(false)
+		} else {
+			set_is_l1_expanded(!is_in_project)
+		}
+	}, [is_authenticated, is_in_project])
 
 	if (!is_authenticated) {
 		return <AuthFlow on_complete={() => set_is_authenticated(true)} />
 	}
 
-	function on_navigate(route: Route) {
-		set_active_route(route)
-		if (window.innerWidth < 1024) {
-			set_is_mobile_menu_open(false)
-		}
-	}
-
 	const theme_classes = is_dark_mode
 		? 'bg-[#09090b] text-zinc-200 selection:bg-blue-500/30'
 		: 'bg-zinc-50 text-zinc-900 selection:bg-blue-500/30'
+
+	const breadcrumbs = is_in_project
+		? [
+				{ label: 'Workspace' },
+				{ label: active_project?.name ?? 'Project' },
+				{ label: project_route.charAt(0).toUpperCase() + project_route.slice(1) }
+			]
+		: [{ label: 'Workspace' }, { label: app_route.charAt(0).toUpperCase() + app_route.slice(1) }]
 
 	return (
 		<div className={`flex h-screen w-full overflow-hidden font-sans ${theme_classes}`}>
@@ -519,31 +731,61 @@ export default function app() {
 				/>
 			)}
 
-			{sidebar_content({
-				is_sidebar_open,
-				is_dark_mode,
-				is_mobile_menu_open,
-				active_route,
-				on_navigate,
-				on_toggle_collapse: () => set_is_sidebar_open((prev) => !prev)
-			})}
+			<div
+				onMouseEnter={() => set_is_l1_hovered(true)}
+				onMouseLeave={() => set_is_l1_hovered(false)}
+			>
+				{level1_sidebar({
+					is_expanded: is_l1_expanded,
+					is_hover_expanded: is_in_project && is_l1_hovered && !is_l1_expanded,
+					is_dark_mode,
+					is_mobile_open: is_mobile_menu_open,
+					app_route,
+					on_navigate: set_app_route,
+					on_toggle: () => set_is_l1_expanded((prev) => !prev),
+					on_leave_project: leave_project,
+					on_logo_click: () => {
+						leave_project()
+						set_app_route('home')
+					}
+				})}
+			</div>
 
-			<main className="flex flex-1 flex-col overflow-hidden relative w-full translate-x-0 transition-transform">
-				{active_route === 'annotation' ? (
+			<div
+				className="hidden lg:flex h-full overflow-hidden transition-all duration-300 ease-in-out shrink-0"
+				style={{ width: is_in_project ? '16rem' : '0px' }}
+			>
+				{level2_sidebar({
+					is_dark_mode,
+					project_route,
+					project_name: active_project?.name ?? 'Project',
+					on_navigate: set_project_route,
+					on_back: () => {
+						leave_project()
+						set_app_route('projects')
+					}
+				})}
+			</div>
+
+			<main className="flex flex-1 flex-col overflow-hidden relative w-full min-w-0">
+				{is_in_project && project_route === 'annotation' ? (
 					<AnnotationStudio isDarkMode={is_dark_mode} />
 				) : (
 					<>
 						{header_content({
 							is_dark_mode,
-							active_route,
+							breadcrumbs,
 							on_toggle_theme: () => set_is_dark_mode((prev) => !prev),
 							on_signout: () => set_is_authenticated(false),
 							on_open_mobile_menu: () => set_is_mobile_menu_open(true)
 						})}
-						{app_content({
-							active_route,
+						{page_content({
+							app_route,
+							project_route,
+							is_in_project,
 							is_dark_mode,
-							on_open_uploader: () => set_is_uploader_open(true)
+							on_open_uploader: () => set_is_uploader_open(true),
+							active_project
 						})}
 					</>
 				)}
