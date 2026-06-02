@@ -273,23 +273,27 @@ export default function datasets_view({
 	const [view_mode, set_view_mode] = useState<'grid' | 'list'>('grid')
 
 	if (selected_dataset) {
-		return dataset_explorer({
-			dataset: selected_dataset,
-			onBack: () => {
-				set_selected_dataset(undefined)
-			},
-			isDarkMode: isDarkMode,
-			onUpload: onUpload
-		})
+		return (
+			<DatasetExplorer
+				dataset={selected_dataset}
+				onBack={() => {
+					set_selected_dataset(undefined)
+				}}
+				isDarkMode={isDarkMode}
+				onUpload={onUpload}
+			/>
+		)
 	}
 
-	return dataset_list({
-		onSelect: set_selected_dataset,
-		view_mode: view_mode,
-		set_view_mode: set_view_mode,
-		isDarkMode: isDarkMode,
-		onUpload: onUpload
-	})
+	return (
+		<DatasetList
+			onSelect={set_selected_dataset}
+			view_mode={view_mode}
+			set_view_mode={set_view_mode}
+			isDarkMode={isDarkMode}
+			onUpload={onUpload}
+		/>
+	)
 }
 
 function render_view_toggle_button(
@@ -314,7 +318,7 @@ function render_view_toggle_button(
 	)
 }
 
-function dataset_list({
+function DatasetList({
 	onSelect,
 	view_mode,
 	set_view_mode,
@@ -429,7 +433,7 @@ function dataset_list({
 	)
 }
 
-function dataset_explorer({
+function DatasetExplorer({
 	dataset,
 	onBack,
 	isDarkMode,
