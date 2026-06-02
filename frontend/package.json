@@ -17,13 +17,22 @@
 	},
 	"dependencies": {
 		"@ant-design/icons": "^6.2.3",
+		"@tailwindcss/vite": "^4.3.0",
+		"@tanstack/react-virtual": "^3.13.26",
+		"@xyflow/react": "^12.11.0",
 		"antd": "^6.4.3",
 		"axios": "^1.16.1",
 		"konva": "^10.3.0",
+		"lucide-react": "^1.17.0",
+		"motion": "^12.40.0",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
 		"react-konva": "^19.2.4",
-		"react-router-dom": "^7.15.1"
+		"react-router-dom": "^7.15.1",
+		"recharts": "^3.8.1",
+		"tailwindcss": "^4.3.0",
+		"use-image": "^1.1.4",
+		"zustand": "^5.0.14"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
