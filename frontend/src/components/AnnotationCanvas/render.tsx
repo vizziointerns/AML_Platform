@@ -206,14 +206,10 @@ export function render_collaboration_layer(
 	)
 }
 
-export function update_cursor_style(
-	container: HTMLDivElement | null,
-	active_tool: AnnotationTool
-) {
+export function update_cursor_style(container: HTMLDivElement | null, active_tool: AnnotationTool) {
 	if (!container) return
 	if (active_tool === 'pan') container.style.cursor = 'grab'
 	else if (active_tool === 'bbox') container.style.cursor = 'crosshair'
-	else if (active_tool === 'brush' || active_tool === 'eraser')
-		container.style.cursor = 'none'
+	else if (active_tool === 'brush' || active_tool === 'eraser') container.style.cursor = 'none'
 	else container.style.cursor = 'default'
 }

@@ -34,7 +34,11 @@ export interface Prediction extends Annotation {
 	confidence: number
 }
 
-export interface ClassInfo { id: string; name: string; color: string }
+export interface ClassInfo {
+	id: string
+	name: string
+	color: string
+}
 
 export type LayerActionSet = {
 	selected_ann_id: string | undefined

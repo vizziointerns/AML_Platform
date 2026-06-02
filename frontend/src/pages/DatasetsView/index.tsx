@@ -91,9 +91,10 @@ function render_dataset_grid_card(
 	border_subtle: string,
 	bg_card: string
 ) {
-	const status_color = ds.status === 'Ready'
-		? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-		: 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+	const status_color =
+		ds.status === 'Ready'
+			? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+			: 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
 
 	return (
 		<div
@@ -109,16 +110,16 @@ function render_dataset_grid_card(
 					className={`${isDarkMode ? 'text-zinc-700' : 'text-zinc-300'} group-hover:scale-110 transition-transform duration-500`}
 				/>
 				<div className="absolute top-3 right-3">
-					<span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${status_color}`}>
+					<span
+						className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${status_color}`}
+					>
 						{ds.status}
 					</span>
 				</div>
 			</div>
 			<div className="p-5">
 				<div className="flex justify-between items-start mb-2">
-					<h3 className={`font-semibold tracking-tight truncate ${text_heading}`}>
-						{ds.name}
-					</h3>
+					<h3 className={`font-semibold tracking-tight truncate ${text_heading}`}>{ds.name}</h3>
 					<button
 						className={`text-zinc-400 hover:text-blue-500 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity`}
 						onClick={(e) => e.stopPropagation()}
@@ -163,7 +164,17 @@ function render_dataset_grid(
 ) {
 	return (
 		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-			{filtered.map((ds) => render_dataset_grid_card(ds, onSelect, isDarkMode, text_heading, text_muted, border_subtle, bg_card))}
+			{filtered.map((ds) =>
+				render_dataset_grid_card(
+					ds,
+					onSelect,
+					isDarkMode,
+					text_heading,
+					text_muted,
+					border_subtle,
+					bg_card
+				)
+			)}
 		</div>
 	)
 }
@@ -178,7 +189,9 @@ function render_dataset_list(
 	bg_subtle: string
 ) {
 	return (
-		<div className={`rounded-xl border ${border_subtle} ${isDarkMode ? 'bg-zinc-900' : 'bg-white'} overflow-hidden`}>
+		<div
+			className={`rounded-xl border ${border_subtle} ${isDarkMode ? 'bg-zinc-900' : 'bg-white'} overflow-hidden`}
+		>
 			<table className="w-full text-sm text-left">
 				<thead className={`text-xs uppercase ${bg_subtle} ${text_muted} border-b ${border_subtle}`}>
 					<tr>
@@ -199,7 +212,10 @@ function render_dataset_list(
 							<td className="px-6 py-4">
 								<div className="flex items-center gap-3">
 									<div className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-										<Database size={16} className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'} />
+										<Database
+											size={16}
+											className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}
+										/>
 									</div>
 									<div>
 										<div className={`font-medium ${text_heading}`}>{ds.name}</div>
@@ -229,7 +245,9 @@ function render_dataset_list(
 									))}
 								</div>
 							</td>
-							<td className={`px-6 py-4 text-right ${text_muted} flex justify-end items-center gap-2`}>
+							<td
+								className={`px-6 py-4 text-right ${text_muted} flex justify-end items-center gap-2`}
+							>
 								{ds.updated}
 								<ArrowUpRight
 									size={14}
@@ -274,10 +292,18 @@ export default function datasets_view({
 	})
 }
 
-function render_view_toggle_button(mode: 'grid' | 'list', current_mode: 'grid' | 'list', set_view_mode: (mode: 'grid' | 'list') => void, isDarkMode: boolean, icon: React.ReactNode) {
+function render_view_toggle_button(
+	mode: 'grid' | 'list',
+	current_mode: 'grid' | 'list',
+	set_view_mode: (mode: 'grid' | 'list') => void,
+	isDarkMode: boolean,
+	icon: React.ReactNode
+) {
 	const is_active = mode === current_mode
 	const active_class = isDarkMode ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-	const inactive_class = isDarkMode ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-700'
+	const inactive_class = isDarkMode
+		? 'text-zinc-400 hover:text-zinc-200'
+		: 'text-zinc-500 hover:text-zinc-700'
 	return (
 		<button
 			onClick={() => set_view_mode(mode)}
@@ -288,7 +314,19 @@ function render_view_toggle_button(mode: 'grid' | 'list', current_mode: 'grid' |
 	)
 }
 
-function dataset_list({ onSelect, view_mode, set_view_mode, isDarkMode, onUpload }: { onSelect: (ds: DatasetInfo) => void; view_mode: 'grid' | 'list'; set_view_mode: (mode: 'grid' | 'list') => void; isDarkMode: boolean; onUpload: () => void }) {
+function dataset_list({
+	onSelect,
+	view_mode,
+	set_view_mode,
+	isDarkMode,
+	onUpload
+}: {
+	onSelect: (ds: DatasetInfo) => void
+	view_mode: 'grid' | 'list'
+	set_view_mode: (mode: 'grid' | 'list') => void
+	isDarkMode: boolean
+	onUpload: () => void
+}) {
 	const [search_query, set_search_query] = useState('')
 
 	const text_muted = isDarkMode ? 'text-zinc-400' : 'text-zinc-500'
@@ -350,20 +388,58 @@ function dataset_list({ onSelect, view_mode, set_view_mode, isDarkMode, onUpload
 					<div
 						className={`inline-flex rounded-lg border p-1 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}
 					>
-						{render_view_toggle_button('grid', view_mode, set_view_mode, isDarkMode, <LayoutGrid size={16} />)}
-						{render_view_toggle_button('list', view_mode, set_view_mode, isDarkMode, <ListIcon size={16} />)}
+						{render_view_toggle_button(
+							'grid',
+							view_mode,
+							set_view_mode,
+							isDarkMode,
+							<LayoutGrid size={16} />
+						)}
+						{render_view_toggle_button(
+							'list',
+							view_mode,
+							set_view_mode,
+							isDarkMode,
+							<ListIcon size={16} />
+						)}
 					</div>
 				</div>
 			</div>
 
 			{view_mode === 'grid'
-				? render_dataset_grid(filtered, onSelect, isDarkMode, text_heading, text_muted, border_subtle, bg_card)
-				: render_dataset_list(filtered, onSelect, isDarkMode, text_heading, text_muted, border_subtle, bg_subtle)}
+				? render_dataset_grid(
+						filtered,
+						onSelect,
+						isDarkMode,
+						text_heading,
+						text_muted,
+						border_subtle,
+						bg_card
+					)
+				: render_dataset_list(
+						filtered,
+						onSelect,
+						isDarkMode,
+						text_heading,
+						text_muted,
+						border_subtle,
+						bg_subtle
+					)}
 		</div>
 	)
 }
 
-function dataset_explorer({ dataset, onBack, isDarkMode, onUpload }: { dataset: DatasetInfo; onBack: () => void; isDarkMode: boolean; onUpload: () => void }) {
+function dataset_explorer({
+	dataset,
+	onBack,
+	isDarkMode,
+	onUpload
+}: {
+	dataset: DatasetInfo
+	onBack: () => void
+	isDarkMode: boolean
+	onUpload: () => void
+}) {
 	const [active_folder, set_active_folder] = useState('All Images')
 
 	const text_muted = isDarkMode ? 'text-zinc-400' : 'text-zinc-500'
@@ -426,7 +502,10 @@ function dataset_explorer({ dataset, onBack, isDarkMode, onUpload }: { dataset: 
 								className={`w-full flex justify-between items-center px-3 py-2 text-sm rounded-md transition-colors ${active_folder === f ? (isDarkMode ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600 font-medium') : `hover:${bg_subtle} ${text_muted}`}`}
 							>
 								<div className="flex items-center gap-2.5">
-									<Folder size={16} className={active_folder === f ? 'text-blue-500' : text_muted} />{' '}
+									<Folder
+										size={16}
+										className={active_folder === f ? 'text-blue-500' : text_muted}
+									/>{' '}
 									{f}
 								</div>
 								<span className="text-xs opacity-70">12k</span>

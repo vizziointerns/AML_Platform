@@ -3,7 +3,9 @@ import type { Annotation } from './types'
 export function handle_polygon_click(
 	pos: { x: number; y: number },
 	drawing_polygon: { x: number; y: number }[],
-	set_drawing_polygon: (fn: (prev: { x: number; y: number }[]) => { x: number; y: number }[]) => void,
+	set_drawing_polygon: (
+		fn: (prev: { x: number; y: number }[]) => { x: number; y: number }[]
+	) => void,
 	finish_polygon_fn: () => void,
 	zoom_level: number
 ) {
@@ -36,7 +38,10 @@ export function finish_polygon_logic(
 	}
 	if (!image) return
 
-	let min_x = 99999, min_y = 99999, max_x = -99999, max_y = -99999
+	let min_x = 99999,
+		min_y = 99999,
+		max_x = -99999,
+		max_y = -99999
 	const pts = drawing_polygon.map((pt) => {
 		const pct_x = Math.max(0, Math.min((pt.x / image.width) * 100, 100))
 		const pct_y = Math.max(0, Math.min((pt.y / image.height) * 100, 100))
@@ -51,7 +56,10 @@ export function finish_polygon_logic(
 		id: Math.random().toString(36).substr(2, 9),
 		type: 'polygon' as const,
 		classId: active_class,
-		x: min_x, y: min_y, w: max_x - min_x, h: max_y - min_y,
+		x: min_x,
+		y: min_y,
+		w: max_x - min_x,
+		h: max_y - min_y,
 		points: pts
 	}
 	on_annotations_change([...annotations, new_ann])

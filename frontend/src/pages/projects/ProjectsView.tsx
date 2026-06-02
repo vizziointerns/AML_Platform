@@ -82,7 +82,9 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 				</select>
 				<select
 					value={sort_by}
-					onChange={(e) => set_sort_by(e.target.value as 'Updated' | 'Name' | 'Progress' | 'Oldest')}
+					onChange={(e) =>
+						set_sort_by(e.target.value as 'Updated' | 'Name' | 'Progress' | 'Oldest')
+					}
 					className={`px-3 py-2 rounded-lg border ${border_subtle} ${bg_card} ${text_heading} text-sm outline-none`}
 				>
 					<option value="Updated">Last Updated</option>
@@ -142,18 +144,18 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 										className={`absolute right-0 top-8 w-36 rounded-lg border ${border_subtle} ${bg_card} shadow-xl z-10 py-1`}
 									>
 										<button
-										onClick={() => {
-											duplicate_project(project.id)
-											set_menu_open(undefined)
-										}}
+											onClick={() => {
+												duplicate_project(project.id)
+												set_menu_open(undefined)
+											}}
 											className={`w-full text-left px-3 py-2 text-sm hover:${bg_subtle} ${text_heading} flex items-center gap-2`}
 										>
 											<Edit3 size={14} /> Duplicate
 										</button>
 										<button
-										onClick={() => {
-											delete_project(project.id)
-											set_menu_open(undefined)
+											onClick={() => {
+												delete_project(project.id)
+												set_menu_open(undefined)
 											}}
 											className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2"
 										>

@@ -21,7 +21,13 @@ interface workflow_builder_props {
 	is_dark_mode: boolean
 }
 
-const data_node = ({ data, is_connectable = true }: { data: { label: string }; is_connectable?: boolean }) => {
+const data_node = ({
+	data,
+	is_connectable = true
+}: {
+	data: { label: string }
+	is_connectable?: boolean
+}) => {
 	return (
 		<div
 			className={`px-4 py-3 rounded-lg shadow-sm border bg-white dark:bg-zinc-900 border-indigo-200 dark:border-indigo-900`}
@@ -51,7 +57,15 @@ const data_node = ({ data, is_connectable = true }: { data: { label: string }; i
 	)
 }
 
-const model_node = ({ data, is_connectable = true, selected }: { data: { label: string; status?: string }; is_connectable?: boolean; selected: boolean }) => {
+const model_node = ({
+	data,
+	is_connectable = true,
+	selected
+}: {
+	data: { label: string; status?: string }
+	is_connectable?: boolean
+	selected: boolean
+}) => {
 	return (
 		<div
 			className={`px-4 py-3 rounded-lg shadow-sm border ${selected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-emerald-200 dark:border-emerald-900'} bg-white dark:bg-zinc-900`}
@@ -86,7 +100,13 @@ const model_node = ({ data, is_connectable = true, selected }: { data: { label: 
 	)
 }
 
-const output_node = ({ data, is_connectable = true }: { data: { label: string }; is_connectable?: boolean }) => {
+const output_node = ({
+	data,
+	is_connectable = true
+}: {
+	data: { label: string }
+	is_connectable?: boolean
+}) => {
 	return (
 		<div
 			className={`px-4 py-3 rounded-lg shadow-sm border border-amber-200 dark:border-amber-900 bg-white dark:bg-zinc-900`}
@@ -154,9 +174,7 @@ function render_execution_status(execution_state: 'idle' | 'running' | 'complete
 				: 'Not run yet'
 
 	return (
-		<div className={`px-3 py-1.5 text-xs font-medium rounded ${state_class}`}>
-			{state_text}
-		</div>
+		<div className={`px-3 py-1.5 text-xs font-medium rounded ${state_class}`}>{state_text}</div>
 	)
 }
 
@@ -188,8 +206,15 @@ function render_model_properties(is_dark_mode: boolean, text_muted: string) {
 				/>
 			</div>
 			<div className="flex items-center gap-2">
-				<input type="checkbox" id="stream" defaultChecked className="rounded text-indigo-600 focus:ring-indigo-500" />
-				<label htmlFor="stream" className={`text-sm ${text_muted}`}>Enable Streaming</label>
+				<input
+					type="checkbox"
+					id="stream"
+					defaultChecked
+					className="rounded text-indigo-600 focus:ring-indigo-500"
+				/>
+				<label htmlFor="stream" className={`text-sm ${text_muted}`}>
+					Enable Streaming
+				</label>
 			</div>
 		</>
 	)
@@ -222,7 +247,9 @@ function render_node_properties(
 ) {
 	if (!selected_node) {
 		return (
-			<div className={`p-8 text-center flex flex-col items-center justify-center h-64 ${text_muted}`}>
+			<div
+				className={`p-8 text-center flex flex-col items-center justify-center h-64 ${text_muted}`}
+			>
 				<MOUSE_SQUARE size={32} className="mb-2 opacity-50" />
 				<p className="text-sm">Select a node to inspect and edit its properties.</p>
 			</div>
@@ -288,9 +315,9 @@ export default function workflow_builder({ is_dark_mode }: workflow_builder_prop
 	const [nodes, set_nodes, on_nodes_change] = useNodesState(initial_nodes)
 	const [edges, set_edges, on_edges_change] = useEdgesState(initial_edges)
 	const [selected_node, set_selected_node] = useState<Node | undefined>(undefined)
-	const [execution_state, set_execution_state] = useState<'idle' | 'running' | 'completed' | 'error'>(
-		'idle'
-	)
+	const [execution_state, set_execution_state] = useState<
+		'idle' | 'running' | 'completed' | 'error'
+	>('idle')
 
 	const on_connect = useCallback(
 		(connection_params: Connection) => set_edges((eds) => addEdge(connection_params, eds)),

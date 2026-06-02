@@ -27,7 +27,24 @@ import {
 	Cell
 } from 'recharts'
 
-function stat_card({ title, value, icon: Icon, trend, trendUp }: { title: string; value: string; icon: React.ComponentType<{ size?: number; className?: string }>; trend: string; trendUp: boolean }, isDarkMode: boolean, card_classes: string, text_muted: string) {
+function stat_card(
+	{
+		title,
+		value,
+		icon: Icon,
+		trend,
+		trendUp
+	}: {
+		title: string
+		value: string
+		icon: React.ComponentType<{ size?: number; className?: string }>
+		trend: string
+		trendUp: boolean
+	},
+	isDarkMode: boolean,
+	card_classes: string,
+	text_muted: string
+) {
 	return (
 		<div className={`p-6 rounded-xl border flex flex-col ${card_classes}`}>
 			<div className="flex justify-between items-start mb-4">
@@ -51,19 +68,30 @@ function stat_card({ title, value, icon: Icon, trend, trendUp }: { title: string
 }
 
 function render_skeleton_cards(card_classes: string, bg_subtle: string) {
-	return Array(4).fill(0).map((_, i) => (
-		<div key={i} className={`p-6 rounded-xl border ${card_classes} min-h-[140px] flex flex-col justify-between`}>
-			<div className="flex justify-between">
-				<div className={`h-4 w-24 rounded animate-pulse ${bg_subtle}`}></div>
-				<div className={`h-8 w-8 rounded-lg animate-pulse ${bg_subtle}`}></div>
+	return Array(4)
+		.fill(0)
+		.map((_, i) => (
+			<div
+				key={i}
+				className={`p-6 rounded-xl border ${card_classes} min-h-[140px] flex flex-col justify-between`}
+			>
+				<div className="flex justify-between">
+					<div className={`h-4 w-24 rounded animate-pulse ${bg_subtle}`}></div>
+					<div className={`h-8 w-8 rounded-lg animate-pulse ${bg_subtle}`}></div>
+				</div>
+				<div className={`h-8 w-16 rounded animate-pulse ${bg_subtle} mt-4`}></div>
+				<div className={`h-4 w-32 rounded animate-pulse ${bg_subtle} mt-2`}></div>
 			</div>
-			<div className={`h-8 w-16 rounded animate-pulse ${bg_subtle} mt-4`}></div>
-			<div className={`h-4 w-32 rounded animate-pulse ${bg_subtle} mt-2`}></div>
-		</div>
-	))
+		))
 }
 
-function render_training_chart(is_loading: boolean, card_classes: string, bg_subtle: string, training_data: { time: string; map: number; f1: number }[], isDarkMode: boolean) {
+function render_training_chart(
+	is_loading: boolean,
+	card_classes: string,
+	bg_subtle: string,
+	training_data: { time: string; map: number; f1: number }[],
+	isDarkMode: boolean
+) {
 	return (
 		<div className={`rounded-xl border p-6 flex flex-col ${card_classes}`}>
 			<div className="flex justify-between items-center mb-6">
@@ -88,12 +116,49 @@ function render_training_chart(is_loading: boolean, card_classes: string, bg_sub
 									<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
 								</linearGradient>
 							</defs>
-							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
-							<XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#a1a1aa' : '#71717a', fontSize: 12 }} dy={10} />
-							<YAxis axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#a1a1aa' : '#71717a', fontSize: 12 }} />
-							<Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px' }} itemStyle={{ color: isDarkMode ? '#f4f4f5' : '#18181b' }} />
-							<Area type="monotone" dataKey="map" name="mAP Score" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorMap)" />
-							<Area type="monotone" dataKey="f1" name="F1 Score" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorF1)" />
+							<CartesianGrid
+								strokeDasharray="3 3"
+								vertical={false}
+								stroke={isDarkMode ? '#27272a' : '#e4e4e7'}
+							/>
+							<XAxis
+								dataKey="time"
+								axisLine={false}
+								tickLine={false}
+								tick={{ fill: isDarkMode ? '#a1a1aa' : '#71717a', fontSize: 12 }}
+								dy={10}
+							/>
+							<YAxis
+								axisLine={false}
+								tickLine={false}
+								tick={{ fill: isDarkMode ? '#a1a1aa' : '#71717a', fontSize: 12 }}
+							/>
+							<Tooltip
+								contentStyle={{
+									backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
+									borderColor: isDarkMode ? '#27272a' : '#e4e4e7',
+									borderRadius: '8px'
+								}}
+								itemStyle={{ color: isDarkMode ? '#f4f4f5' : '#18181b' }}
+							/>
+							<Area
+								type="monotone"
+								dataKey="map"
+								name="mAP Score"
+								stroke="#3b82f6"
+								strokeWidth={2}
+								fillOpacity={1}
+								fill="url(#colorMap)"
+							/>
+							<Area
+								type="monotone"
+								dataKey="f1"
+								name="F1 Score"
+								stroke="#10b981"
+								strokeWidth={2}
+								fillOpacity={1}
+								fill="url(#colorF1)"
+							/>
 						</AreaChart>
 					</ResponsiveContainer>
 				</div>
@@ -102,14 +167,43 @@ function render_training_chart(is_loading: boolean, card_classes: string, bg_sub
 	)
 }
 
-function render_projects_table(is_loading: boolean, card_classes: string, bg_subtle: string, border_subtle: string, text_muted: string, recent_projects: { name: string; status: string; progress: number; type: string; time: string }[], isDarkMode: boolean) {
+function render_projects_table(
+	is_loading: boolean,
+	card_classes: string,
+	bg_subtle: string,
+	border_subtle: string,
+	text_muted: string,
+	recent_projects: { name: string; status: string; progress: number; type: string; time: string }[],
+	isDarkMode: boolean
+) {
 	const status_tag = (status: string) => {
 		switch (status) {
-			case 'training': return <div className="flex items-center gap-1.5 text-blue-500"><Activity size={14} className="animate-pulse" /> Training</div>
-			case 'deployed': return <div className="flex items-center gap-1.5 text-emerald-500"><CheckCircle2 size={14} /> Deployed</div>
-			case 'queued': return <div className="flex items-center gap-1.5 text-zinc-500"><Clock size={14} /> Queued</div>
-			case 'annotating': return <div className="flex items-center gap-1.5 text-amber-500"><Play size={14} /> Annotating</div>
-			default: return undefined
+			case 'training':
+				return (
+					<div className="flex items-center gap-1.5 text-blue-500">
+						<Activity size={14} className="animate-pulse" /> Training
+					</div>
+				)
+			case 'deployed':
+				return (
+					<div className="flex items-center gap-1.5 text-emerald-500">
+						<CheckCircle2 size={14} /> Deployed
+					</div>
+				)
+			case 'queued':
+				return (
+					<div className="flex items-center gap-1.5 text-zinc-500">
+						<Clock size={14} /> Queued
+					</div>
+				)
+			case 'annotating':
+				return (
+					<div className="flex items-center gap-1.5 text-amber-500">
+						<Play size={14} /> Annotating
+					</div>
+				)
+			default:
+				return undefined
 		}
 	}
 
@@ -128,7 +222,9 @@ function render_projects_table(is_loading: boolean, card_classes: string, bg_sub
 					</div>
 				) : (
 					<table className="w-full text-sm text-left">
-						<thead className={`text-xs uppercase bg-zinc-500/5 ${text_muted} border-b ${border_subtle}`}>
+						<thead
+							className={`text-xs uppercase bg-zinc-500/5 ${text_muted} border-b ${border_subtle}`}
+						>
 							<tr>
 								<th className="px-6 py-3 font-medium">Project</th>
 								<th className="px-6 py-3 font-medium">Status</th>
@@ -148,8 +244,13 @@ function render_projects_table(is_loading: boolean, card_classes: string, bg_sub
 									</td>
 									<td className="px-6 py-4 hidden sm:table-cell w-48">
 										<div className="flex items-center gap-2">
-											<div className={`h-1.5 flex-1 rounded-full overflow-hidden ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-												<div className={`h-full rounded-full ${project.status === 'deployed' ? 'bg-emerald-500' : project.status === 'training' ? 'bg-blue-500' : 'bg-zinc-500'}`} style={{ width: `${project.progress}%` }} />
+											<div
+												className={`h-1.5 flex-1 rounded-full overflow-hidden ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
+											>
+												<div
+													className={`h-full rounded-full ${project.status === 'deployed' ? 'bg-emerald-500' : project.status === 'training' ? 'bg-blue-500' : 'bg-zinc-500'}`}
+													style={{ width: `${project.progress}%` }}
+												/>
 											</div>
 											<span className={`text-xs ${text_muted} w-8`}>{project.progress}%</span>
 										</div>
@@ -165,7 +266,13 @@ function render_projects_table(is_loading: boolean, card_classes: string, bg_sub
 	)
 }
 
-function render_gpu_status(is_loading: boolean, card_classes: string, bg_subtle: string, gpu_data: { name: string; load: number; color: string }[], isDarkMode: boolean) {
+function render_gpu_status(
+	is_loading: boolean,
+	card_classes: string,
+	bg_subtle: string,
+	gpu_data: { name: string; load: number; color: string }[],
+	isDarkMode: boolean
+) {
 	return (
 		<div className={`rounded-xl border p-6 ${card_classes}`}>
 			<div className="flex justify-between items-center mb-6">
@@ -177,10 +284,21 @@ function render_gpu_status(is_loading: boolean, card_classes: string, bg_subtle:
 				<div className="space-y-4">
 					<div className="h-[180px] w-full mt-2">
 						<ResponsiveContainer width="100%" height="100%">
-							<BarChart data={gpu_data} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+							<BarChart
+								data={gpu_data}
+								layout="vertical"
+								margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+							>
 								<XAxis type="number" hide domain={[0, 100]} />
 								<YAxis dataKey="name" type="category" hide />
-								<Tooltip cursor={{ fill: isDarkMode ? '#27272a50' : '#f4f4f550' }} contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px' }} />
+								<Tooltip
+									cursor={{ fill: isDarkMode ? '#27272a50' : '#f4f4f550' }}
+									contentStyle={{
+										backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
+										borderColor: isDarkMode ? '#27272a' : '#e4e4e7',
+										borderRadius: '8px'
+									}}
+								/>
 								<Bar dataKey="load" radius={[0, 4, 4, 0]} barSize={12}>
 									{gpu_data.map((entry, index) => (
 										<Cell key={`cell-${index}`} fill={entry.color} />
@@ -193,8 +311,13 @@ function render_gpu_status(is_loading: boolean, card_classes: string, bg_subtle:
 						{gpu_data.map((node, i) => (
 							<div key={i} className="flex justify-between items-center text-sm">
 								<div className="flex items-center gap-2">
-									<div className="w-2 h-2 rounded-full" style={{ backgroundColor: node.color }}></div>
-									<span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}>{node.name}</span>
+									<div
+										className="w-2 h-2 rounded-full"
+										style={{ backgroundColor: node.color }}
+									></div>
+									<span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}>
+										{node.name}
+									</span>
 								</div>
 								<span className="font-medium">{node.load}%</span>
 							</div>
@@ -206,7 +329,13 @@ function render_gpu_status(is_loading: boolean, card_classes: string, bg_subtle:
 	)
 }
 
-function render_team_activity(is_loading: boolean, card_classes: string, bg_subtle: string, team_activity: { user: string; name: string; action: string; target: string; time: string }[], isDarkMode: boolean) {
+function render_team_activity(
+	is_loading: boolean,
+	card_classes: string,
+	bg_subtle: string,
+	team_activity: { user: string; name: string; action: string; target: string; time: string }[],
+	isDarkMode: boolean
+) {
 	const text_muted = isDarkMode ? 'text-zinc-400' : 'text-zinc-500'
 
 	return (
@@ -224,7 +353,9 @@ function render_team_activity(is_loading: boolean, card_classes: string, bg_subt
 				<div className="space-y-4">
 					{team_activity.map((activity, i) => (
 						<div key={i} className="flex gap-3">
-							<div className={`w-8 h-8 rounded-full flex shrink-0 items-center justify-center text-xs font-medium ${isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'}`}>
+							<div
+								className={`w-8 h-8 rounded-full flex shrink-0 items-center justify-center text-xs font-medium ${isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'}`}
+							>
 								{activity.user}
 							</div>
 							<div className="flex-1 min-w-0">
@@ -243,7 +374,12 @@ function render_team_activity(is_loading: boolean, card_classes: string, bg_subt
 	)
 }
 
-function render_alerts_widget(is_loading: boolean, card_classes: string, bg_subtle: string, isDarkMode: boolean) {
+function render_alerts_widget(
+	is_loading: boolean,
+	card_classes: string,
+	bg_subtle: string,
+	isDarkMode: boolean
+) {
 	return (
 		<div className={`rounded-xl border p-6 ${card_classes}`}>
 			<h3 className="font-semibold text-base tracking-tight mb-4 flex items-center gap-2">
@@ -257,18 +393,36 @@ function render_alerts_widget(is_loading: boolean, card_classes: string, bg_subt
 				</div>
 			) : (
 				<div className="space-y-3">
-					<div className={`p-3 rounded-lg border flex gap-3 text-sm ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
-						<div className="mt-0.5"><AlertCircle size={16} className="text-amber-500" /></div>
+					<div
+						className={`p-3 rounded-lg border flex gap-3 text-sm ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}
+					>
+						<div className="mt-0.5">
+							<AlertCircle size={16} className="text-amber-500" />
+						</div>
 						<div>
-							<div className={`font-medium ${isDarkMode ? 'text-amber-400' : 'text-amber-800'}`}>Class imbalance</div>
-							<div className={`text-xs mt-1 ${isDarkMode ? 'text-amber-500/70' : 'text-amber-700/70'}`}>'Pedestrian' class is under-represented in AutoDrive v4 (12%).</div>
+							<div className={`font-medium ${isDarkMode ? 'text-amber-400' : 'text-amber-800'}`}>
+								Class imbalance
+							</div>
+							<div
+								className={`text-xs mt-1 ${isDarkMode ? 'text-amber-500/70' : 'text-amber-700/70'}`}
+							>
+								'Pedestrian' class is under-represented in AutoDrive v4 (12%).
+							</div>
 						</div>
 					</div>
-					<div className={`p-3 rounded-lg border flex gap-3 text-sm ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
-						<div className="mt-0.5"><AlertCircle size={16} className="text-red-500" /></div>
+					<div
+						className={`p-3 rounded-lg border flex gap-3 text-sm ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}
+					>
+						<div className="mt-0.5">
+							<AlertCircle size={16} className="text-red-500" />
+						</div>
 						<div>
-							<div className={`font-medium ${isDarkMode ? 'text-red-400' : 'text-red-800'}`}>Low GPU Mem</div>
-							<div className={`text-xs mt-1 ${isDarkMode ? 'text-red-500/70' : 'text-red-700/70'}`}>Cluster C is operating at 92% memory capacity.</div>
+							<div className={`font-medium ${isDarkMode ? 'text-red-400' : 'text-red-800'}`}>
+								Low GPU Mem
+							</div>
+							<div className={`text-xs mt-1 ${isDarkMode ? 'text-red-500/70' : 'text-red-700/70'}`}>
+								Cluster C is operating at 92% memory capacity.
+							</div>
 						</div>
 					</div>
 				</div>
@@ -314,17 +468,65 @@ export default function dashboard({ isDarkMode }: { isDarkMode: boolean }) {
 	]
 
 	const recent_projects = [
-		{ name: 'Autonomous Driving v4', status: 'training', progress: 78, type: 'Object Detection', time: '2h ago' },
-		{ name: 'Traffic Cam Analysis', status: 'deployed', progress: 100, type: 'Classification', time: '5h ago' },
-		{ name: 'Pedestrian Tracking', status: 'queued', progress: 0, type: 'Segmentation', time: '1d ago' },
-		{ name: 'Retail Items DB', status: 'annotating', progress: 45, type: 'Object Detection', time: '2d ago' }
+		{
+			name: 'Autonomous Driving v4',
+			status: 'training',
+			progress: 78,
+			type: 'Object Detection',
+			time: '2h ago'
+		},
+		{
+			name: 'Traffic Cam Analysis',
+			status: 'deployed',
+			progress: 100,
+			type: 'Classification',
+			time: '5h ago'
+		},
+		{
+			name: 'Pedestrian Tracking',
+			status: 'queued',
+			progress: 0,
+			type: 'Segmentation',
+			time: '1d ago'
+		},
+		{
+			name: 'Retail Items DB',
+			status: 'annotating',
+			progress: 45,
+			type: 'Object Detection',
+			time: '2d ago'
+		}
 	]
 
 	const team_activity = [
-		{ user: 'SF', name: 'Sarah Faraday', action: 'deployed model', target: 'Traffic Cam v2', time: '10m ago' },
-		{ user: 'JD', name: 'John Doe', action: 'uploaded dataset', target: 'Urban Drive 10k', time: '1h ago' },
-		{ user: 'MR', name: 'Maria Rodriguez', action: 'started training', target: 'AutoDrive v4', time: '2h ago' },
-		{ user: 'AK', name: 'Alex Kim', action: 'completed annotation', target: 'Retail 500', time: '5h ago' }
+		{
+			user: 'SF',
+			name: 'Sarah Faraday',
+			action: 'deployed model',
+			target: 'Traffic Cam v2',
+			time: '10m ago'
+		},
+		{
+			user: 'JD',
+			name: 'John Doe',
+			action: 'uploaded dataset',
+			target: 'Urban Drive 10k',
+			time: '1h ago'
+		},
+		{
+			user: 'MR',
+			name: 'Maria Rodriguez',
+			action: 'started training',
+			target: 'AutoDrive v4',
+			time: '2h ago'
+		},
+		{
+			user: 'AK',
+			name: 'Alex Kim',
+			action: 'completed annotation',
+			target: 'Retail 500',
+			time: '5h ago'
+		}
 	]
 
 	return (
@@ -358,22 +560,62 @@ export default function dashboard({ isDarkMode }: { isDarkMode: boolean }) {
 			</div>
 
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-				{is_loading
-					? render_skeleton_cards(card_classes, bg_subtle)
-					: (
-						<>
-							{stat_card({ title: 'Total Images', value: '2.4M', icon: ImageIcon, trend: '12.5%', trendUp: true }, isDarkMode, card_classes, text_muted)}
-							{stat_card({ title: 'Avg mAP Score', value: '0.84', icon: Activity, trend: '4.2%', trendUp: true }, isDarkMode, card_classes, text_muted)}
-							{stat_card({ title: 'Active Models', value: '12', icon: Box, trend: '2', trendUp: true }, isDarkMode, card_classes, text_muted)}
-							{stat_card({ title: 'GPU Utilization', value: '86%', icon: Cpu, trend: '5.1%', trendUp: false }, isDarkMode, card_classes, text_muted)}
-						</>
-					)}
+				{is_loading ? (
+					render_skeleton_cards(card_classes, bg_subtle)
+				) : (
+					<>
+						{stat_card(
+							{
+								title: 'Total Images',
+								value: '2.4M',
+								icon: ImageIcon,
+								trend: '12.5%',
+								trendUp: true
+							},
+							isDarkMode,
+							card_classes,
+							text_muted
+						)}
+						{stat_card(
+							{
+								title: 'Avg mAP Score',
+								value: '0.84',
+								icon: Activity,
+								trend: '4.2%',
+								trendUp: true
+							},
+							isDarkMode,
+							card_classes,
+							text_muted
+						)}
+						{stat_card(
+							{ title: 'Active Models', value: '12', icon: Box, trend: '2', trendUp: true },
+							isDarkMode,
+							card_classes,
+							text_muted
+						)}
+						{stat_card(
+							{ title: 'GPU Utilization', value: '86%', icon: Cpu, trend: '5.1%', trendUp: false },
+							isDarkMode,
+							card_classes,
+							text_muted
+						)}
+					</>
+				)}
 			</div>
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 				<div className="lg:col-span-2 space-y-6">
 					{render_training_chart(is_loading, card_classes, bg_subtle, training_data, isDarkMode)}
-					{render_projects_table(is_loading, card_classes, bg_subtle, border_subtle, text_muted, recent_projects, isDarkMode)}
+					{render_projects_table(
+						is_loading,
+						card_classes,
+						bg_subtle,
+						border_subtle,
+						text_muted,
+						recent_projects,
+						isDarkMode
+					)}
 				</div>
 
 				<div className="space-y-6">

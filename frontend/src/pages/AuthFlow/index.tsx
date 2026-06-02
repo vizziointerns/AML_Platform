@@ -12,7 +12,11 @@ import {
 	KeyRound,
 	Sparkles
 } from 'lucide-react'
-import { input_field as Input, button_component as Button, social_button as SocialButton } from '../../components/ui'
+import {
+	input_field as Input,
+	button_component as Button,
+	social_button as SocialButton
+} from '../../components/ui'
 
 export type AuthView = 'login' | 'signup' | 'forgot' | 'verify' | 'onboarding' | 'invite'
 
@@ -100,7 +104,13 @@ export default function auth_flow({ on_complete }: { on_complete: () => void }) 
 
 // Sub-components
 
-function login_view({ set_view, on_complete }: { set_view: (view: AuthView) => void; on_complete: () => void }) {
+function login_view({
+	set_view,
+	on_complete
+}: {
+	set_view: (view: AuthView) => void
+	on_complete: () => void
+}) {
 	const [is_loading, set_is_loading] = useState(false)
 	const handle_login = (e: React.FormEvent) => {
 		e.preventDefault()
@@ -456,7 +466,13 @@ function onboarding_view({ on_complete }: { on_complete: () => void }) {
 	)
 }
 
-function invite_view({ set_view, on_complete }: { set_view: (view: AuthView) => void; on_complete: () => void }) {
+function invite_view({
+	set_view,
+	on_complete
+}: {
+	set_view: (view: AuthView) => void
+	on_complete: () => void
+}) {
 	return (
 		<div className="space-y-6 text-center relative z-10">
 			<div className="flex justify-center -space-x-3 mb-6">

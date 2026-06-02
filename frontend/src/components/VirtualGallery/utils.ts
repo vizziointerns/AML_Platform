@@ -55,7 +55,16 @@ export function navigate_gallery(
 		set_selected_images: (value: Set<number> | ((prev: Set<number>) => Set<number>)) => void
 	}
 ) {
-	const { focused_index, filtered_images, column_count, row_virtualizer, handle_select, set_focused_index, set_preview_image, set_selected_images } = deps
+	const {
+		focused_index,
+		filtered_images,
+		column_count,
+		row_virtualizer,
+		handle_select,
+		set_focused_index,
+		set_preview_image,
+		set_selected_images
+	} = deps
 
 	if (focused_index === undefined) {
 		if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
@@ -65,7 +74,14 @@ export function navigate_gallery(
 		return
 	}
 
-	const is_handled = handle_navigate_arrow_key(e, focused_index, filtered_images, column_count, row_virtualizer, set_focused_index)
+	const is_handled = handle_navigate_arrow_key(
+		e,
+		focused_index,
+		filtered_images,
+		column_count,
+		row_virtualizer,
+		set_focused_index
+	)
 	if (is_handled) return
 
 	if (e.key === ' ' || e.key === 'Enter') {

@@ -9,7 +9,9 @@ export function handle_mouse_down_logic(
 	set_selected_ann_id: (id: string | undefined) => void,
 	set_selected_prediction_id: (id: string | undefined) => void,
 	drawing_polygon: { x: number; y: number }[],
-	set_drawing_polygon: (fn: (prev: { x: number; y: number }[]) => { x: number; y: number }[]) => void,
+	set_drawing_polygon: (
+		fn: (prev: { x: number; y: number }[]) => { x: number; y: number }[]
+	) => void,
 	finish_polygon: () => void,
 	zoom_level: number,
 	image: HTMLImageElement | undefined,
@@ -28,7 +30,15 @@ export function handle_mouse_down_logic(
 		handle_polygon_click(pos, drawing_polygon, set_drawing_polygon, finish_polygon, zoom_level)
 	} else if (active_tool === 'brush' || active_tool === 'eraser') {
 		if (image)
-			handle_brush_draw_start(pos, image, set_is_drawing, set_drawing_mask_lines, brush_size, zoom_level, active_tool)
+			handle_brush_draw_start(
+				pos,
+				image,
+				set_is_drawing,
+				set_drawing_mask_lines,
+				brush_size,
+				zoom_level,
+				active_tool
+			)
 	}
 }
 
@@ -68,9 +78,27 @@ export function handle_mouse_up_logic(
 	set_drawing_mask_lines: (v: MaskLine[]) => void
 ) {
 	if (is_drawing && active_tool === 'bbox' && image) {
-		handle_bbox_draw_end(drawing_rect, image, active_class, annotations, on_annotations_change, set_selected_ann_id, set_is_drawing, set_drawing_rect)
+		handle_bbox_draw_end(
+			drawing_rect,
+			image,
+			active_class,
+			annotations,
+			on_annotations_change,
+			set_selected_ann_id,
+			set_is_drawing,
+			set_drawing_rect
+		)
 	} else if (is_drawing && (active_tool === 'brush' || active_tool === 'eraser') && image) {
-		handle_brush_draw_end(drawing_mask_lines, active_tool, annotations, active_class, on_annotations_change, set_selected_ann_id, set_is_drawing, set_drawing_mask_lines)
+		handle_brush_draw_end(
+			drawing_mask_lines,
+			active_tool,
+			annotations,
+			active_class,
+			on_annotations_change,
+			set_selected_ann_id,
+			set_is_drawing,
+			set_drawing_mask_lines
+		)
 	}
 }
 

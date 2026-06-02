@@ -1,19 +1,34 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-	MousePointer2, MousePointerClick, ShieldAlert,
-	Hand, Square, Hexagon, Pencil, Eraser
+	MousePointer2,
+	MousePointerClick,
+	ShieldAlert,
+	Hand,
+	Square,
+	Hexagon,
+	Pencil,
+	Eraser
 } from 'lucide-react'
 import AnnotationCanvas from '../../components/AnnotationCanvas'
 import type { Annotation, Collaborator, Prediction, Mode, ClassInfo } from './types'
 import {
-	handle_mode_shortcut, handle_brush_size_shortcut, handle_zoom_level_shortcut,
-	handle_delete_shortcut, handle_undo_redo_shortcut, compute_theme_classes,
-	theme_get_class_color, theme_get_class_name, theme_current_count
+	handle_mode_shortcut,
+	handle_brush_size_shortcut,
+	handle_zoom_level_shortcut,
+	handle_delete_shortcut,
+	handle_undo_redo_shortcut,
+	compute_theme_classes,
+	theme_get_class_color,
+	theme_get_class_name,
+	theme_current_count
 } from './utils'
 import {
-	render_annotation_properties_panel, render_prediction_properties_panel,
-	render_image_properties_panel, render_layers_panel,
-	render_top_toolbar, render_left_panel
+	render_annotation_properties_panel,
+	render_prediction_properties_panel,
+	render_image_properties_panel,
+	render_layers_panel,
+	render_top_toolbar,
+	render_left_panel
 } from './render'
 
 interface AnnotationStudioProps {
@@ -96,7 +111,13 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 
 	const [collaborators, set_collaborators] = useState<Collaborator[]>([
 		{ id: 'u1', name: 'Alex H.', color: '#ec4899', cursor: { x: 45, y: 30 } },
-		{ id: 'u2', name: 'Sam J.', color: '#14b8a6', cursor: { x: 70, y: 60 }, activeAnnotationId: '2' }
+		{
+			id: 'u2',
+			name: 'Sam J.',
+			color: '#14b8a6',
+			cursor: { x: 70, y: 60 },
+			activeAnnotationId: '2'
+		}
 	])
 
 	useEffect(() => {
@@ -124,9 +145,13 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 		{ id: 'p2', type: 'bbox', classId: 'pedestrian', x: 80, y: 30, w: 6, h: 18, confidence: 0.85 }
 	])
 	const [is_showing_predictions, set_is_showing_predictions] = useState(true)
-	const [selected_prediction_id, set_selected_prediction_id] = useState<string | undefined>(undefined)
+	const [selected_prediction_id, set_selected_prediction_id] = useState<string | undefined>(
+		undefined
+	)
 
-	const [conflict_data, set_conflict_data] = useState<{ annId: string; userName: string } | undefined>({
+	const [conflict_data, set_conflict_data] = useState<
+		{ annId: string; userName: string } | undefined
+	>({
 		annId: 'a1',
 		userName: 'Alex V.'
 	})
@@ -167,7 +192,8 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 
 	const [selected_ann_id, set_selected_ann_id] = useState<string | undefined>(undefined)
 
-	const { text_muted, text_heading, border_subtle, bg_main, bg_panel, bg_hover, bg_workspace } = compute_theme_classes(isDarkMode)
+	const { text_muted, text_heading, border_subtle, bg_main, bg_panel, bg_hover, bg_workspace } =
+		compute_theme_classes(isDarkMode)
 
 	const is_dragging_left = useRef(false)
 	const is_dragging_right = useRef(false)
@@ -202,13 +228,33 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 			if (handle_mode_shortcut(key, set_active_tool)) return
 			if (handle_brush_size_shortcut(key, set_brush_size)) return
 			if (handle_zoom_level_shortcut(key, set_zoom_level)) return
-			if (handle_delete_shortcut(key, selected_ann_id, selected_prediction_id, set_annotations, set_predictions, set_selected_ann_id, set_selected_prediction_id)) return
+			if (
+				handle_delete_shortcut(
+					key,
+					selected_ann_id,
+					selected_prediction_id,
+					set_annotations,
+					set_predictions,
+					set_selected_ann_id,
+					set_selected_prediction_id
+				)
+			)
+				return
 			handle_undo_redo_shortcut(key, e, undo, redo)
 		}
 
 		window.addEventListener('keydown', handle_key_down)
 		return () => window.removeEventListener('keydown', handle_key_down)
-	}, [selected_ann_id, selected_prediction_id, undo, redo, set_annotations, set_predictions, set_selected_ann_id, set_selected_prediction_id])
+	}, [
+		selected_ann_id,
+		selected_prediction_id,
+		undo,
+		redo,
+		set_annotations,
+		set_predictions,
+		set_selected_ann_id,
+		set_selected_prediction_id
+	])
 
 	const center_image = () => {
 		set_offset({ x: 0, y: 0 })
@@ -237,26 +283,80 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	const get_current_count = (id: string) => theme_current_count(id, annotations)
 
 	return (
-		<div className={`flex flex-col h-full w-full overflow-hidden ${bg_main} animate-in fade-in duration-300 font-sans`}>
-			{render_top_toolbar(undo, redo, history_step, history.length, show_prediction_btn, collaborators, isDarkMode, set_zoom_level, zoom_level, center_image, border_subtle, bg_panel, bg_hover, text_muted, text_heading)}
+		<div
+			className={`flex flex-col h-full w-full overflow-hidden ${bg_main} animate-in fade-in duration-300 font-sans`}
+		>
+			{render_top_toolbar(
+				undo,
+				redo,
+				history_step,
+				history.length,
+				show_prediction_btn,
+				collaborators,
+				isDarkMode,
+				set_zoom_level,
+				zoom_level,
+				center_image,
+				border_subtle,
+				bg_panel,
+				bg_hover,
+				text_muted,
+				text_heading
+			)}
 
 			<div className="flex flex-1 overflow-hidden relative">
-				{render_left_panel(left_width, border_subtle, bg_panel, tools, active_tool, set_active_tool, isDarkMode, brush_size, set_brush_size, brush_opacity, set_brush_opacity, is_classes_open, set_is_classes_open, text_heading, text_muted, bg_hover, classes, active_class, set_active_class, annotations, is_dragging_left, get_current_count)}
+				{render_left_panel(
+					left_width,
+					border_subtle,
+					bg_panel,
+					tools,
+					active_tool,
+					set_active_tool,
+					isDarkMode,
+					brush_size,
+					set_brush_size,
+					brush_opacity,
+					set_brush_opacity,
+					is_classes_open,
+					set_is_classes_open,
+					text_heading,
+					text_muted,
+					bg_hover,
+					classes,
+					active_class,
+					set_active_class,
+					annotations,
+					is_dragging_left,
+					get_current_count
+				)}
 
-				<div className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}>
-					<div className={`absolute top-4 z-20 transition-transform ${conflict_data ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'}`}>
+				<div
+					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
+				>
+					<div
+						className={`absolute top-4 z-20 transition-transform ${conflict_data ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'}`}
+					>
 						<div className="bg-red-500 text-white px-4 py-3 rounded-lg shadow-xl border border-red-600 flex items-start gap-3 w-[400px]">
 							<ShieldAlert size={20} className="shrink-0 mt-0.5 text-red-200" />
 							<div className="flex-1 min-w-0 flex flex-col">
 								<h4 className="font-bold text-sm tracking-tight mb-1">Conflict Detected</h4>
 								<p className="text-xs text-red-100 mb-3 leading-tight">
-									{conflict_data?.userName || 'A collaborator'} also edited the same annotation while you were working.
+									{conflict_data?.userName || 'A collaborator'} also edited the same annotation
+									while you were working.
 								</p>
 								<div className="flex gap-2">
-									<button onClick={() => set_conflict_data(undefined)}
-										className="flex-1 bg-white/20 hover:bg-white/30 transition-colors py-1.5 rounded text-xs font-semibold">Keep Mine</button>
-									<button onClick={() => set_conflict_data(undefined)}
-										className="flex-1 bg-white text-red-600 hover:bg-red-50 transition-colors py-1.5 rounded text-xs font-semibold">Accept Theirs</button>
+									<button
+										onClick={() => set_conflict_data(undefined)}
+										className="flex-1 bg-white/20 hover:bg-white/30 transition-colors py-1.5 rounded text-xs font-semibold"
+									>
+										Keep Mine
+									</button>
+									<button
+										onClick={() => set_conflict_data(undefined)}
+										className="flex-1 bg-white text-red-600 hover:bg-red-50 transition-colors py-1.5 rounded text-xs font-semibold"
+									>
+										Accept Theirs
+									</button>
 								</div>
 							</div>
 						</div>
@@ -287,18 +387,31 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 					/>
 
 					<div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-						<div className={`p-2 rounded-lg border ${border_subtle} ${bg_panel} shadow-lg backdrop-blur flex items-center gap-2 text-xs font-medium pointer-events-auto`}>
+						<div
+							className={`p-2 rounded-lg border ${border_subtle} ${bg_panel} shadow-lg backdrop-blur flex items-center gap-2 text-xs font-medium pointer-events-auto`}
+						>
 							<MousePointerClick size={14} className={text_muted} />
 							<span className={text_heading}>Auto-Segment</span>
-							<kbd className={`px-1 py-0.5 rounded ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'} ml-1`}>Shift+A</kbd>
+							<kbd
+								className={`px-1 py-0.5 rounded ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'} ml-1`}
+							>
+								Shift+A
+							</kbd>
 						</div>
 					</div>
 				</div>
 
-				<div style={{ width: right_width }}
-					className={`shrink-0 border-l ${border_subtle} ${bg_panel} flex flex-col z-10 relative`}>
-					<div className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20"
-						onMouseDown={() => { is_dragging_right.current = true; document.body.style.cursor = 'col-resize' }} />
+				<div
+					style={{ width: right_width }}
+					className={`shrink-0 border-l ${border_subtle} ${bg_panel} flex flex-col z-10 relative`}
+				>
+					<div
+						className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20"
+						onMouseDown={() => {
+							is_dragging_right.current = true
+							document.body.style.cursor = 'col-resize'
+						}}
+					/>
 
 					<div className={`p-4 border-b ${border_subtle}`}>
 						<h3 className={`text-sm font-semibold tracking-tight mb-3 ${text_heading}`}>
@@ -310,27 +423,72 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 						</h3>
 
 						{selected_ann_id
-							? render_annotation_properties_panel(selected_ann_id, annotations, classes, collaborators, set_annotations, isDarkMode, text_muted, text_heading, border_subtle)
+							? render_annotation_properties_panel(
+									selected_ann_id,
+									annotations,
+									classes,
+									collaborators,
+									set_annotations,
+									isDarkMode,
+									text_muted,
+									text_heading,
+									border_subtle
+								)
 							: selected_prediction_id
-								? render_prediction_properties_panel(selected_prediction_id, predictions, classes, set_predictions, set_annotations, set_selected_prediction_id, set_selected_ann_id, isDarkMode, text_muted)
-								: render_image_properties_panel(annotations, predictions, is_showing_predictions, set_is_showing_predictions, text_muted, text_heading)}
+								? render_prediction_properties_panel(
+										selected_prediction_id,
+										predictions,
+										classes,
+										set_predictions,
+										set_annotations,
+										set_selected_prediction_id,
+										set_selected_ann_id,
+										isDarkMode,
+										text_muted
+									)
+								: render_image_properties_panel(
+										annotations,
+										predictions,
+										is_showing_predictions,
+										set_is_showing_predictions,
+										text_muted,
+										text_heading
+									)}
 					</div>
 
 					{render_layers_panel(
-						annotations, predictions, is_layers_open, set_is_layers_open,
-						is_showing_predictions, selected_ann_id, selected_prediction_id,
-						set_selected_ann_id, set_selected_prediction_id, set_annotations,
-						get_class_color, get_class_name, collaborators, isDarkMode,
-						text_muted, text_heading, border_subtle
+						annotations,
+						predictions,
+						is_layers_open,
+						set_is_layers_open,
+						is_showing_predictions,
+						selected_ann_id,
+						selected_prediction_id,
+						set_selected_ann_id,
+						set_selected_prediction_id,
+						set_annotations,
+						get_class_color,
+						get_class_name,
+						collaborators,
+						isDarkMode,
+						text_muted,
+						text_heading,
+						border_subtle
 					)}
 				</div>
 			</div>
 
-			<div className={`h-8 border-t ${border_subtle} ${bg_panel} flex items-center justify-between px-3 text-[11px] shrink-0 z-10 box-border`}>
+			<div
+				className={`h-8 border-t ${border_subtle} ${bg_panel} flex items-center justify-between px-3 text-[11px] shrink-0 z-10 box-border`}
+			>
 				<div className={`flex items-center gap-4 ${text_muted}`}>
-					<span className="flex items-center gap-1.5"><MousePointer2 size={12} /> X: 452, Y: 1024</span>
+					<span className="flex items-center gap-1.5">
+						<MousePointer2 size={12} /> X: 452, Y: 1024
+					</span>
 					<span>|</span>
-					<span className="font-medium">Active Tool: {tools.find((t) => t.id === active_tool)?.label}</span>
+					<span className="font-medium">
+						Active Tool: {tools.find((t) => t.id === active_tool)?.label}
+					</span>
 				</div>
 				<div className={`flex items-center gap-4 ${text_muted}`}>
 					<span>Press 'H' to pan, 'V' to select, '+/-' to zoom, 'W/E' for Brush/Eraser</span>

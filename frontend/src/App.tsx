@@ -209,11 +209,25 @@ function sidebar_content({
 
 			<nav className="flex-1 overflow-y-auto py-6 hide-scrollbar">
 				{nav_group({ items: TOP_NAV_ITEMS, active_route, is_sidebar_open, on_navigate })}
-				{nav_group({ title: 'Machine Learning', items: ML_NAV_ITEMS, active_route, is_sidebar_open, on_navigate })}
-				{nav_group({ title: 'Configuration', items: BOTTOM_NAV_ITEMS, active_route, is_sidebar_open, on_navigate })}
+				{nav_group({
+					title: 'Machine Learning',
+					items: ML_NAV_ITEMS,
+					active_route,
+					is_sidebar_open,
+					on_navigate
+				})}
+				{nav_group({
+					title: 'Configuration',
+					items: BOTTOM_NAV_ITEMS,
+					active_route,
+					is_sidebar_open,
+					on_navigate
+				})}
 			</nav>
 
-			<div className={`p-4 border-t ${is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'} shrink-0 flex flex-col gap-2`}>
+			<div
+				className={`p-4 border-t ${is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'} shrink-0 flex flex-col gap-2`}
+			>
 				<button
 					onClick={on_toggle_collapse}
 					className={`hidden lg:flex items-center gap-2 p-2 rounded-md hover:bg-zinc-800/50 transition-colors text-zinc-400 hover:text-zinc-100 ${!is_sidebar_open && 'justify-center'}`}
@@ -259,9 +273,7 @@ function header_content({
 				<div className="hidden md:flex items-center gap-2 text-sm">
 					<span className="text-zinc-500">Workspace</span>
 					<ChevronRight size={14} className="text-zinc-600" />
-					<span
-						className={`${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'} font-medium`}
-					>
+					<span className={`${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'} font-medium`}>
 						{get_active_label(active_route)}
 					</span>
 				</div>
@@ -339,12 +351,8 @@ function app_content({
 	const bg_skeleton = is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'
 	const bg_skeleton_light = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
 	const bg_dot = is_dark_mode ? 'bg-zinc-700' : 'bg-zinc-200'
-	const skeleton_bar = (w: string) => (
-		<div className={`h-3 rounded ${bg_dot} ${w}`} />
-	)
-	const skeleton_line = (w: string) => (
-		<div className={`h-2 rounded ${bg_dot} ${w}`} />
-	)
+	const skeleton_bar = (w: string) => <div className={`h-3 rounded ${bg_dot} ${w}`} />
+	const skeleton_line = (w: string) => <div className={`h-2 rounded ${bg_dot} ${w}`} />
 
 	if (active_route === 'workflow') {
 		return (
@@ -395,10 +403,7 @@ function app_content({
 		return (
 			<div className="flex-1 overflow-y-auto p-4 lg:p-8">
 				<div className="max-w-7xl mx-auto space-y-6">
-					<DatasetsView
-						isDarkMode={is_dark_mode}
-						onUpload={on_open_uploader}
-					/>
+					<DatasetsView isDarkMode={is_dark_mode} onUpload={on_open_uploader} />
 				</div>
 			</div>
 		)
@@ -455,9 +460,7 @@ function app_content({
 						</div>
 					</div>
 				</div>
-				<div
-					className={`mt-6 w-full rounded-xl border p-6 min-h-[400px] ${card_classes}`}
-				>
+				<div className={`mt-6 w-full rounded-xl border p-6 min-h-[400px] ${card_classes}`}>
 					<div className={`h-6 rounded ${bg_skeleton} w-48 mb-6`}></div>
 					<div className="space-y-4">
 						{[1, 2, 3, 4].map((i) => (

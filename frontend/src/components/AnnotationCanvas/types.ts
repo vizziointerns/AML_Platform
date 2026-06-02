@@ -6,7 +6,11 @@ export interface MaskLine {
 	tool: 'brush' | 'eraser'
 }
 
-export function compute_mask_line_points(line: MaskLine, img_width: number, img_height: number): number[] {
+export function compute_mask_line_points(
+	line: MaskLine,
+	img_width: number,
+	img_height: number
+): number[] {
 	return line.points.map((p: number, idx: number) =>
 		idx % 2 === 0 ? (p / 100) * img_width : (p / 100) * img_height
 	)

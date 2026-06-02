@@ -1,20 +1,48 @@
 import type { Annotation, ClassInfo, Mode, Prediction } from './types'
 
 export function handle_mode_shortcut(key: string, set_active_tool: (t: Mode) => void): boolean {
-	const modes: Record<string, Mode> = { v: 'select', h: 'pan', b: 'bbox', p: 'polygon', w: 'brush', e: 'eraser' }
-	if (modes[key]) { set_active_tool(modes[key]); return true }
+	const modes: Record<string, Mode> = {
+		v: 'select',
+		h: 'pan',
+		b: 'bbox',
+		p: 'polygon',
+		w: 'brush',
+		e: 'eraser'
+	}
+	if (modes[key]) {
+		set_active_tool(modes[key])
+		return true
+	}
 	return false
 }
 
-export function handle_brush_size_shortcut(key: string, set_brush_size: (fn: (s: number) => number) => void): boolean {
-	if (key === '[') { set_brush_size((s) => Math.max(1, s - 5)); return true }
-	if (key === ']') { set_brush_size((s) => Math.min(100, s + 5)); return true }
+export function handle_brush_size_shortcut(
+	key: string,
+	set_brush_size: (fn: (s: number) => number) => void
+): boolean {
+	if (key === '[') {
+		set_brush_size((s) => Math.max(1, s - 5))
+		return true
+	}
+	if (key === ']') {
+		set_brush_size((s) => Math.min(100, s + 5))
+		return true
+	}
 	return false
 }
 
-export function handle_zoom_level_shortcut(key: string, set_zoom_level: (fn: (z: number) => number) => void): boolean {
-	if (key === '=' || key === '+') { set_zoom_level((z) => Math.min(z + 0.5, 10)); return true }
-	if (key === '-') { set_zoom_level((z) => Math.max(z - 0.5, 0.5)); return true }
+export function handle_zoom_level_shortcut(
+	key: string,
+	set_zoom_level: (fn: (z: number) => number) => void
+): boolean {
+	if (key === '=' || key === '+') {
+		set_zoom_level((z) => Math.min(z + 0.5, 10))
+		return true
+	}
+	if (key === '-') {
+		set_zoom_level((z) => Math.max(z - 0.5, 0.5))
+		return true
+	}
 	return false
 }
 
@@ -39,7 +67,12 @@ export function handle_delete_shortcut(
 	return true
 }
 
-export function handle_undo_redo_shortcut(key: string, e: KeyboardEvent, undo: () => void, redo: () => void): void {
+export function handle_undo_redo_shortcut(
+	key: string,
+	e: KeyboardEvent,
+	undo: () => void,
+	redo: () => void
+): void {
 	const is_mod = e.ctrlKey || e.metaKey
 	if (key === 'z' && is_mod) {
 		e.preventDefault()

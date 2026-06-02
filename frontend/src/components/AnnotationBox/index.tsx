@@ -70,8 +70,14 @@ function handle_box_transform(
 	let new_x = node.x()
 	let new_y = node.y()
 
-	if (new_x < 0) { w += new_x; new_x = 0 }
-	if (new_y < 0) { h += new_y; new_y = 0 }
+	if (new_x < 0) {
+		w += new_x
+		new_x = 0
+	}
+	if (new_y < 0) {
+		h += new_y
+		new_y = 0
+	}
 	if (new_x + w > imageWidth) w = imageWidth - new_x
 	if (new_y + h > imageHeight) h = imageHeight - new_y
 
@@ -97,8 +103,12 @@ function render_label_overlay(
 	const is_show_locked_info = is_locked && lockedByName
 	const label_text = isPrediction
 		? `[AI] ${label}${confidence ? ' ' + Math.round(confidence * 100) + '%' : ''}`
-		: is_locked ? `🔒 ${label}` : label
-	const label_bg_width = ((label.length + (confidence ? 5 : 0) + (is_locked ? 3 : 0)) * 6.5 + (isPrediction ? 14 : 10)) / zoomLevel
+		: is_locked
+			? `🔒 ${label}`
+			: label
+	const label_bg_width =
+		((label.length + (confidence ? 5 : 0) + (is_locked ? 3 : 0)) * 6.5 + (isPrediction ? 14 : 10)) /
+		zoomLevel
 	const label_bg_color = isPrediction ? '#6b7280' : is_locked ? lockedByColor || color : color
 
 	return (
@@ -187,9 +197,19 @@ export default function annotation_box({
 	const height = Math.max(1, (ann.h / 100) * imageHeight)
 
 	const can_drag = activeTool === 'select' && isSelected && !is_locked
-	const fill_color = isSelected ? `${color}33` : isHovered ? `${color}44` : is_locked ? `${lockedByColor}22` : `${color}11`
+	const fill_color = isSelected
+		? `${color}33`
+		: isHovered
+			? `${color}44`
+			: is_locked
+				? `${lockedByColor}22`
+				: `${color}11`
 	const stroke_width_val = isSelected ? 3 / zoomLevel : 2 / zoomLevel
-	const dash_val = isPrediction ? [10 / zoomLevel, 10 / zoomLevel] : is_locked ? [5 / zoomLevel, 5 / zoomLevel] : undefined
+	const dash_val = isPrediction
+		? [10 / zoomLevel, 10 / zoomLevel]
+		: is_locked
+			? [5 / zoomLevel, 5 / zoomLevel]
+			: undefined
 
 	return (
 		<>
@@ -199,8 +219,20 @@ export default function annotation_box({
 				y={y}
 				draggable={can_drag}
 				dragBoundFunc={(pos) => pos}
-				onDragEnd={() => handle_box_drag_end(group_ref.current, ann, imageWidth, imageHeight, onChange)}
-				onTransform={() => handle_box_transform(group_ref.current, ann, imageWidth, imageHeight, width, height, onChange)}
+				onDragEnd={() =>
+					handle_box_drag_end(group_ref.current, ann, imageWidth, imageHeight, onChange)
+				}
+				onTransform={() =>
+					handle_box_transform(
+						group_ref.current,
+						ann,
+						imageWidth,
+						imageHeight,
+						width,
+						height,
+						onChange
+					)
+				}
 				onClick={(e) => {
 					if (activeTool === 'select') {
 						e.cancelBubble = true
@@ -218,7 +250,16 @@ export default function annotation_box({
 					strokeWidth={stroke_width_val}
 					dash={dash_val}
 				/>
-				{render_label_overlay(isPrediction, label, confidence, is_locked, lockedByName, lockedByColor, zoomLevel, color)}
+				{render_label_overlay(
+					isPrediction,
+					label,
+					confidence,
+					is_locked,
+					lockedByName,
+					lockedByColor,
+					zoomLevel,
+					color
+				)}
 			</Group>
 			{render_transformer_component(can_drag, tr_ref, color, zoomLevel)}
 		</>

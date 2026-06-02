@@ -39,14 +39,25 @@ interface Props {
 	on_change: (new_ann: Annotation) => void
 }
 
-function compute_polygon_fill(is_selected: boolean, is_hovered: boolean, is_locked: boolean, color: string, locked_by_color: string | undefined): string {
+function compute_polygon_fill(
+	is_selected: boolean,
+	is_hovered: boolean,
+	is_locked: boolean,
+	color: string,
+	locked_by_color: string | undefined
+): string {
 	if (is_selected) return `${color}33`
 	if (is_hovered) return `${color}44`
 	if (is_locked) return `${locked_by_color}22`
 	return `${color}11`
 }
 
-function compute_label_text(is_prediction: boolean, label: string, confidence: number | undefined, is_locked: boolean): string {
+function compute_label_text(
+	is_prediction: boolean,
+	label: string,
+	confidence: number | undefined,
+	is_locked: boolean
+): string {
 	if (is_prediction) {
 		const pct = confidence ? ` ${Math.round(confidence * 100)}%` : ''
 		return `[AI] ${label}${pct}`
@@ -55,7 +66,12 @@ function compute_label_text(is_prediction: boolean, label: string, confidence: n
 	return label
 }
 
-function compute_label_bg_fill(is_prediction: boolean, is_locked: boolean, locked_by_color: string | undefined, color: string): string {
+function compute_label_bg_fill(
+	is_prediction: boolean,
+	is_locked: boolean,
+	locked_by_color: string | undefined,
+	color: string
+): string {
 	if (is_prediction) return '#6b7280'
 	if (is_locked) return locked_by_color ?? color
 	return color
@@ -87,8 +103,13 @@ function render_polygon_vertices(
 				stroke={color}
 				strokeWidth={1.5 / zoom_level}
 				draggable
-				onDragStart={(e) => { e.cancelBubble = true }}
-				onDragEnd={(e) => { e.cancelBubble = true; handle_vertex_drag_end(e) }}
+				onDragStart={(e) => {
+					e.cancelBubble = true
+				}}
+				onDragEnd={(e) => {
+					e.cancelBubble = true
+					handle_vertex_drag_end(e)
+				}}
 				onMouseEnter={() => set_hovered_point(i)}
 				onMouseLeave={() => set_hovered_point(undefined)}
 			/>
@@ -96,28 +117,77 @@ function render_polygon_vertices(
 	})
 }
 
-function render_polygon_line(flat_points: number[], is_selected: boolean, is_hovered: boolean, is_locked: boolean, color: string, locked_by_color: string | undefined, zoom_level: number, is_prediction: boolean) {
+function render_polygon_line(
+	flat_points: number[],
+	is_selected: boolean,
+	is_hovered: boolean,
+	is_locked: boolean,
+	color: string,
+	locked_by_color: string | undefined,
+	zoom_level: number,
+	is_prediction: boolean
+) {
 	const fill = compute_polygon_fill(is_selected, is_hovered, is_locked, color, locked_by_color)
-	const stroke = is_locked ? (locked_by_color || color) : color
+	const stroke = is_locked ? locked_by_color || color : color
 	const stroke_width = is_selected ? 3 / zoom_level : 2 / zoom_level
-	const dash = is_prediction ? [10 / zoom_level, 10 / zoom_level] : is_locked ? [5 / zoom_level, 5 / zoom_level] : undefined
+	const dash = is_prediction
+		? [10 / zoom_level, 10 / zoom_level]
+		: is_locked
+			? [5 / zoom_level, 5 / zoom_level]
+			: undefined
 	return (
-		<Line points={flat_points} fill={fill} stroke={stroke} strokeWidth={stroke_width} dash={dash} closed={true} tension={0} hitStrokeWidth={10 / zoom_level} />
+		<Line
+			points={flat_points}
+			fill={fill}
+			stroke={stroke}
+			strokeWidth={stroke_width}
+			dash={dash}
+			closed={true}
+			tension={0}
+			hitStrokeWidth={10 / zoom_level}
+		/>
 	)
 }
 
-function render_label_group(min_x: number, min_y: number, zoom_level: number, is_prediction: boolean, is_locked: boolean, locked_by_color: string | undefined, locked_by_name: string | undefined, color: string, label: string, confidence: number | undefined) {
+function render_label_group(
+	min_x: number,
+	min_y: number,
+	zoom_level: number,
+	is_prediction: boolean,
+	is_locked: boolean,
+	locked_by_color: string | undefined,
+	locked_by_name: string | undefined,
+	color: string,
+	label: string,
+	confidence: number | undefined
+) {
 	const bg_fill = compute_label_bg_fill(is_prediction, is_locked, locked_by_color, color)
 	const label_text = compute_label_text(is_prediction, label, confidence, is_locked)
-	const width_val = ((label.length + (confidence ? 5 : 0) + (is_locked ? 3 : 0)) * 6.5 + (is_prediction ? 14 : 10)) / zoom_level
+	const width_val =
+		((label.length + (confidence ? 5 : 0) + (is_locked ? 3 : 0)) * 6.5 +
+			(is_prediction ? 14 : 10)) /
+		zoom_level
 	const height_val = 16 / zoom_level
 
 	return (
 		<Group x={min_x} y={min_y - height_val}>
 			<Rect fill={bg_fill} width={width_val} height={height_val} />
-			<Text text={label_text} fill="white" fontSize={10 / zoom_level} fontStyle="bold" padding={3 / zoom_level} />
+			<Text
+				text={label_text}
+				fill="white"
+				fontSize={10 / zoom_level}
+				fontStyle="bold"
+				padding={3 / zoom_level}
+			/>
 			{is_locked && locked_by_name && (
-				<Text y={-14 / zoom_level} text={`Locked by ${locked_by_name}`} fill={locked_by_color || 'white'} fontSize={9 / zoom_level} fontStyle="bold" padding={2 / zoom_level} />
+				<Text
+					y={-14 / zoom_level}
+					text={`Locked by ${locked_by_name}`}
+					fill={locked_by_color || 'white'}
+					fontSize={9 / zoom_level}
+					fontStyle="bold"
+					padding={2 / zoom_level}
+				/>
 			)}
 		</Group>
 	)
@@ -159,8 +229,16 @@ function render_polygon_midpoints(
 	))
 }
 
-function compute_bounding_box(points: Point[]): { min_x: number; min_y: number; max_x: number; max_y: number } {
-	let min_x_p = 100, min_y_p = 100, max_x_p = 0, max_y_p = 0
+function compute_bounding_box(points: Point[]): {
+	min_x: number
+	min_y: number
+	max_x: number
+	max_y: number
+} {
+	let min_x_p = 100,
+		min_y_p = 100,
+		max_x_p = 0,
+		max_y_p = 0
 	points.forEach((pt) => {
 		if (pt.x < min_x_p) min_x_p = pt.x
 		if (pt.y < min_y_p) min_y_p = pt.y
@@ -170,7 +248,15 @@ function compute_bounding_box(points: Point[]): { min_x: number; min_y: number; 
 	return { min_x: min_x_p, min_y: min_y_p, max_x: max_x_p, max_y: max_y_p }
 }
 
-function handle_drag_end(index: number, e: Konva.KonvaEventObject<DragEvent>, ann: Annotation, image_width: number, image_height: number, is_locked: boolean, on_change: (new_ann: Annotation) => void) {
+function handle_drag_end(
+	index: number,
+	e: Konva.KonvaEventObject<DragEvent>,
+	ann: Annotation,
+	image_width: number,
+	image_height: number,
+	is_locked: boolean,
+	on_change: (new_ann: Annotation) => void
+) {
 	if (is_locked) return
 	const new_x_pct = (e.target.x() / image_width) * 100
 	const new_y_pct = (e.target.y() / image_height) * 100
@@ -182,10 +268,25 @@ function handle_drag_end(index: number, e: Konva.KonvaEventObject<DragEvent>, an
 	}
 
 	const bbox = compute_bounding_box(new_points)
-	on_change({ ...ann, points: new_points, x: bbox.min_x, y: bbox.min_y, w: bbox.max_x - bbox.min_x, h: bbox.max_y - bbox.min_y })
+	on_change({
+		...ann,
+		points: new_points,
+		x: bbox.min_x,
+		y: bbox.min_y,
+		w: bbox.max_x - bbox.min_x,
+		h: bbox.max_y - bbox.min_y
+	})
 }
 
-function handle_group_drag_end(e: Konva.KonvaEventObject<DragEvent>, ann: Annotation, image_width: number, image_height: number, is_selected: boolean, is_locked: boolean, on_change: (new_ann: Annotation) => void) {
+function handle_group_drag_end(
+	e: Konva.KonvaEventObject<DragEvent>,
+	ann: Annotation,
+	image_width: number,
+	image_height: number,
+	is_selected: boolean,
+	is_locked: boolean,
+	on_change: (new_ann: Annotation) => void
+) {
 	if (!is_selected || is_locked) return
 	const node = e.target
 	const dx_pct = (node.x() / image_width) * 100
@@ -200,7 +301,14 @@ function handle_group_drag_end(e: Konva.KonvaEventObject<DragEvent>, ann: Annota
 	}))
 
 	const bbox = compute_bounding_box(new_points)
-	on_change({ ...ann, points: new_points, x: bbox.min_x, y: bbox.min_y, w: bbox.max_x - bbox.min_x, h: bbox.max_y - bbox.min_y })
+	on_change({
+		...ann,
+		points: new_points,
+		x: bbox.min_x,
+		y: bbox.min_y,
+		w: bbox.max_x - bbox.min_x,
+		h: bbox.max_y - bbox.min_y
+	})
 }
 
 export default function annotation_polygon({
@@ -252,7 +360,9 @@ export default function annotation_polygon({
 	return (
 		<Group
 			draggable={active_tool === 'select' && is_selected && !is_locked}
-			onDragEnd={(e) => handle_group_drag_end(e, ann, image_width, image_height, is_selected, is_locked, on_change)}
+			onDragEnd={(e) =>
+				handle_group_drag_end(e, ann, image_width, image_height, is_selected, is_locked, on_change)
+			}
 			onClick={(e) => {
 				if (active_tool === 'select') {
 					e.cancelBubble = true
@@ -262,13 +372,59 @@ export default function annotation_polygon({
 			onMouseEnter={() => on_hover(true)}
 			onMouseLeave={() => on_hover(false)}
 		>
-			{render_polygon_line(flat_points, is_selected, is_hovered, is_locked, color, locked_by_color, zoom_level, is_prediction)}
+			{render_polygon_line(
+				flat_points,
+				is_selected,
+				is_hovered,
+				is_locked,
+				color,
+				locked_by_color,
+				zoom_level,
+				is_prediction
+			)}
 
-			{render_label_group(min_x, min_y, zoom_level, is_prediction, is_locked, locked_by_color, locked_by_name, color, label, confidence)}
+			{render_label_group(
+				min_x,
+				min_y,
+				zoom_level,
+				is_prediction,
+				is_locked,
+				locked_by_color,
+				locked_by_name,
+				color,
+				label,
+				confidence
+			)}
 
-			{is_selected && active_tool === 'select' && !is_locked && render_polygon_vertices(absolute_points, hovered_point, zoom_level, color, set_hovered_point, ann, image_width, image_height, is_locked, on_change)}
+			{is_selected &&
+				active_tool === 'select' &&
+				!is_locked &&
+				render_polygon_vertices(
+					absolute_points,
+					hovered_point,
+					zoom_level,
+					color,
+					set_hovered_point,
+					ann,
+					image_width,
+					image_height,
+					is_locked,
+					on_change
+				)}
 
-			{is_selected && active_tool === 'select' && render_polygon_midpoints(midpoints, hovered_midpoint, zoom_level, color, set_hovered_midpoint, ann, image_width, image_height, on_change)}
+			{is_selected &&
+				active_tool === 'select' &&
+				render_polygon_midpoints(
+					midpoints,
+					hovered_midpoint,
+					zoom_level,
+					color,
+					set_hovered_midpoint,
+					ann,
+					image_width,
+					image_height,
+					on_change
+				)}
 		</Group>
 	)
 }

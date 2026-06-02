@@ -64,7 +64,9 @@ export function handle_brush_draw_end(
 			...current_class_mask,
 			lines: [...(current_class_mask.lines || []), ...drawing_mask_lines]
 		}
-		on_annotations_change(annotations.map((a: Annotation) => (a.id === current_class_mask.id ? updated : a)))
+		on_annotations_change(
+			annotations.map((a: Annotation) => (a.id === current_class_mask.id ? updated : a))
+		)
 	} else if (active_tool === 'brush') {
 		const new_mask = {
 			id: Math.random().toString(36).substr(2, 9),
@@ -98,9 +100,7 @@ export function render_mask_lines(
 			tension={0.5}
 			lineCap="round"
 			lineJoin="round"
-			globalCompositeOperation={
-				line.tool === 'eraser' ? 'destination-out' : 'source-over'
-			}
+			globalCompositeOperation={line.tool === 'eraser' ? 'destination-out' : 'source-over'}
 			dash={dash_config}
 		/>
 	))
@@ -120,18 +120,32 @@ export function render_mask_layer(
 	if (!image) return undefined
 	return (
 		<Layer opacity={(brush_opacity ?? 100) / 100} listening={false}>
-			{annotations.filter((a: Annotation) => a.type === 'mask')
+			{annotations
+				.filter((a: Annotation) => a.type === 'mask')
 				.map((ann: Annotation) => (
 					<Group key={ann.id}>
-						{render_mask_lines(ann.lines ?? [], image.width, image.height, get_class_color(ann.classId))}
+						{render_mask_lines(
+							ann.lines ?? [],
+							image.width,
+							image.height,
+							get_class_color(ann.classId)
+						)}
 					</Group>
 				))}
-			{show_predictions && predictions.filter((a: Annotation) => a.type === 'mask')
-				.map((pred: Annotation) => (
-					<Group key={pred.id} opacity={0.5}>
-						{render_mask_lines(pred.lines ?? [], image.width, image.height, get_class_color(pred.classId), [5, 10])}
-					</Group>
-				))}
+			{show_predictions &&
+				predictions
+					.filter((a: Annotation) => a.type === 'mask')
+					.map((pred: Annotation) => (
+						<Group key={pred.id} opacity={0.5}>
+							{render_mask_lines(
+								pred.lines ?? [],
+								image.width,
+								image.height,
+								get_class_color(pred.classId),
+								[5, 10]
+							)}
+						</Group>
+					))}
 			{drawing_mask_lines.map((line: MaskLine, i) => (
 				<Line
 					key={`drawing-${i}`}

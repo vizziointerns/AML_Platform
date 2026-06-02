@@ -2,7 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Minimize2, CheckCircle2 } from 'lucide-react'
 import type { UploadFile } from './types'
 import {
-	render_file_item, render_minimized_widget, render_drag_drop_zone, render_upload_footer
+	render_file_item,
+	render_minimized_widget,
+	render_drag_drop_zone,
+	render_upload_footer
 } from './render'
 
 export default function uploader({
@@ -18,8 +21,12 @@ export default function uploader({
 	const [files, set_files] = useState<UploadFile[]>([])
 	const [is_drag_active, set_is_drag_active] = useState(false)
 	const [target_dataset, set_target_dataset] = useState('Urban_Vehicles_v4')
-	const file_input_ref = useRef<HTMLInputElement | null>(undefined as unknown as HTMLInputElement | null)
-	const folder_input_ref = useRef<HTMLInputElement | null>(undefined as unknown as HTMLInputElement | null)
+	const file_input_ref = useRef<HTMLInputElement | null>(
+		undefined as unknown as HTMLInputElement | null
+	)
+	const folder_input_ref = useRef<HTMLInputElement | null>(
+		undefined as unknown as HTMLInputElement | null
+	)
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
@@ -150,30 +157,55 @@ export default function uploader({
 
 	if (is_minimized) {
 		return render_minimized_widget(
-			on_close, set_is_minimized, is_dark_mode, text_heading, text_muted,
-			border_subtle, bg_card, bg_subtle, is_uploading, completed_files,
-			total_files, error_files, files
+			on_close,
+			set_is_minimized,
+			is_dark_mode,
+			text_heading,
+			text_muted,
+			border_subtle,
+			bg_card,
+			bg_subtle,
+			is_uploading,
+			completed_files,
+			total_files,
+			error_files,
+			files
 		)
 	}
 
 	return (
 		<>
-			<div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-300" onClick={on_close} />
+			<div
+				className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-300"
+				onClick={on_close}
+			/>
 			<div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
 				<div
 					className={`pointer-events-auto w-full max-w-3xl rounded-xl shadow-2xl border ${border_subtle} ${bg_card} flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 flex-shrink-0`}
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div className={`px-6 py-4 border-b ${border_subtle} flex justify-between items-center shrink-0`}>
+					<div
+						className={`px-6 py-4 border-b ${border_subtle} flex justify-between items-center shrink-0`}
+					>
 						<div>
-							<h2 className={`text-lg font-semibold tracking-tight ${text_heading}`}>Upload to Dataset</h2>
-							<p className={`text-sm ${text_muted}`}>Drag images or folders to ingest into your active project.</p>
+							<h2 className={`text-lg font-semibold tracking-tight ${text_heading}`}>
+								Upload to Dataset
+							</h2>
+							<p className={`text-sm ${text_muted}`}>
+								Drag images or folders to ingest into your active project.
+							</p>
 						</div>
 						<div className="flex items-center gap-2 text-zinc-400">
-							<button className={`p-2 rounded-md hover:${bg_subtle} transition-colors`} onClick={() => set_is_minimized(true)}>
+							<button
+								className={`p-2 rounded-md hover:${bg_subtle} transition-colors`}
+								onClick={() => set_is_minimized(true)}
+							>
 								<Minimize2 size={18} />
 							</button>
-							<button className={`p-2 rounded-md hover:${bg_subtle} transition-colors`} onClick={on_close}>
+							<button
+								className={`p-2 rounded-md hover:${bg_subtle} transition-colors`}
+								onClick={on_close}
+							>
 								<X size={18} />
 							</button>
 						</div>
@@ -194,31 +226,75 @@ export default function uploader({
 							</select>
 						</div>
 
-						{render_drag_drop_zone(is_drag_active, is_dark_mode, bg_drag, bg_card, bg_subtle, border_subtle, text_heading, text_muted, file_input_ref, folder_input_ref, handle_drag_enter, handle_drag_over, handle_drag_leave, handle_drop, handle_file_change)}
+						{render_drag_drop_zone(
+							is_drag_active,
+							is_dark_mode,
+							bg_drag,
+							bg_card,
+							bg_subtle,
+							border_subtle,
+							text_heading,
+							text_muted,
+							file_input_ref,
+							folder_input_ref,
+							handle_drag_enter,
+							handle_drag_over,
+							handle_drag_leave,
+							handle_drop,
+							handle_file_change
+						)}
 
 						{files.length > 0 && (
 							<div className="space-y-3">
 								<div className="flex justify-between items-center">
-									<h3 className={`text-sm font-medium ${text_heading}`}>Upload Queue ({files.length} items)</h3>
+									<h3 className={`text-sm font-medium ${text_heading}`}>
+										Upload Queue ({files.length} items)
+									</h3>
 									{completed_files === total_files && total_files > 0 ? (
 										<span className="text-xs font-medium text-emerald-500 flex items-center gap-1">
 											<CheckCircle2 size={14} /> All complete
 										</span>
 									) : (
-										<span className={`text-xs ${text_muted}`}>{completed_files} completed, {error_files} failed</span>
+										<span className={`text-xs ${text_muted}`}>
+											{completed_files} completed, {error_files} failed
+										</span>
 									)}
 								</div>
 
-								<div className={`rounded-xl border ${border_subtle} divide-y ${is_dark_mode ? 'divide-zinc-800' : 'divide-zinc-200'} overflow-hidden`}>
-									{files.map((file) => (
-										render_file_item(file, is_dark_mode, text_heading, text_muted, border_subtle, retry_upload, remove_file, format_size)
-									))}
+								<div
+									className={`rounded-xl border ${border_subtle} divide-y ${is_dark_mode ? 'divide-zinc-800' : 'divide-zinc-200'} overflow-hidden`}
+								>
+									{files.map((file) =>
+										render_file_item(
+											file,
+											is_dark_mode,
+											text_heading,
+											text_muted,
+											border_subtle,
+											retry_upload,
+											remove_file,
+											format_size
+										)
+									)}
 								</div>
 							</div>
 						)}
 					</div>
 
-					{render_upload_footer(files, is_uploading, completed_files, total_files, error_files, on_close, start_upload, set_files, text_muted, text_heading, border_subtle, bg_subtle)}
+					{render_upload_footer(
+						files,
+						is_uploading,
+						completed_files,
+						total_files,
+						error_files,
+						on_close,
+						start_upload,
+						set_files,
+						text_muted,
+						text_heading,
+						border_subtle,
+						bg_subtle
+					)}
 				</div>
 			</div>
 		</>
