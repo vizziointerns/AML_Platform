@@ -29,11 +29,7 @@ import Uploader from './components/Uploader'
 import AnnotationStudio from './pages/AnnotationStudio'
 import WorkflowBuilder from './pages/WorkflowBuilder'
 import ProjectsView from './pages/projects/ProjectsView'
-import {
-	use_navigation_store,
-	type AppRoute,
-	type ProjectRoute
-} from './store/navigationStore'
+import { use_navigation_store, type AppRoute, type ProjectRoute } from './store/navigationStore'
 import { use_project_store } from './store/projectStore'
 
 // --- Level 1 navigation config (app-level) ---
@@ -48,9 +44,7 @@ const APP_NAV_ITEMS: AppNavItem[] = [
 	{ id: 'projects', label: 'Projects', icon: Layers }
 ]
 
-const APP_BOTTOM_ITEMS: AppNavItem[] = [
-	{ id: 'settings', label: 'Settings', icon: Settings }
-]
+const APP_BOTTOM_ITEMS: AppNavItem[] = [{ id: 'settings', label: 'Settings', icon: Settings }]
 
 // --- Level 2 navigation config (project-level) ---
 interface ProjectNavItem {
@@ -74,10 +68,7 @@ const PROJECT_ML_ITEMS: ProjectNavItem[] = [
 
 // --- Custom Hooks ---
 
-function use_keyboard_shortcuts(
-	is_authenticated: boolean,
-	on_toggle: () => void
-) {
+function use_keyboard_shortcuts(is_authenticated: boolean, on_toggle: () => void) {
 	useEffect(() => {
 		if (!is_authenticated) return
 		const handle_key_down = (e: KeyboardEvent) => {
@@ -270,9 +261,7 @@ function level2_sidebar({
 		: 'bg-zinc-50/80 border-zinc-200'
 
 	return (
-		<aside
-			className={`hidden lg:flex w-64 h-full shrink-0 flex-col border-r ${sidebar_classes}`}
-		>
+		<aside className={`hidden lg:flex w-64 h-full shrink-0 flex-col border-r ${sidebar_classes}`}>
 			<div
 				className={`h-16 flex items-center border-b ${is_dark_mode ? 'border-zinc-800/60' : 'border-zinc-200'} shrink-0 px-4 gap-3`}
 			>
@@ -289,7 +278,9 @@ function level2_sidebar({
 					>
 						{project_name}
 					</span>
-					<span className="text-[10px] text-zinc-500 truncate w-36 text-left">Project Workspace</span>
+					<span className="text-[10px] text-zinc-500 truncate w-36 text-left">
+						Project Workspace
+					</span>
 				</div>
 			</div>
 
@@ -303,7 +294,9 @@ function level2_sidebar({
 					})}
 				</div>
 				<div>
-					<div className={`px-4 mb-2 text-[10px] font-bold uppercase tracking-widest ${is_dark_mode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+					<div
+						className={`px-4 mb-2 text-[10px] font-bold uppercase tracking-widest ${is_dark_mode ? 'text-zinc-500' : 'text-zinc-400'}`}
+					>
 						Machine Learning
 					</div>
 					{nav_section({
@@ -439,7 +432,9 @@ function page_placeholder({
 					<h1 className="text-2xl font-semibold tracking-tight">{label}</h1>
 					<p className={`text-sm mt-1 ${text_muted}`}>{label} overview and management.</p>
 				</div>
-				<div className={`rounded-xl border p-12 flex items-center justify-center ${is_dark_mode ? 'border-zinc-800 bg-zinc-900' : 'border-zinc-200 bg-white'}`}>
+				<div
+					className={`rounded-xl border p-12 flex items-center justify-center ${is_dark_mode ? 'border-zinc-800 bg-zinc-900' : 'border-zinc-200 bg-white'}`}
+				>
 					<p className={text_muted}>{label} page — coming soon.</p>
 				</div>
 			</div>
@@ -453,7 +448,13 @@ function page_project_dashboard({
 	text_muted,
 	on_open_uploader
 }: {
-	project: { name: string; datasetCount: number; annotationProgress: number; type: string; members: string[] }
+	project: {
+		name: string
+		datasetCount: number
+		annotationProgress: number
+		type: string
+		members: string[]
+	}
 	is_dark_mode: boolean
 	text_muted: string
 	on_open_uploader: () => void
@@ -493,7 +494,9 @@ function page_project_dashboard({
 					<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
 						<div className={`text-sm font-medium ${text_muted} mb-3`}>Annotation Progress</div>
 						<div className="text-2xl font-bold tracking-tight">{project.annotationProgress}%</div>
-						<div className={`mt-2 h-1.5 rounded-full overflow-hidden ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
+						<div
+							className={`mt-2 h-1.5 rounded-full overflow-hidden ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+						>
 							<div
 								className="h-full bg-blue-500 rounded-full"
 								style={{ width: `${project.annotationProgress}%` }}
@@ -602,7 +605,15 @@ function page_content({
 	is_in_project: boolean
 	is_dark_mode: boolean
 	on_open_uploader: () => void
-	active_project: { name: string; datasetCount: number; annotationProgress: number; type: string; members: string[] } | undefined
+	active_project:
+		| {
+				name: string
+				datasetCount: number
+				annotationProgress: number
+				type: string
+				members: string[]
+		  }
+		| undefined
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 
@@ -627,7 +638,12 @@ function page_content({
 			)
 		}
 		if (project_route === 'dashboard') {
-			return page_project_dashboard({ project: active_project!, is_dark_mode, text_muted, on_open_uploader })
+			return page_project_dashboard({
+				project: active_project!,
+				is_dark_mode,
+				text_muted,
+				on_open_uploader
+			})
 		}
 		return page_placeholder({
 			label: project_route.charAt(0).toUpperCase() + project_route.slice(1),
@@ -679,9 +695,7 @@ export default function app() {
 
 	const [is_l1_expanded, set_is_l1_expanded] = useState(true)
 
-	use_keyboard_shortcuts(is_authenticated, () =>
-		set_is_l1_expanded((prev) => !prev)
-	)
+	use_keyboard_shortcuts(is_authenticated, () => set_is_l1_expanded((prev) => !prev))
 
 	useEffect(() => {
 		if (!is_authenticated) return
@@ -706,10 +720,7 @@ export default function app() {
 				{ label: active_project?.name ?? 'Project' },
 				{ label: project_route.charAt(0).toUpperCase() + project_route.slice(1) }
 			]
-		: [
-				{ label: 'Workspace' },
-				{ label: app_route.charAt(0).toUpperCase() + app_route.slice(1) }
-			]
+		: [{ label: 'Workspace' }, { label: app_route.charAt(0).toUpperCase() + app_route.slice(1) }]
 
 	return (
 		<div className={`flex h-screen w-full overflow-hidden font-sans ${theme_classes}`}>
@@ -732,7 +743,7 @@ export default function app() {
 					app_route,
 					on_navigate: set_app_route,
 					on_toggle: () => set_is_l1_expanded((prev) => !prev),
-		on_leave_project: leave_project,
+					on_leave_project: leave_project,
 					on_logo_click: () => {
 						leave_project()
 						set_app_route('home')

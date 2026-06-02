@@ -28,7 +28,6 @@ export const use_navigation_store = create<NavigationState>((set) => ({
 
 	setAppRoute: (route) => set({ appRoute: route }),
 	setProjectRoute: (route) => set({ projectRoute: route }),
-	enterProject: (id, route = 'dashboard') =>
-		set({ activeProjectId: id, projectRoute: route }),
-	leaveProject: () => set({ activeProjectId: undefined, projectRoute: 'dashboard' }),
+	enterProject: (id, route = 'dashboard') => set({ activeProjectId: id, projectRoute: route }),
+	leaveProject: () => set({ activeProjectId: undefined, projectRoute: 'dashboard' })
 }))

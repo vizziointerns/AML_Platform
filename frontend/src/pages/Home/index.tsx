@@ -24,10 +24,7 @@ function stat_card({
 			<div className="flex justify-between items-start mb-3">
 				<div className={`text-sm font-medium ${text_muted}`}>{title}</div>
 				<div className={`p-2 rounded-lg ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-					<Icon
-						size={18}
-						className={is_dark_mode ? 'text-zinc-300' : 'text-zinc-600'}
-					/>
+					<Icon size={18} className={is_dark_mode ? 'text-zinc-300' : 'text-zinc-600'} />
 				</div>
 			</div>
 			<div className="text-2xl font-bold tracking-tight">{value}</div>
@@ -92,9 +89,7 @@ export default function home({ is_dark_mode }: { is_dark_mode: boolean }) {
 			<div>
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-lg font-semibold tracking-tight">Recent Projects</h2>
-					<button
-						className="flex items-center gap-1 text-sm text-blue-500 font-medium hover:text-blue-400"
-					>
+					<button className="flex items-center gap-1 text-sm text-blue-500 font-medium hover:text-blue-400">
 						View All <ChevronRight size={14} />
 					</button>
 				</div>
