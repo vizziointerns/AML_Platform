@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { use_project_store, type ProjectType } from '../../store/projectStore'
+import { use_navigation_store } from '../../store/navigationStore'
 import {
 	Search,
 	Plus,
@@ -24,6 +25,8 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 		deleteProject: delete_project,
 		duplicateProject: duplicate_project
 	} = use_project_store()
+
+	const enter_project = use_navigation_store((s) => s.enterProject)
 
 	const [view_mode, set_view_mode] = useState<'grid' | 'list'>('grid')
 	const [menu_open, set_menu_open] = useState<string | undefined>(undefined)
@@ -118,7 +121,8 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 				{filtered.map((project) => (
 					<div
 						key={project.id}
-						className={`rounded-xl border ${border_subtle} ${bg_card} p-4 hover:shadow-lg transition-shadow relative`}
+						onClick={() => enter_project(project.id)}
+						className={`rounded-xl border ${border_subtle} ${bg_card} p-4 hover:shadow-lg transition-shadow relative cursor-pointer`}
 					>
 						<div className="flex items-start justify-between mb-3">
 							<div className="flex items-center gap-3">
@@ -134,7 +138,10 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 							</div>
 							<div className="relative">
 								<button
-									onClick={() => set_menu_open(menu_open === project.id ? undefined : project.id)}
+									onClick={(e) => {
+										e.stopPropagation()
+										set_menu_open(menu_open === project.id ? undefined : project.id)
+									}}
 									className={`p-1 rounded hover:${bg_subtle}`}
 								>
 									<MoreVertical size={16} className={text_muted} />
