@@ -177,7 +177,7 @@ export default function projects_view() {
 
 						<div className="space-y-2">
 							<div className="flex justify-between text-xs ${text_muted}">
-								<span>{project.datasetCount} datasets</span>
+								<span>{project.datasetCount} images</span>
 								<span>{project.annotationProgress}% annotated</span>
 							</div>
 							<div

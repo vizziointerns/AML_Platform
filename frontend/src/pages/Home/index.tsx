@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { use_dashboard_stats } from '../../hooks/use_dashboard_stats'
 import { use_recent_projects } from '../../hooks/use_recent_projects'
-import { recent_project_card } from '../../components/RecentProjectCard'
+import { recent_project_card as RecentProjectCard } from '../../components/RecentProjectCard'
 import { Layers, ImageIcon, Users, HardDrive, Plus, ChevronRight } from 'lucide-react'
 
 function stat_card({
@@ -136,14 +136,14 @@ export default function home({
 	return (
 		<div className="space-y-8">
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-				{is_stats_loading || stats_error ? (
+				{is_stats_loading && !stats_error ? (
 					<>
 						{stat_skeleton({ is_dark_mode })}
 						{stat_skeleton({ is_dark_mode })}
 						{stat_skeleton({ is_dark_mode })}
 						{stat_skeleton({ is_dark_mode })}
 					</>
-				) : (
+				) : stats_error ? undefined : (
 					<>
 						{stat_card({
 							title: 'Total Projects',
@@ -207,13 +207,14 @@ export default function home({
 					</div>
 				) : (
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-						{recent.map((project) =>
-							recent_project_card({
-								project,
-								is_dark_mode,
-								on_click: (id) => navigate(`/projects/${id}/dashboard`)
-							})
-						)}
+						{recent.map((project) => (
+							<RecentProjectCard
+								key={project.id}
+								project={project}
+								is_dark_mode={is_dark_mode}
+								on_click={(id) => navigate(`/projects/${id}/dashboard`)}
+							/>
+						))}
 					</div>
 				)}
 			</div>

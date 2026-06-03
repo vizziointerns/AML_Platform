@@ -20,7 +20,7 @@ export function nav_button({
 				is_active
 					? 'bg-blue-600 text-white shadow-sm'
 					: 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:text-zinc-700 dark:hover:text-zinc-100'
-			} ${!is_expanded && 'justify-center px-0'}`}
+			} ${!is_expanded ? 'justify-center px-0' : ''}`}
 			title={!is_expanded ? label : undefined}
 		>
 			<Icon size={18} className={is_active ? 'text-white' : 'text-zinc-400'} />

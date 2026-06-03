@@ -16,6 +16,8 @@ const VIEW_TO_PATH: Record<AuthView, string> = {
 	invite: '/login'
 }
 
+const ROUTE_VIEWS: AuthView[] = ['login', 'signup', 'forgot']
+
 export default function auth_flow({ on_complete }: { on_complete: () => void }) {
 	const navigate = useNavigate()
 	const location = useLocation()
@@ -38,9 +40,8 @@ export default function auth_flow({ on_complete }: { on_complete: () => void }) 
 	}
 
 	useEffect(() => {
-		const expected = route_to_view
-		if (view !== expected) {
-			set_view_state(expected)
+		if (ROUTE_VIEWS.includes(view) && view !== route_to_view) {
+			set_view_state(route_to_view)
 		}
 	}, [location.pathname])
 

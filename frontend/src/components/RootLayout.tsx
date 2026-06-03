@@ -20,11 +20,18 @@ export default function root_layout() {
 	use_keyboard_shortcuts(true, () => set_is_l1_expanded((prev) => !prev))
 
 	useEffect(() => {
-		if (window.innerWidth < 1024) {
-			set_is_l1_expanded(false)
-		} else {
-			set_is_l1_expanded(!is_in_project)
+		function update_expanded() {
+			if (window.innerWidth < 1024) {
+				set_is_l1_expanded(false)
+			} else {
+				set_is_l1_expanded(!is_in_project)
+			}
 		}
+
+		update_expanded()
+
+		window.addEventListener('resize', update_expanded)
+		return () => window.removeEventListener('resize', update_expanded)
 	}, [is_in_project])
 
 	return (

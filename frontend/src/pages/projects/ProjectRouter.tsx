@@ -9,7 +9,7 @@ import WorkflowBuilder from '../WorkflowBuilder'
 import PlaceholderPage from '../../components/page_placeholder'
 
 export default function project_router() {
-	const { is_dark_mode } = use_app_context()
+	const { is_dark_mode, open_uploader } = use_app_context()
 	const params = useParams()
 	const project_id = params.projectId
 	const location = useLocation()
@@ -31,12 +31,12 @@ export default function project_router() {
 						project_dashboard({
 							project: project!,
 							is_dark_mode,
-							on_open_uploader: () => {}
+							on_open_uploader: open_uploader
 						})
 					) : sub_route === 'datasets' ? (
 						<div className="p-4 lg:p-8">
 							<div className="max-w-7xl mx-auto">
-								<DatasetsView isDarkMode={is_dark_mode} onUpload={() => {}} />
+								<DatasetsView isDarkMode={is_dark_mode} onUpload={open_uploader} />
 							</div>
 						</div>
 					) : sub_route === 'workflow' ? (

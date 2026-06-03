@@ -38,7 +38,7 @@ export function project_dashboard({
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 					<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
-						<div className={`text-sm font-medium ${text_muted} mb-3`}>Images</div>
+						<div className={`text-sm font-medium ${text_muted} mb-3`}>images</div>
 						<div className="text-2xl font-bold tracking-tight">
 							{project.datasetCount.toLocaleString()}
 						</div>
