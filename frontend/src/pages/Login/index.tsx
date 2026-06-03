@@ -14,9 +14,12 @@ export default function login({
 	set_view: (view: AuthView) => void
 	on_complete: () => void
 }) {
+	const [email, set_email] = useState('')
+	const [password, set_password] = useState('')
 	const [is_loading, set_is_loading] = useState(false)
 	const handle_login = (e: React.FormEvent) => {
 		e.preventDefault()
+		if (!email || !password) return
 		set_is_loading(true)
 		setTimeout(() => {
 			set_is_loading(false)
@@ -31,8 +34,22 @@ export default function login({
 			</div>
 			<form onSubmit={handle_login} className="space-y-4">
 				<div className="space-y-2">
-					<Input placeholder="name@company.com" type="email" icon={<Mail size={18} />} required />
-					<Input placeholder="••••••••" type="password" icon={<Lock size={18} />} required />
+					<Input
+						placeholder="name@company.com"
+						type="email"
+						icon={<Mail size={18} />}
+						required
+						value={email}
+						onChange={(e) => set_email(e.target.value)}
+					/>
+					<Input
+						placeholder="••••••••"
+						type="password"
+						icon={<Lock size={18} />}
+						required
+						value={password}
+						onChange={(e) => set_password(e.target.value)}
+					/>
 				</div>
 				<div className="flex items-center justify-between">
 					<label className="flex items-center gap-2 text-sm text-zinc-400">

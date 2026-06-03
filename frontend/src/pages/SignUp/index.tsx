@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { User, Mail, KeyRound, Lock } from 'lucide-react'
 import {
 	input_field as Input,
@@ -7,36 +8,73 @@ import {
 import type { AuthView } from '../AuthFlow/types'
 
 export default function sign_up({ set_view }: { set_view: (view: AuthView) => void }) {
+	const [full_name, set_full_name] = useState('')
+	const [email, set_email] = useState('')
+	const [password, set_password] = useState('')
+	const [confirm_password, set_confirm_password] = useState('')
+	const [is_loading, set_is_loading] = useState(false)
+	const [error, set_error] = useState('')
+
+	const handle_submit = (e: React.FormEvent) => {
+		e.preventDefault()
+		set_error('')
+		if (!full_name || !email || !password || !confirm_password) return
+		if (password !== confirm_password) {
+			set_error('Passwords do not match')
+			return
+		}
+		set_is_loading(true)
+		setTimeout(() => {
+			set_is_loading(false)
+			set_view('verify')
+		}, 1500)
+	}
+
 	return (
 		<div className="space-y-6 relative z-10">
 			<div>
 				<h2 className="text-xl font-semibold text-white mb-1">Create an account</h2>
 				<p className="text-sm text-zinc-400">Start building your computer vision pipelines</p>
 			</div>
-			<form
-				className="space-y-4"
-				onSubmit={(e) => {
-					e.preventDefault()
-					set_view('verify')
-				}}
-			>
+			<form className="space-y-4" onSubmit={handle_submit}>
 				<div className="space-y-2">
-					<Input placeholder="Full Name" type="text" icon={<User size={18} />} required />
-					<Input placeholder="Email" type="email" icon={<Mail size={18} />} required />
+					<Input
+						placeholder="Full Name"
+						type="text"
+						icon={<User size={18} />}
+						required
+						value={full_name}
+						onChange={(e) => set_full_name(e.target.value)}
+					/>
+					<Input
+						placeholder="Email"
+						type="email"
+						icon={<Mail size={18} />}
+						required
+						value={email}
+						onChange={(e) => set_email(e.target.value)}
+					/>
 					<Input
 						placeholder="Create Password"
 						type="password"
 						icon={<KeyRound size={18} />}
 						required
+						value={password}
+						onChange={(e) => set_password(e.target.value)}
 					/>
 					<Input
 						placeholder="Confirm Password"
 						type="password"
 						icon={<Lock size={18} />}
 						required
+						value={confirm_password}
+						onChange={(e) => set_confirm_password(e.target.value)}
 					/>
 				</div>
-				<Button type="submit">Create Account</Button>
+				{error && <p className="text-sm text-red-400 text-center">{error}</p>}
+				<Button type="submit" isLoading={is_loading} disabled={is_loading}>
+					Create Account
+				</Button>
 			</form>
 			<div className="relative">
 				<div className="absolute inset-0 flex items-center">
