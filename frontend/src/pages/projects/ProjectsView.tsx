@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { use_project_store, type ProjectType } from '../../store/projectStore'
-import { use_navigation_store } from '../../store/navigationStore'
+import { use_app_context } from '../../contexts/app_context'
 import {
 	Search,
 	Plus,
@@ -12,7 +13,8 @@ import {
 	Edit3
 } from 'lucide-react'
 
-export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean }) {
+export default function projects_view() {
+	const { is_dark_mode } = use_app_context()
 	const {
 		projects,
 		searchQuery: search_query,
@@ -26,7 +28,7 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 		duplicateProject: duplicate_project
 	} = use_project_store()
 
-	const enter_project = use_navigation_store((s) => s.enterProject)
+	const navigate = useNavigate()
 
 	const [view_mode, set_view_mode] = useState<'grid' | 'list'>('grid')
 	const [menu_open, set_menu_open] = useState<string | undefined>(undefined)
@@ -121,7 +123,7 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 				{filtered.map((project) => (
 					<div
 						key={project.id}
-						onClick={() => enter_project(project.id)}
+						onClick={() => navigate(`/projects/${project.id}/dashboard`)}
 						className={`rounded-xl border ${border_subtle} ${bg_card} p-4 hover:shadow-lg transition-shadow relative cursor-pointer`}
 					>
 						<div className="flex items-start justify-between mb-3">
@@ -175,7 +177,7 @@ export default function projects_view({ is_dark_mode }: { is_dark_mode: boolean 
 
 						<div className="space-y-2">
 							<div className="flex justify-between text-xs ${text_muted}">
-								<span>{project.datasetCount} datasets</span>
+								<span>{project.datasetCount} images</span>
 								<span>{project.annotationProgress}% annotated</span>
 							</div>
 							<div
