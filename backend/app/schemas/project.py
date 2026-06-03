@@ -9,5 +9,5 @@ class Project(BaseModel):
     datasetCount: int = 0
     annotationProgress: int = 0
     members: list[str] = []
-    lastUpdated: str = ""
+    lastUpdated: int = 0
     created_at: str = ""

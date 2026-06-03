@@ -21,8 +21,13 @@ def get_projects(
     from sqlalchemy import text as sql_text
 
     direction = "DESC" if order.lower() == "desc" else "ASC"
-    allowed_cols = {"lastupdated", "name", "created_at", "status"}
-    col = sort.lower() if sort.lower() in allowed_cols else "lastupdated"
+    allowed_cols = {
+        "lastupdated": '"lastUpdated"',
+        "name": "name",
+        "created_at": "created_at",
+        "status": "status",
+    }
+    col = allowed_cols.get(sort.lower(), allowed_cols["lastupdated"])
 
     stmt = sql_text(
         f'SELECT id, name, type, status, "datasetCount", "annotationProgress", '
