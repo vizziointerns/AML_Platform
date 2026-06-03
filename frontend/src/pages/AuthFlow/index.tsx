@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { Mail, ArrowRight, CheckCircle2, Box, User, Cpu, Zap, Sparkles } from 'lucide-react'
 import { input_field as Input, button_component as Button } from '../../components/ui'
@@ -6,8 +7,42 @@ import Login from '../Login'
 import SignUp from '../SignUp'
 import type { AuthView } from './types'
 
+const VIEW_TO_PATH: Record<AuthView, string> = {
+	login: '/login',
+	signup: '/signup',
+	forgot: '/forgot',
+	verify: '/login',
+	onboarding: '/login',
+	invite: '/login'
+}
+
 export default function auth_flow({ on_complete }: { on_complete: () => void }) {
-	const [view, set_view] = useState<AuthView>('login')
+	const navigate = useNavigate()
+	const location = useLocation()
+
+	const route_to_view: AuthView =
+		location.pathname === '/signup'
+			? 'signup'
+			: location.pathname === '/forgot'
+				? 'forgot'
+				: 'login'
+
+	const [view, set_view_state] = useState<AuthView>(route_to_view)
+
+	function set_view(new_view: AuthView) {
+		set_view_state(new_view)
+		const path = VIEW_TO_PATH[new_view]
+		if (path && path !== location.pathname) {
+			navigate(path, { replace: true })
+		}
+	}
+
+	useEffect(() => {
+		const expected = route_to_view
+		if (view !== expected) {
+			set_view_state(expected)
+		}
+	}, [location.pathname])
 
 	return (
 		<div className="min-h-screen w-full bg-[#09090b] flex flex-col items-center justify-center p-4 relative font-sans text-zinc-200">

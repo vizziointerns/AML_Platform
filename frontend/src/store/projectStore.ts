@@ -28,7 +28,6 @@ export interface Project {
 
 interface ProjectState {
 	projects: Project[]
-	activeProjectId: string | undefined
 	searchQuery: string
 	filterType: ProjectType | 'All'
 	sortBy: 'Updated' | 'Name' | 'Progress' | 'Oldest'
@@ -41,7 +40,6 @@ interface ProjectState {
 	updateProject: (id: string, partial: Partial<Project>) => void
 	deleteProject: (id: string) => void
 	togglePin: (id: string) => void
-	setActiveProject: (id: string | undefined) => void
 	duplicateProject: (id: string) => void
 }
 
@@ -126,7 +124,6 @@ const DUMMY_PROJECTS: Project[] = [
 
 export const use_project_store = create<ProjectState>((set) => ({
 	projects: DUMMY_PROJECTS,
-	activeProjectId: undefined,
 	searchQuery: '',
 	filterType: 'All',
 	sortBy: 'Updated',
@@ -144,16 +141,13 @@ export const use_project_store = create<ProjectState>((set) => ({
 
 	deleteProject: (id) =>
 		set((state) => ({
-			projects: state.projects.filter((p) => p.id !== id),
-			activeProjectId: state.activeProjectId === id ? undefined : state.activeProjectId
+			projects: state.projects.filter((p) => p.id !== id)
 		})),
 
 	togglePin: (id) =>
 		set((state) => ({
 			projects: state.projects.map((p) => (p.id === id ? { ...p, isPinned: !p.isPinned } : p))
 		})),
-
-	setActiveProject: (id) => set({ activeProjectId: id }),
 
 	duplicateProject: (id) =>
 		set((state) => {
