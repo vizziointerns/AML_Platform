@@ -6,7 +6,7 @@ export interface AuthContextValue {
 	user: User | undefined
 	is_loading: boolean
 	sign_in: (email: string, password: string) => Promise<{ error: AuthError | null }>
-	sign_up: (email: string, password: string) => Promise<{ error: AuthError | null }>
+	sign_up: (email: string, password: string, options?: { data?: Record<string, unknown> }) => Promise<{ error: AuthError | null }>
 	sign_out: () => Promise<void>
 }
 
@@ -19,6 +19,9 @@ export function auth_provider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
 			set_user(session?.user ?? undefined)
+		}).catch(() => {
+			set_user(undefined)
+		}).finally(() => {
 			set_is_loading(false)
 		})
 
@@ -36,8 +39,8 @@ export function auth_provider({ children }: { children: ReactNode }) {
 		return { error }
 	}
 
-	async function sign_up(email: string, password: string) {
-		const { error } = await supabase.auth.signUp({ email, password })
+	async function sign_up(email: string, password: string, options?: { data?: Record<string, unknown> }) {
+		const { error } = await supabase.auth.signUp({ email, password, options })
 		return { error }
 	}
 

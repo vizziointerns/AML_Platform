@@ -79,7 +79,7 @@ export default function auth_flow() {
 				{view === 'login' && <Login set_view={set_view} />}
 				{view === 'signup' && <SignUp set_view={set_view} on_signup={handle_signup} />}
 				{view === 'forgot' && React.createElement(forgot_view, { set_view })}
-				{view === 'verify' && React.createElement(verify_view, { set_view, email: verify_email })}
+				{view === 'verify' && React.createElement(verify_view, { email: verify_email })}
 				{view === 'onboarding' && React.createElement(onboarding_view)}
 				{view === 'invite' && React.createElement(invite_view, { set_view })}
 			</div>
@@ -147,11 +147,11 @@ function forgot_view({ set_view }: { set_view: (view: AuthView) => void }) {
 	)
 }
 
-function verify_view({ email }: { set_view: (view: AuthView) => void; email: string }) {
+function verify_view({ email }: { email: string }) {
 	const [code, set_code] = useState<string[]>(Array(6).fill(''))
 	const [is_loading, set_is_loading] = useState(false)
 	const [error, set_error] = useState('')
-	const input_refs = useRef<(HTMLInputElement | null)[]>(Array(6).fill(null))
+	const input_refs = useRef<(HTMLInputElement | null)[]>(Array(6).fill(undefined) as (HTMLInputElement | null)[])
 
 	function handle_change(index: number, value: string) {
 		if (!/^\d?$/.test(value)) return

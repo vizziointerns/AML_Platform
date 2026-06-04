@@ -34,9 +34,14 @@ export default function sign_up({
 			return
 		}
 		set_is_loading(true)
-		const { error } = await sign_up(email, password)
+		const { error } = await sign_up(email, password, { data: { full_name } })
 		if (!error) {
-			await supabase.auth.signInWithOtp({ email })
+			const { error: otp_error } = await supabase.auth.signInWithOtp({ email })
+			if (otp_error) {
+				set_error(format_auth_error(otp_error.message))
+				set_is_loading(false)
+				return
+			}
 			on_signup(email)
 			set_view('verify')
 		} else {
