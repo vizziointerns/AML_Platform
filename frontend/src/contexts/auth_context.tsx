@@ -6,7 +6,11 @@ export interface AuthContextValue {
 	user: User | undefined
 	is_loading: boolean
 	sign_in: (email: string, password: string) => Promise<{ error: AuthError | null }>
-	sign_up: (email: string, password: string, options?: { data?: Record<string, unknown> }) => Promise<{ error: AuthError | null }>
+	sign_up: (
+		email: string,
+		password: string,
+		options?: { data?: Record<string, unknown> }
+	) => Promise<{ error: AuthError | null }>
 	sign_out: () => Promise<void>
 }
 
@@ -17,13 +21,17 @@ export function auth_provider({ children }: { children: ReactNode }) {
 	const [is_loading, set_is_loading] = useState(true)
 
 	useEffect(() => {
-		supabase.auth.getSession().then(({ data: { session } }) => {
-			set_user(session?.user ?? undefined)
-		}).catch(() => {
-			set_user(undefined)
-		}).finally(() => {
-			set_is_loading(false)
-		})
+		supabase.auth
+			.getSession()
+			.then(({ data: { session } }) => {
+				set_user(session?.user ?? undefined)
+			})
+			.catch(() => {
+				set_user(undefined)
+			})
+			.finally(() => {
+				set_is_loading(false)
+			})
 
 		const {
 			data: { subscription }
@@ -39,7 +47,11 @@ export function auth_provider({ children }: { children: ReactNode }) {
 		return { error }
 	}
 
-	async function sign_up(email: string, password: string, options?: { data?: Record<string, unknown> }) {
+	async function sign_up(
+		email: string,
+		password: string,
+		options?: { data?: Record<string, unknown> }
+	) {
 		const { error } = await supabase.auth.signUp({ email, password, options })
 		return { error }
 	}

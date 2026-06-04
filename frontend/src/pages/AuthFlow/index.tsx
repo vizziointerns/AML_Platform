@@ -151,7 +151,9 @@ function verify_view({ email }: { email: string }) {
 	const [code, set_code] = useState<string[]>(Array(6).fill(''))
 	const [is_loading, set_is_loading] = useState(false)
 	const [error, set_error] = useState('')
-	const input_refs = useRef<(HTMLInputElement | null)[]>(Array(6).fill(undefined) as (HTMLInputElement | null)[])
+	const input_refs = useRef<(HTMLInputElement | null)[]>(
+		Array(6).fill(undefined) as (HTMLInputElement | null)[]
+	)
 
 	function handle_change(index: number, value: string) {
 		if (!/^\d?$/.test(value)) return
