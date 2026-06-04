@@ -9,9 +9,11 @@ import HomeShell from './pages/Home/Shell'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import ProjectRouter from './pages/projects/ProjectRouter'
 import PagePlaceholder from './components/page_placeholder'
+import { useAuth } from './contexts/auth_context'
 
 export default function app() {
-	const [is_authenticated, set_is_authenticated] = useState(false)
+	const { session, loading } = useAuth()
+	const is_authenticated = !!session
 	const [is_dark_mode, set_is_dark_mode] = useState(true)
 	const [is_mobile_menu_open, set_is_mobile_menu_open] = useState(false)
 	const [is_uploader_open, set_is_uploader_open] = useState(false)
@@ -37,6 +39,14 @@ export default function app() {
 		}
 	}, [is_dark_mode])
 
+	if (loading) {
+		return (
+			<div className={`flex h-screen w-full items-center justify-center ${theme_classes}`}>
+				<div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+			</div>
+		)
+	}
+
 	return (
 		<Routes>
 			<Route
@@ -45,7 +55,7 @@ export default function app() {
 					is_authenticated ? (
 						<Navigate to="/home" replace />
 					) : (
-						<AuthFlow on_complete={() => set_is_authenticated(true)} />
+						<AuthFlow on_complete={() => {}} />
 					)
 				}
 			/>
@@ -55,7 +65,7 @@ export default function app() {
 					is_authenticated ? (
 						<Navigate to="/home" replace />
 					) : (
-						<AuthFlow on_complete={() => set_is_authenticated(true)} />
+						<AuthFlow on_complete={() => {}} />
 					)
 				}
 			/>
@@ -65,7 +75,7 @@ export default function app() {
 					is_authenticated ? (
 						<Navigate to="/home" replace />
 					) : (
-						<AuthFlow on_complete={() => set_is_authenticated(true)} />
+						<AuthFlow on_complete={() => {}} />
 					)
 				}
 			/>

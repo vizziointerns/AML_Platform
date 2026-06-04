@@ -6,6 +6,7 @@ import {
 	social_button as SocialButton
 } from '../../components/ui'
 import type { AuthView } from '../AuthFlow/types'
+import { supabase } from '../../config/supabase'
 
 export default function sign_up({ set_view }: { set_view: (view: AuthView) => void }) {
 	const [full_name, set_full_name] = useState('')
@@ -15,7 +16,7 @@ export default function sign_up({ set_view }: { set_view: (view: AuthView) => vo
 	const [is_loading, set_is_loading] = useState(false)
 	const [error, set_error] = useState('')
 
-	const handle_submit = (e: React.FormEvent) => {
+	const handle_submit = async (e: React.FormEvent) => {
 		e.preventDefault()
 		set_error('')
 		if (!full_name || !email || !password || !confirm_password) return
@@ -24,10 +25,24 @@ export default function sign_up({ set_view }: { set_view: (view: AuthView) => vo
 			return
 		}
 		set_is_loading(true)
-		setTimeout(() => {
-			set_is_loading(false)
+		
+		const { error } = await supabase.auth.signUp({
+			email,
+			password,
+			options: {
+				data: {
+					full_name,
+				}
+			}
+		})
+
+		set_is_loading(false)
+
+		if (error) {
+			set_error(error.message)
+		} else {
 			set_view('verify')
-		}, 1500)
+		}
 	}
 
 	return (

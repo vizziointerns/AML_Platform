@@ -6,6 +6,7 @@ import {
 	social_button as SocialButton
 } from '../../components/ui'
 import type { AuthView } from '../AuthFlow/types'
+import { supabase } from '../../config/supabase'
 
 export default function login({
 	set_view,
@@ -17,14 +18,26 @@ export default function login({
 	const [email, set_email] = useState('')
 	const [password, set_password] = useState('')
 	const [is_loading, set_is_loading] = useState(false)
-	const handle_login = (e: React.FormEvent) => {
+	const [error, set_error] = useState('')
+
+	const handle_login = async (e: React.FormEvent) => {
 		e.preventDefault()
 		if (!email || !password) return
 		set_is_loading(true)
-		setTimeout(() => {
-			set_is_loading(false)
+		set_error('')
+		
+		const { error } = await supabase.auth.signInWithPassword({
+			email,
+			password,
+		})
+
+		set_is_loading(false)
+
+		if (error) {
+			set_error(error.message)
+		} else {
 			on_complete()
-		}, 1500)
+		}
 	}
 	return (
 		<div className="space-y-6 relative z-10">
@@ -51,6 +64,7 @@ export default function login({
 						onChange={(e) => set_password(e.target.value)}
 					/>
 				</div>
+				{error && <p className="text-sm text-red-400 text-center">{error}</p>}
 				<div className="flex items-center justify-between">
 					<label className="flex items-center gap-2 text-sm text-zinc-400">
 						<input

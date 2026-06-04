@@ -1,7 +1,9 @@
 import { useLocation } from 'react-router-dom'
-import { Menu, ChevronRight, Search, Sun, Moon, Bell, User } from 'lucide-react'
+import { useState } from 'react'
+import { Menu, ChevronRight, Search, Sun, Moon, Bell, User, LogOut } from 'lucide-react'
 import { use_project_store } from '../store/projectStore'
 import { use_app_context } from '../contexts/app_context'
+import { useAuth } from '../contexts/auth_context'
 
 function build_breadcrumbs(
 	path_parts: string[],
@@ -18,6 +20,8 @@ function build_breadcrumbs(
 
 export function header_content() {
 	const { is_dark_mode, toggle_theme, open_mobile_menu } = use_app_context()
+	const { user, signOut } = useAuth()
+	const [is_profile_open, set_is_profile_open] = useState(false)
 	const location = useLocation()
 	const path_parts = location.pathname.split('/').filter(Boolean)
 	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
@@ -101,11 +105,53 @@ export function header_content() {
 
 				<div className="w-px h-6 bg-zinc-800 mx-1 hidden sm:block" />
 
-				<button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-					<div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white border-2 border-zinc-950 shadow-sm">
-						<User size={14} />
-					</div>
-				</button>
+				<div className="relative">
+					<button 
+						className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+						onClick={() => set_is_profile_open(!is_profile_open)}
+					>
+						<div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white border-2 border-zinc-950 shadow-sm">
+							<User size={14} />
+						</div>
+					</button>
+
+					{is_profile_open && (
+						<>
+							<div 
+								className="fixed inset-0 z-40" 
+								onClick={() => set_is_profile_open(false)}
+							/>
+							<div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg z-50 border py-1 ${
+								is_dark_mode 
+									? 'bg-zinc-900 border-zinc-800' 
+									: 'bg-white border-zinc-200'
+							}`}>
+								<div className="px-4 py-2 border-b border-zinc-800/50 mb-1">
+									<p className={`text-sm truncate ${is_dark_mode ? 'text-white' : 'text-zinc-900'}`}>
+										{user?.user_metadata?.full_name || 'User'}
+									</p>
+									<p className="text-xs text-zinc-500 truncate">
+										{user?.email}
+									</p>
+								</div>
+								<button
+									onClick={() => {
+										set_is_profile_open(false)
+										signOut()
+									}}
+									className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
+										is_dark_mode 
+											? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' 
+											: 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
+									}`}
+								>
+									<LogOut size={14} />
+									Sign Out
+								</button>
+							</div>
+						</>
+					)}
+				</div>
 			</div>
 		</header>
 	)
