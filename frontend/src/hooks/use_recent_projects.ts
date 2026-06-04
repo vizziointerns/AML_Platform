@@ -49,6 +49,8 @@ export function use_recent_projects(limit = 4): UseRecentProjectsResult {
 
 	useEffect(() => {
 		if (!user) {
+			set_projects([])
+			set_error(undefined)
 			set_is_loading(false)
 			return
 		}

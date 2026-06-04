@@ -23,6 +23,8 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 
 	useEffect(() => {
 		if (!user) {
+			set_stats(undefined)
+			set_error(undefined)
 			set_is_loading(false)
 			return
 		}
