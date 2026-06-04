@@ -5,26 +5,26 @@ import {
 	button_component as Button,
 	social_button as SocialButton
 } from '../../components/ui'
+import { use_auth } from '../../contexts/auth_context'
+import { format_auth_error } from '../../utils/auth_errors'
 import type { AuthView } from '../AuthFlow/types'
 
-export default function login({
-	set_view,
-	on_complete
-}: {
-	set_view: (view: AuthView) => void
-	on_complete: () => void
-}) {
+export default function login({ set_view }: { set_view: (view: AuthView) => void }) {
+	const { sign_in } = use_auth()
 	const [email, set_email] = useState('')
 	const [password, set_password] = useState('')
 	const [is_loading, set_is_loading] = useState(false)
-	const handle_login = (e: React.FormEvent) => {
+	const [error, set_error] = useState('')
+	const handle_login = async (e: React.FormEvent) => {
 		e.preventDefault()
+		set_error('')
 		if (!email || !password) return
 		set_is_loading(true)
-		setTimeout(() => {
-			set_is_loading(false)
-			on_complete()
-		}, 1500)
+		const { error } = await sign_in(email, password)
+		set_is_loading(false)
+		if (error) {
+			set_error(format_auth_error(error.message))
+		}
 	}
 	return (
 		<div className="space-y-6 relative z-10">
@@ -51,6 +51,7 @@ export default function login({
 						onChange={(e) => set_password(e.target.value)}
 					/>
 				</div>
+				{error && <p className="text-sm text-red-400 text-center">{error}</p>}
 				<div className="flex items-center justify-between">
 					<label className="flex items-center gap-2 text-sm text-zinc-400">
 						<input

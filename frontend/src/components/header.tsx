@@ -1,7 +1,9 @@
+import { useState, useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Menu, ChevronRight, Search, Sun, Moon, Bell, User } from 'lucide-react'
+import { Menu, ChevronRight, Search, Sun, Moon, Bell, User, LogOut } from 'lucide-react'
 import { use_project_store } from '../store/projectStore'
 import { use_app_context } from '../contexts/app_context'
+import { use_auth } from '../contexts/auth_context'
 
 function build_breadcrumbs(
 	path_parts: string[],
@@ -18,6 +20,9 @@ function build_breadcrumbs(
 
 export function header_content() {
 	const { is_dark_mode, toggle_theme, open_mobile_menu } = use_app_context()
+	const { sign_out } = use_auth()
+	const [is_menu_open, set_is_menu_open] = useState(false)
+	const menu_ref = useRef<HTMLDivElement>(undefined)
 	const location = useLocation()
 	const path_parts = location.pathname.split('/').filter(Boolean)
 	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
@@ -26,6 +31,16 @@ export function header_content() {
 	const project = project_id ? projects.find((p) => p.id === project_id) : undefined
 
 	const breadcrumbs = build_breadcrumbs(path_parts, project?.name)
+
+	useEffect(() => {
+		function handle_click_outside(e: MouseEvent) {
+			if (menu_ref.current && !menu_ref.current.contains(e.target as Node)) {
+				set_is_menu_open(false)
+			}
+		}
+		document.addEventListener('mousedown', handle_click_outside)
+		return () => document.removeEventListener('mousedown', handle_click_outside)
+	}, [])
 
 	const header_classes = is_dark_mode
 		? 'bg-zinc-950/80 border-zinc-800'
@@ -101,11 +116,39 @@ export function header_content() {
 
 				<div className="w-px h-6 bg-zinc-800 mx-1 hidden sm:block" />
 
-				<button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-					<div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white border-2 border-zinc-950 shadow-sm">
-						<User size={14} />
-					</div>
-				</button>
+				<div ref={menu_ref} className="relative">
+					<button
+						onClick={() => set_is_menu_open(!is_menu_open)}
+						className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+					>
+						<div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white border-2 border-zinc-950 shadow-sm">
+							<User size={14} />
+						</div>
+					</button>
+
+					{is_menu_open && (
+						<div
+							className={`absolute right-0 mt-2 w-48 rounded-xl border shadow-xl overflow-hidden z-50 ${
+								is_dark_mode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
+							}`}
+						>
+							<button
+								onClick={() => {
+									sign_out()
+									set_is_menu_open(false)
+								}}
+								className={`flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
+									is_dark_mode
+										? 'text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50'
+										: 'text-zinc-600 hover:text-red-600 hover:bg-zinc-100'
+								}`}
+							>
+								<LogOut size={16} />
+								Sign Out
+							</button>
+						</div>
+					)}
+				</div>
 			</div>
 		</header>
 	)
