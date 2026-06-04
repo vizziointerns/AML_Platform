@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Menu, ChevronRight, Search, Sun, Moon, Bell, User, LogOut } from 'lucide-react'
 import { use_project_store } from '../store/projectStore'
@@ -22,7 +22,10 @@ export function header_content() {
 	const { is_dark_mode, toggle_theme, open_mobile_menu } = use_app_context()
 	const { sign_out } = use_auth()
 	const [is_menu_open, set_is_menu_open] = useState(false)
-	const menu_ref = useRef<HTMLDivElement>(undefined)
+	const [menu_el, set_menu_el] = useState<HTMLDivElement | undefined>(undefined)
+	const menu_ref = useCallback((el: HTMLDivElement | null) => {
+		set_menu_el(el ?? undefined)
+	}, [])
 	const location = useLocation()
 	const path_parts = location.pathname.split('/').filter(Boolean)
 	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
@@ -34,13 +37,13 @@ export function header_content() {
 
 	useEffect(() => {
 		function handle_click_outside(e: MouseEvent) {
-			if (menu_ref.current && !menu_ref.current.contains(e.target as Node)) {
+			if (menu_el && !menu_el.contains(e.target as Node)) {
 				set_is_menu_open(false)
 			}
 		}
 		document.addEventListener('mousedown', handle_click_outside)
 		return () => document.removeEventListener('mousedown', handle_click_outside)
-	}, [])
+	}, [menu_el])
 
 	const header_classes = is_dark_mode
 		? 'bg-zinc-950/80 border-zinc-800'
