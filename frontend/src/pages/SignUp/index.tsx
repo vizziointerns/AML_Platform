@@ -5,9 +5,19 @@ import {
 	button_component as Button,
 	social_button as SocialButton
 } from '../../components/ui'
+import { supabase } from '../../utils/supabase'
+import { use_auth } from '../../contexts/auth_context'
+import { format_auth_error } from '../../utils/auth_errors'
 import type { AuthView } from '../AuthFlow/types'
 
-export default function sign_up({ set_view }: { set_view: (view: AuthView) => void }) {
+export default function sign_up({
+	set_view,
+	on_signup
+}: {
+	set_view: (view: AuthView) => void
+	on_signup: (email: string) => void
+}) {
+	const { sign_up } = use_auth()
 	const [full_name, set_full_name] = useState('')
 	const [email, set_email] = useState('')
 	const [password, set_password] = useState('')
@@ -15,7 +25,7 @@ export default function sign_up({ set_view }: { set_view: (view: AuthView) => vo
 	const [is_loading, set_is_loading] = useState(false)
 	const [error, set_error] = useState('')
 
-	const handle_submit = (e: React.FormEvent) => {
+	const handle_submit = async (e: React.FormEvent) => {
 		e.preventDefault()
 		set_error('')
 		if (!full_name || !email || !password || !confirm_password) return
@@ -24,10 +34,20 @@ export default function sign_up({ set_view }: { set_view: (view: AuthView) => vo
 			return
 		}
 		set_is_loading(true)
-		setTimeout(() => {
-			set_is_loading(false)
+		const { error } = await sign_up(email, password, { data: { full_name } })
+		if (!error) {
+			const { error: otp_error } = await supabase.auth.signInWithOtp({ email })
+			if (otp_error) {
+				set_error(format_auth_error(otp_error.message))
+				set_is_loading(false)
+				return
+			}
+			on_signup(email)
 			set_view('verify')
-		}, 1500)
+		} else {
+			set_error(format_auth_error(error.message))
+		}
+		set_is_loading(false)
 	}
 
 	return (

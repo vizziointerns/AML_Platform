@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AuthFlow from './pages/AuthFlow'
 import Uploader from './components/Uploader'
 import { APP_CONTEXT } from './contexts/app_context'
 import type { AppContextValue } from './contexts/app_context'
+import { auth_provider as AuthProvider, use_auth } from './contexts/auth_context'
 import RootLayout from './components/RootLayout'
 import HomeShell from './pages/Home/Shell'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import ProjectRouter from './pages/projects/ProjectRouter'
 import PagePlaceholder from './components/page_placeholder'
 
-export default function app() {
-	const [is_authenticated, set_is_authenticated] = useState(false)
+function app_content() {
+	const { user, is_loading } = use_auth()
 	const [is_dark_mode, set_is_dark_mode] = useState(true)
 	const [is_mobile_menu_open, set_is_mobile_menu_open] = useState(false)
 	const [is_uploader_open, set_is_uploader_open] = useState(false)
@@ -37,42 +38,23 @@ export default function app() {
 		}
 	}, [is_dark_mode])
 
+	if (is_loading) {
+		return (
+			<div className="h-screen w-full bg-[#09090b] flex items-center justify-center">
+				<div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500" />
+			</div>
+		)
+	}
+
 	return (
 		<Routes>
-			<Route
-				path="/login"
-				element={
-					is_authenticated ? (
-						<Navigate to="/home" replace />
-					) : (
-						<AuthFlow on_complete={() => set_is_authenticated(true)} />
-					)
-				}
-			/>
-			<Route
-				path="/signup"
-				element={
-					is_authenticated ? (
-						<Navigate to="/home" replace />
-					) : (
-						<AuthFlow on_complete={() => set_is_authenticated(true)} />
-					)
-				}
-			/>
-			<Route
-				path="/forgot"
-				element={
-					is_authenticated ? (
-						<Navigate to="/home" replace />
-					) : (
-						<AuthFlow on_complete={() => set_is_authenticated(true)} />
-					)
-				}
-			/>
+			<Route path="/login" element={user ? <Navigate to="/home" replace /> : <AuthFlow />} />
+			<Route path="/signup" element={user ? <Navigate to="/home" replace /> : <AuthFlow />} />
+			<Route path="/forgot" element={user ? <Navigate to="/home" replace /> : <AuthFlow />} />
 			<Route
 				path="/*"
 				element={
-					is_authenticated ? (
+					user ? (
 						<APP_CONTEXT.Provider value={context_value}>
 							<div className={`flex h-screen w-full overflow-hidden font-sans ${theme_classes}`}>
 								<Routes>
@@ -114,4 +96,8 @@ export default function app() {
 			/>
 		</Routes>
 	)
+}
+
+export default function app() {
+	return <AuthProvider>{React.createElement(app_content)}</AuthProvider>
 }
