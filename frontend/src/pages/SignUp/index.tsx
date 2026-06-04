@@ -25,13 +25,13 @@ export default function sign_up({ set_view }: { set_view: (view: AuthView) => vo
 			return
 		}
 		set_is_loading(true)
-		
+
 		const { error } = await supabase.auth.signUp({
 			email,
 			password,
 			options: {
 				data: {
-					full_name,
+					full_name
 				}
 			}
 		})

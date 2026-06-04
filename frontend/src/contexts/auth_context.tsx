@@ -3,55 +3,55 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../config/supabase'
 
 interface AuthContextType {
-  session: Session | null
-  user: User | null
-  loading: boolean
-  signOut: () => Promise<void>
+	session: Session | undefined
+	user: User | undefined
+	is_loading: boolean
+	sign_out: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType>({
-  session: null,
-  user: null,
-  loading: true,
-  signOut: async () => {},
+const auth_context = createContext<AuthContextType>({
+	session: undefined,
+	user: undefined,
+	is_loading: true,
+	sign_out: async () => {}
 })
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [session, setSession] = useState<Session | null>(null)
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+export const auth_provider = ({ children }: { children: React.ReactNode }) => {
+	const [session, set_session] = useState<Session | undefined>(undefined)
+	const [user, set_user] = useState<User | undefined>(undefined)
+	const [is_loading, set_is_loading] = useState(true)
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+	useEffect(() => {
+		// Get initial session
+		supabase.auth.getSession().then(({ data: { session } }) => {
+			set_session(session || undefined)
+			set_user(session?.user || undefined)
+			set_is_loading(false)
+		})
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+		// Listen for auth changes
+		const {
+			data: { subscription }
+		} = supabase.auth.onAuthStateChange((_event, session) => {
+			set_session(session || undefined)
+			set_user(session?.user || undefined)
+			set_is_loading(false)
+		})
 
-    return () => subscription.unsubscribe()
-  }, [])
+		return () => subscription.unsubscribe()
+	}, [])
 
-  const signOut = async () => {
-    await supabase.auth.signOut()
-  }
+	const sign_out = async () => {
+		await supabase.auth.signOut()
+	}
 
-  return (
-    <AuthContext.Provider value={{ session, user, loading, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  )
+	return (
+		<auth_context.Provider value={{ session, user, is_loading, sign_out }}>
+			{children}
+		</auth_context.Provider>
+	)
 }
 
-export const useAuth = () => {
-  return useContext(AuthContext)
+export const use_auth = () => {
+	return useContext(auth_context)
 }

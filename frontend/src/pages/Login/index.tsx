@@ -25,10 +25,10 @@ export default function login({
 		if (!email || !password) return
 		set_is_loading(true)
 		set_error('')
-		
+
 		const { error } = await supabase.auth.signInWithPassword({
 			email,
-			password,
+			password
 		})
 
 		set_is_loading(false)
