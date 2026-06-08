@@ -114,10 +114,12 @@ function format_count(n: number): string {
 
 export default function home({
 	is_dark_mode,
-	on_open_uploader
+	on_open_uploader,
+	on_open_new_project
 }: {
 	is_dark_mode: boolean
 	on_open_uploader?: () => void
+	on_open_new_project?: () => void
 }) {
 	const navigate = useNavigate()
 
@@ -222,7 +224,10 @@ export default function home({
 			<div className={`rounded-xl border ${card_classes} p-5`}>
 				<h3 className="font-semibold text-base tracking-tight mb-4">Quick Actions</h3>
 				<div className="flex flex-wrap gap-3">
-					<button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+					<button
+						onClick={on_open_new_project}
+						className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+					>
 						<Plus size={16} /> New Project
 					</button>
 					<button

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AuthFlow from './pages/AuthFlow'
 import Uploader from './components/Uploader'
+import NewProjectDialog from './components/NewProjectDialog'
 import { APP_CONTEXT } from './contexts/app_context'
 import type { AppContextValue } from './contexts/app_context'
 import { auth_provider as AuthProvider, use_auth } from './contexts/auth_context'
@@ -16,6 +17,7 @@ function app_content() {
 	const [is_dark_mode, set_is_dark_mode] = useState(true)
 	const [is_mobile_menu_open, set_is_mobile_menu_open] = useState(false)
 	const [is_uploader_open, set_is_uploader_open] = useState(false)
+	const [is_new_project_open, set_is_new_project_open] = useState(false)
 
 	const theme_classes = is_dark_mode
 		? 'bg-[#09090b] text-zinc-200 selection:bg-blue-500/30'
@@ -25,6 +27,7 @@ function app_content() {
 		is_dark_mode,
 		toggle_theme: () => set_is_dark_mode((prev) => !prev),
 		open_uploader: () => set_is_uploader_open(true),
+		open_new_project: () => set_is_new_project_open(true),
 		is_mobile_menu_open,
 		open_mobile_menu: () => set_is_mobile_menu_open(true),
 		close_mobile_menu: () => set_is_mobile_menu_open(false)
@@ -72,6 +75,12 @@ function app_content() {
 							<Uploader
 								isOpen={is_uploader_open}
 								on_close={() => set_is_uploader_open(false)}
+								is_dark_mode={is_dark_mode}
+							/>
+
+							<NewProjectDialog
+								isOpen={is_new_project_open}
+								on_close={() => set_is_new_project_open(false)}
 								is_dark_mode={is_dark_mode}
 							/>
 
