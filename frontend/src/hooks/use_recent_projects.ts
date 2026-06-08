@@ -1,44 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase'
 import { use_auth } from '../contexts/auth_context'
-import type { Project, ProjectType, ProjectStatus } from '../store/projectStore'
+import { map_project } from '../utils/project_mapping'
+import type { Project } from '../store/projectStore'
 
 export interface UseRecentProjectsResult {
 	projects: Project[]
 	is_loading: boolean
 	error: string | undefined
-}
-
-interface DbProject {
-	id: string
-	name: string
-	description: string
-	type: string
-	status: string
-	dataset_count: number
-	annotation_progress: number
-	members: string[]
-	last_updated: number
-	is_pinned: boolean
-	is_favorite: boolean
-	thumbnail: string
-}
-
-function map_project(db: DbProject): Project {
-	return {
-		id: db.id,
-		name: db.name,
-		description: db.description,
-		type: db.type as ProjectType,
-		status: db.status as ProjectStatus,
-		datasetCount: db.dataset_count,
-		annotationProgress: db.annotation_progress,
-		members: db.members ?? [],
-		lastUpdated: db.last_updated,
-		isPinned: db.is_pinned,
-		isFavorite: db.is_favorite,
-		thumbnail: db.thumbnail ?? ''
-	}
 }
 
 export function use_recent_projects(limit = 4): UseRecentProjectsResult {
