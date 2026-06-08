@@ -2,39 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../utils/supabase'
 import { use_auth } from '../contexts/auth_context'
 import { use_project_store } from '../store/projectStore'
-import type { Project, ProjectType, ProjectStatus } from '../store/projectStore'
-
-interface DbProject {
-	id: string
-	name: string
-	description: string
-	type: string
-	status: string
-	dataset_count: number
-	annotation_progress: number
-	members: string[]
-	last_updated: number
-	is_pinned: boolean
-	is_favorite: boolean
-	thumbnail: string
-}
-
-function map_project(db: DbProject): Project {
-	return {
-		id: db.id,
-		name: db.name,
-		description: db.description,
-		type: db.type as ProjectType,
-		status: db.status as ProjectStatus,
-		datasetCount: db.dataset_count,
-		annotationProgress: db.annotation_progress,
-		members: db.members ?? [],
-		lastUpdated: db.last_updated,
-		isPinned: db.is_pinned,
-		isFavorite: db.is_favorite,
-		thumbnail: db.thumbnail ?? ''
-	}
-}
+import { map_project } from '../utils/project_mapping'
 
 export function use_projects() {
 	const { user } = use_auth()

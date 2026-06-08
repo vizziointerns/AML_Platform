@@ -102,7 +102,7 @@ export default function projects_view() {
 					<option value="Progress">Progress</option>
 					<option value="Oldest">Oldest</option>
 				</select>
-				<div className="flex border rounded-lg overflow-hidden">
+				<div className={`flex ${border_subtle} rounded-lg overflow-hidden`}>
 					<button
 						onClick={() => set_view_mode('grid')}
 						className={`px-3 py-2 ${view_mode === 'grid' ? 'bg-blue-600 text-white' : text_muted}`}

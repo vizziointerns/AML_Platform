@@ -4,45 +4,14 @@ import { supabase } from '../../utils/supabase'
 import { use_auth } from '../../contexts/auth_context'
 import { project_sidebar as ProjectSidebar } from '../../components/Sidebar/project_sidebar'
 import { use_project_store } from '../../store/projectStore'
-import type { Project, ProjectType, ProjectStatus } from '../../store/projectStore'
+import { map_project, type DbProject } from '../../utils/project_mapping'
+import type { Project } from '../../store/projectStore'
 import { use_app_context } from '../../contexts/app_context'
 import { project_dashboard } from '../ProjectDashboard'
 import DatasetsView from '../DatasetsView'
 import AnnotationStudio from '../AnnotationStudio'
 import WorkflowBuilder from '../WorkflowBuilder'
 import PlaceholderPage from '../../components/page_placeholder'
-
-interface DbProject {
-	id: string
-	name: string
-	description: string
-	type: string
-	status: string
-	dataset_count: number
-	annotation_progress: number
-	members: string[]
-	last_updated: number
-	is_pinned: boolean
-	is_favorite: boolean
-	thumbnail: string
-}
-
-function map_project(db: DbProject): Project {
-	return {
-		id: db.id,
-		name: db.name,
-		description: db.description,
-		type: db.type as ProjectType,
-		status: db.status as ProjectStatus,
-		datasetCount: db.dataset_count,
-		annotationProgress: db.annotation_progress,
-		members: db.members ?? [],
-		lastUpdated: db.last_updated,
-		isPinned: db.is_pinned,
-		isFavorite: db.is_favorite,
-		thumbnail: db.thumbnail ?? ''
-	}
-}
 
 export default function project_router() {
 	const { is_dark_mode, open_uploader } = use_app_context()
@@ -54,15 +23,19 @@ export default function project_router() {
 	const [project, set_project] = useState<Project | undefined>(
 		projects.find((p) => p.id === project_id)
 	)
+	const [project_error, set_project_error] = useState<string | undefined>()
 
 	useEffect(() => {
 		const from_store = projects.find((p) => p.id === project_id)
 		if (from_store) {
 			set_project(from_store)
+			set_project_error(undefined)
 			return
 		}
 
 		if (!user || !project_id) return
+
+		let is_current = true
 
 		supabase
 			.from('projects')
@@ -71,11 +44,24 @@ export default function project_router() {
 			.eq('user_id', user.id)
 			.single()
 			.then(({ data, error: err }) => {
-				if (!err && data) {
+				if (!is_current) return
+
+				if (err) {
+					console.error('Project fetch error:', err)
+					set_project_error(err.message)
+					return
+				}
+
+				if (data) {
 					const mapped = map_project(data as DbProject)
 					set_project(mapped)
+					set_project_error(undefined)
 				}
 			})
+
+		return () => {
+			is_current = false
+		}
 	}, [project_id, user, projects])
 
 	const sub_route = location.pathname.split('/').filter(Boolean).pop() ?? 'dashboard'
@@ -87,7 +73,11 @@ export default function project_router() {
 
 			<main className="flex flex-col flex-1 min-w-0">
 				<div className={is_annotation ? 'flex-1' : 'flex-1 overflow-y-auto'}>
-					{is_annotation ? (
+					{project_error ? (
+						<div className="flex items-center justify-center h-full">
+							<p className="text-sm text-red-500">{project_error}</p>
+						</div>
+					) : is_annotation ? (
 						<AnnotationStudio isDarkMode={is_dark_mode} />
 					) : sub_route === 'dashboard' ? (
 						project ? (
