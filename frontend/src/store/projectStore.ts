@@ -33,6 +33,7 @@ interface ProjectState {
 	sortBy: 'Updated' | 'Name' | 'Progress' | 'Oldest'
 
 	// Actions
+	setProjects: (projects: Project[]) => void
 	setSearchQuery: (query: string) => void
 	setFilterType: (type: ProjectType | 'All') => void
 	setSortBy: (sort: 'Updated' | 'Name' | 'Progress' | 'Oldest') => void
@@ -43,91 +44,13 @@ interface ProjectState {
 	duplicateProject: (id: string) => void
 }
 
-// Generate some dummy data
-const DUMMY_PROJECTS: Project[] = [
-	{
-		id: 'p1',
-		name: 'Autonomous Driving Pedestrians',
-		description: 'Detecting pedestrians in urban environments from dashboard cameras.',
-		type: 'Object Detection',
-		datasetCount: 15420,
-		annotationProgress: 76,
-		members: ['Alex', 'Sam', 'Jo', 'Dana'],
-		lastUpdated: Date.now() - 1000 * 60 * 60 * 2, // 2 hours ago
-		status: 'Active',
-		isPinned: true,
-		isFavorite: false,
-		thumbnail:
-			'https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&q=80&w=400'
-	},
-	{
-		id: 'p2',
-		name: 'Medical MRI Segmentation',
-		description: 'semantic segmentation of brain tumors in MRI scans.',
-		type: 'Semantic Segmentation',
-		datasetCount: 4200,
-		annotationProgress: 42,
-		members: ['Dr. Smith', 'Sam'],
-		lastUpdated: Date.now() - 1000 * 60 * 60 * 24 * 3, // 3 days ago
-		status: 'Active',
-		isPinned: true,
-		isFavorite: true,
-		thumbnail:
-			'https://images.unsplash.com/photo-1530497610245-94d3c16cda28?auto=format&fit=crop&q=80&w=400'
-	},
-	{
-		id: 'p3',
-		name: 'Retail Shelf Inventory',
-		description: 'Instance segmentation for products on retail shelves.',
-		type: 'Instance Segmentation',
-		datasetCount: 890,
-		annotationProgress: 100,
-		members: ['Jo'],
-		lastUpdated: Date.now() - 1000 * 60 * 60 * 24 * 10,
-		status: 'Completed',
-		isPinned: false,
-		isFavorite: false,
-		thumbnail:
-			'https://images.unsplash.com/photo-1588636400584-6997092c4cd7?auto=format&fit=crop&q=80&w=400'
-	},
-	{
-		id: 'p4',
-		name: 'Receipt OCR Extracts',
-		description: 'Text extraction from scanned receipts and invoices.',
-		type: 'OCR',
-		datasetCount: 85000,
-		annotationProgress: 12,
-		members: ['Alex', 'Dana'],
-		lastUpdated: Date.now() - 1000 * 60 * 45, // 45 mins ago
-		status: 'Active',
-		isPinned: false,
-		isFavorite: false,
-		thumbnail:
-			'https://images.unsplash.com/photo-1554224155-8d04cb21cdf4?auto=format&fit=crop&q=80&w=400'
-	},
-	{
-		id: 'p5',
-		name: 'Satellite Deforestation Tracking',
-		description: 'Tracking changes in forest cover using semantic segmentation.',
-		type: 'Semantic Segmentation',
-		datasetCount: 3200,
-		annotationProgress: 5,
-		members: ['Jo', 'Sam', 'Dana', 'Alex', 'Dr. Green'],
-		lastUpdated: Date.now() - 1000 * 60 * 60 * 24 * 1,
-		status: 'Draft',
-		isPinned: false,
-		isFavorite: false,
-		thumbnail:
-			'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=400'
-	}
-]
-
 export const use_project_store = create<ProjectState>((set) => ({
-	projects: DUMMY_PROJECTS,
+	projects: [],
 	searchQuery: '',
 	filterType: 'All',
 	sortBy: 'Updated',
 
+	setProjects: (projects) => set({ projects }),
 	setSearchQuery: (query) => set({ searchQuery: query }),
 	setFilterType: (type) => set({ filterType: type }),
 	setSortBy: (sort) => set({ sortBy: sort }),
