@@ -35,7 +35,9 @@ async function simulate_chunk_upload(
 	for (let chunk = 0; chunk < total_chunks; chunk++) {
 		if (controller.signal.aborted) return
 
-		if (file.progress > 40 && file.progress < 60 && Math.random() < 0.05) {
+		const progress = Math.min(100, ((chunk + 1) / total_chunks) * 100)
+
+		if (progress > 40 && progress < 60 && Math.random() < 0.05) {
 			throw new Error('Network timeout during chunk sequence.')
 		}
 
@@ -43,7 +45,6 @@ async function simulate_chunk_upload(
 
 		if (controller.signal.aborted) return
 
-		const progress = Math.min(100, ((chunk + 1) / total_chunks) * 100)
 		const loaded = Math.floor((progress / 100) * file.size)
 		callbacks.on_progress(progress, loaded, file.size)
 	}

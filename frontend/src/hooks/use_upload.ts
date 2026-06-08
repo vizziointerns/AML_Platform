@@ -31,7 +31,7 @@ export function use_upload(on_close: () => void) {
 				preview_url = URL.createObjectURL(f)
 			}
 			return {
-				id: Math.random().toString(36).substring(7),
+				id: crypto.randomUUID(),
 				file: f,
 				name: f.name,
 				size: f.size,
@@ -85,7 +85,7 @@ export function use_upload(on_close: () => void) {
 		[process_files]
 	)
 
-	const start_upload = useCallback(() => {
+	const start_upload = useCallback(async () => {
 		const pending_files = files.filter((f) => f.status === 'pending')
 		if (pending_files.length === 0) return
 
@@ -93,7 +93,7 @@ export function use_upload(on_close: () => void) {
 			prev.map((f) => (f.status === 'pending' ? { ...f, status: 'uploading' } : f))
 		)
 
-		for (const file of pending_files) {
+		const uploads = pending_files.map((file) =>
 			upload_file(file, target_dataset, {
 				on_progress: (progress, loaded, total) => {
 					set_files((prev) =>
@@ -122,55 +122,57 @@ export function use_upload(on_close: () => void) {
 					)
 				}
 			})
-		}
+		)
+
+		await Promise.allSettled(uploads)
 	}, [files, target_dataset])
 
 	const retry_upload = useCallback(
 		(id: string) => {
-			set_files((prev) =>
-				prev.map((f) =>
+			let file_to_upload: UploadFile | undefined
+			set_files((prev) => {
+				const found = prev.find((f) => f.id === id)
+				if (found) {
+					file_to_upload = { ...found, status: 'uploading', progress: 0, error: undefined }
+				}
+				return prev.map((f) =>
 					f.id === id
 						? { ...f, status: 'uploading', error: undefined, progress: 0, chunkProgress: undefined }
 						: f
 				)
-			)
-			const file = files.find((f) => f.id === id)
-			if (file) {
-				upload_file(
-					{ ...file, status: 'uploading', progress: 0, error: undefined },
-					target_dataset,
-					{
-						on_progress: (progress, loaded, total) => {
-							set_files((prev) =>
-								prev.map((f) =>
-									f.id === id ? { ...f, progress, chunkProgress: { loaded, total } } : f
-								)
+			})
+			if (file_to_upload) {
+				upload_file(file_to_upload, target_dataset, {
+					on_progress: (progress, loaded, total) => {
+						set_files((prev) =>
+							prev.map((f) =>
+								f.id === id ? { ...f, progress, chunkProgress: { loaded, total } } : f
 							)
-						},
-						on_complete: () => {
-							set_files((prev) =>
-								prev.map((f) =>
-									f.id === id
-										? {
-												...f,
-												progress: 100,
-												status: 'success',
-												chunkProgress: { loaded: f.size, total: f.size }
-											}
-										: f
-								)
+						)
+					},
+					on_complete: () => {
+						set_files((prev) =>
+							prev.map((f) =>
+								f.id === id
+									? {
+											...f,
+											progress: 100,
+											status: 'success',
+											chunkProgress: { loaded: f.size, total: f.size }
+										}
+									: f
 							)
-						},
-						on_error: (error) => {
-							set_files((prev) =>
-								prev.map((f) => (f.id === id ? { ...f, status: 'error', error } : f))
-							)
-						}
+						)
+					},
+					on_error: (error) => {
+						set_files((prev) =>
+							prev.map((f) => (f.id === id ? { ...f, status: 'error', error } : f))
+						)
 					}
-				)
+				})
 			}
 		},
-		[files, target_dataset]
+		[target_dataset]
 	)
 
 	const remove_file = useCallback((id: string) => {

@@ -17,6 +17,38 @@ const PROJECT_TYPES: ProjectType[] = [
 	'3D Vision'
 ]
 
+async function save_to_supabase(
+	project_id: string,
+	user_id: string,
+	name_val: string,
+	desc_val: string,
+	type_val: string
+): Promise<string | undefined> {
+	const { error: db_error } = await supabase.from('projects').insert({
+		id: project_id,
+		user_id,
+		name: name_val,
+		description: desc_val,
+		type: type_val,
+		status: 'Active',
+		dataset_count: 0,
+		annotation_progress: 0,
+		members: [],
+		last_updated: Date.now(),
+		is_pinned: false,
+		is_favorite: false,
+		thumbnail: ''
+	})
+	if (!db_error) return undefined
+	if (
+		db_error.message?.includes('does not exist') ||
+		db_error.message?.includes('Could not find the table')
+	) {
+		return undefined
+	}
+	return db_error.message
+}
+
 export default function new_project_dialog({
 	isOpen,
 	on_close,
@@ -34,14 +66,22 @@ export default function new_project_dialog({
 	const [type, set_type] = useState<ProjectType>('Object Detection')
 	const [name_error, set_name_error] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
+	const [auth_error, set_auth_error] = useState('')
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
+	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
 	if (!isOpen) return undefined
+
+	const auth_alert = auth_error ? (
+		<div className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+			{auth_error}
+		</div>
+	) : undefined
 
 	async function handle_submit() {
 		const trimmed = name.trim()
@@ -50,7 +90,10 @@ export default function new_project_dialog({
 			return
 		}
 
-		if (!user) return
+		if (!user) {
+			set_auth_error('You must be signed in to create a project.')
+			return
+		}
 		set_is_saving(true)
 
 		const id = crypto.randomUUID()
@@ -69,33 +112,11 @@ export default function new_project_dialog({
 			thumbnail: ''
 		}
 
-		const { error: db_error } = await supabase.from('projects').insert({
-			id,
-			user_id: user.id,
-			name: trimmed,
-			description: description.trim(),
-			type,
-			status: 'Active',
-			dataset_count: 0,
-			annotation_progress: 0,
-			members: [],
-			last_updated: Date.now(),
-			is_pinned: false,
-			is_favorite: false,
-			thumbnail: ''
-		})
-
-		if (db_error) {
-			if (
-				db_error.message?.includes('does not exist') ||
-				db_error.message?.includes('Could not find the table')
-			) {
-				add_project(project)
-			} else {
-				set_is_saving(false)
-				set_name_error(db_error.message)
-				return
-			}
+		const db_error_msg = await save_to_supabase(id, user.id, trimmed, description.trim(), type)
+		if (db_error_msg) {
+			set_is_saving(false)
+			set_name_error(db_error_msg)
+			return
 		}
 
 		add_project(project)
@@ -104,6 +125,7 @@ export default function new_project_dialog({
 		set_description('')
 		set_type('Object Detection')
 		set_name_error('')
+		set_auth_error('')
 		set_is_saving(false)
 		on_close()
 		navigate(`/projects/${id}/dashboard`)
@@ -134,7 +156,7 @@ export default function new_project_dialog({
 							<p className={`text-sm ${text_muted}`}>Create a new annotation project.</p>
 						</div>
 						<button
-							className={`p-2 rounded-md hover:${bg_subtle} transition-colors text-zinc-400`}
+							className={`p-2 rounded-md ${hover_bg} transition-colors text-zinc-400`}
 							onClick={on_close}
 						>
 							<X size={18} />
@@ -142,6 +164,7 @@ export default function new_project_dialog({
 					</div>
 
 					<div className="px-6 py-6 space-y-5">
+						{auth_alert}
 						<div className="space-y-1.5">
 							<label className={`text-sm font-medium ${text_heading}`}>
 								Project Name <span className="text-red-500">*</span>
@@ -204,7 +227,7 @@ export default function new_project_dialog({
 						<button
 							onClick={on_close}
 							disabled={is_saving}
-							className={`px-4 py-2.5 text-sm font-medium rounded-lg hover:${bg_subtle} transition-colors ${text_heading} disabled:opacity-50`}
+							className={`px-4 py-2.5 text-sm font-medium rounded-lg ${hover_bg} transition-colors ${text_heading} disabled:opacity-50`}
 						>
 							Cancel
 						</button>
@@ -214,11 +237,16 @@ export default function new_project_dialog({
 							className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{is_saving ? (
-								<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+								<>
+									<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+									Creating...
+								</>
 							) : (
-								<Plus size={16} />
+								<>
+									<Plus size={16} />
+									Create Project
+								</>
 							)}
-							{is_saving ? 'Creating...' : 'Create Project'}
 						</button>
 					</div>
 				</div>
