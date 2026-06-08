@@ -8,6 +8,7 @@ export default function upload_footer({
 	on_close,
 	on_start_upload,
 	on_clear_all,
+	is_dark_mode,
 	text_muted,
 	text_heading,
 	border_subtle,
@@ -19,12 +20,14 @@ export default function upload_footer({
 	on_close: () => void
 	on_start_upload: () => void
 	on_clear_all: () => void
+	is_dark_mode: boolean
 	text_muted: string
 	text_heading: string
 	border_subtle: string
 	bg_subtle: string
 }) {
 	const clear_class = files.length > 0 ? `${text_muted} hover:text-red-500` : 'opacity-0'
+	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
 	return (
 		<div
@@ -39,7 +42,7 @@ export default function upload_footer({
 			<div className="flex gap-3">
 				<button
 					onClick={on_close}
-					className={`px-4 py-2.5 text-sm font-medium rounded-lg hover:${bg_subtle} transition-colors ${text_heading}`}
+					className={`px-4 py-2.5 text-sm font-medium rounded-lg ${hover_bg} transition-colors ${text_heading}`}
 				>
 					Cancel
 				</button>

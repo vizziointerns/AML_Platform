@@ -49,8 +49,8 @@ export default function upload_dialog({
 	is_drag_active: boolean
 	target_dataset: string
 	on_target_dataset_change: (v: string) => void
-	file_input_ref: React.RefObject<HTMLInputElement | null>
-	folder_input_ref: React.RefObject<HTMLInputElement | null>
+	file_input_ref: React.RefObject<HTMLInputElement>
+	folder_input_ref: React.RefObject<HTMLInputElement>
 	on_drag_enter: (e: React.DragEvent) => void
 	on_drag_over: (e: React.DragEvent) => void
 	on_drag_leave: (e: React.DragEvent) => void
@@ -67,6 +67,7 @@ export default function upload_dialog({
 	is_uploading: boolean
 	pending_count: number
 }) {
+	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 	return (
 		<>
 			<div
@@ -91,15 +92,12 @@ export default function upload_dialog({
 						</div>
 						<div className="flex items-center gap-2 text-zinc-400">
 							<button
-								className={`p-2 rounded-md hover:${bg_subtle} transition-colors`}
+								className={`p-2 rounded-md ${hover_bg} transition-colors`}
 								onClick={on_minimize}
 							>
 								<Minimize2 size={18} />
 							</button>
-							<button
-								className={`p-2 rounded-md hover:${bg_subtle} transition-colors`}
-								onClick={on_close}
-							>
+							<button className={`p-2 rounded-md ${hover_bg} transition-colors`} onClick={on_close}>
 								<X size={18} />
 							</button>
 						</div>
@@ -183,6 +181,7 @@ export default function upload_dialog({
 						on_close={on_close}
 						on_start_upload={on_start_upload}
 						on_clear_all={on_clear_all}
+						is_dark_mode={is_dark_mode}
 						text_muted={text_muted}
 						text_heading={text_heading}
 						border_subtle={border_subtle}

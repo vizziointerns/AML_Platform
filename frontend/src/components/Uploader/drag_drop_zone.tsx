@@ -25,8 +25,8 @@ export default function drag_drop_zone({
 	border_subtle: string
 	text_heading: string
 	text_muted: string
-	file_input_ref: React.RefObject<HTMLInputElement | null>
-	folder_input_ref: React.RefObject<HTMLInputElement | null>
+	file_input_ref: React.RefObject<HTMLInputElement>
+	folder_input_ref: React.RefObject<HTMLInputElement>
 	on_drag_enter: (e: React.DragEvent) => void
 	on_drag_over: (e: React.DragEvent) => void
 	on_drag_leave: (e: React.DragEvent) => void

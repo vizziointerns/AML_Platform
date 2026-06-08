@@ -51,12 +51,15 @@ export default function upload_queue({
 			? (files.reduce((acc, f) => acc + f.progress, 0) / (total_files * 100)) * 100
 			: 0
 
+	const hover_header = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
+	const hover_btn = is_dark_mode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'
+
 	return (
 		<div
 			className={`fixed bottom-4 right-4 z-50 w-80 rounded-xl shadow-2xl border ${border_subtle} ${bg_card} overflow-hidden animate-in slide-in-from-bottom-5 duration-300`}
 		>
 			<div
-				className={`p-3 flex items-center justify-between border-b ${border_subtle} cursor-pointer hover:${is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'} transition-colors`}
+				className={`p-3 flex items-center justify-between border-b ${border_subtle} cursor-pointer ${hover_header} transition-colors`}
 			>
 				<div className="flex items-center gap-3">
 					{icon}
@@ -64,7 +67,7 @@ export default function upload_queue({
 				</div>
 				<div className="flex gap-2 text-zinc-500">
 					<button
-						className={`hover:${text_heading} transition-colors`}
+						className={`${hover_btn} transition-colors`}
 						onClick={(e) => {
 							e.stopPropagation()
 							on_maximize()
@@ -73,7 +76,7 @@ export default function upload_queue({
 						<Maximize2 size={14} />
 					</button>
 					<button
-						className={`hover:${text_heading} transition-colors`}
+						className={`${hover_btn} transition-colors`}
 						onClick={(e) => {
 							e.stopPropagation()
 							on_close()
