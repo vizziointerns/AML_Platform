@@ -1,4 +1,4 @@
-import { UploadCloud } from 'lucide-react'
+import { UploadCloud, CheckCircle2 } from 'lucide-react'
 import type { UploadFile } from './types'
 
 export default function upload_footer({
@@ -12,7 +12,8 @@ export default function upload_footer({
 	text_muted,
 	text_heading,
 	border_subtle,
-	bg_subtle
+	bg_subtle,
+	is_all_complete
 }: {
 	files: UploadFile[]
 	is_uploading: boolean
@@ -25,6 +26,7 @@ export default function upload_footer({
 	text_heading: string
 	border_subtle: string
 	bg_subtle: string
+	is_all_complete: boolean
 }) {
 	const clear_class = files.length > 0 ? `${text_muted} hover:text-red-500` : 'opacity-0'
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
@@ -46,14 +48,24 @@ export default function upload_footer({
 				>
 					Cancel
 				</button>
-				<button
-					onClick={on_start_upload}
-					disabled={is_uploading || pending_count === 0}
-					className={`px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-				>
-					<UploadCloud size={16} />
-					Start Upload {pending_count > 0 && `(${pending_count})`}
-				</button>
+				{is_all_complete ? (
+					<button
+						onClick={on_close}
+						className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 shadow-sm transition-colors flex items-center gap-2"
+					>
+						<CheckCircle2 size={16} />
+						Done
+					</button>
+				) : (
+					<button
+						onClick={on_start_upload}
+						disabled={is_uploading || pending_count === 0}
+						className={`px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+					>
+						<UploadCloud size={16} />
+						Start Upload {pending_count > 0 && `(${pending_count})`}
+					</button>
+				)}
 			</div>
 		</div>
 	)

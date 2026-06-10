@@ -3,13 +3,17 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search, Filter, ZoomIn, ZoomOut, Tag, Folder, Trash } from 'lucide-react'
 import type { MockImage } from './types'
 import { generate_mock_images, is_input_focused, navigate_gallery } from './utils'
-import { render_gallery_image, render_preview_modal } from './render'
+import { gallery_image as GalleryImage, render_preview_modal } from './render'
 
 interface VirtualGalleryProps {
 	is_dark_mode: boolean
+	images?: MockImage[]
 }
 
-export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
+export default function virtual_gallery({
+	is_dark_mode,
+	images: external_images
+}: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
 	const [images, set_images] = useState<MockImage[]>([])
 	const [selected_images, set_selected_images] = useState<Set<number>>(new Set())
@@ -24,8 +28,12 @@ export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
 	const [column_count, set_column_count] = useState(4)
 
 	useEffect(() => {
-		set_images(generate_mock_images(100))
-	}, [])
+		if (external_images) {
+			set_images(external_images)
+		} else {
+			set_images(generate_mock_images(100))
+		}
+	}, [external_images])
 
 	const filtered_images = useMemo(() => {
 		if (!search_query) return images
@@ -62,6 +70,8 @@ export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
 	})
 
 	useEffect(() => {
+		if (external_images) return
+
 		const [last_item] = [...row_virtualizer.getVirtualItems()].reverse()
 
 		if (!last_item) return
@@ -78,7 +88,14 @@ export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
 				set_is_loading(false)
 			}, 800)
 		}
-	}, [row_virtualizer.getVirtualItems(), row_count, is_loading, images.length])
+	}, [
+		row_virtualizer.getVirtualItems(),
+		row_count,
+		is_loading,
+		filtered_images.length,
+		search_query,
+		external_images
+	])
 
 	useEffect(() => {
 		const handle_key_down = (e: KeyboardEvent) => {
@@ -251,17 +268,19 @@ export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
 										const is_selected = selected_images.has(img.id)
 										const is_focused = global_index === focused_index
 
-										return render_gallery_image(
-											img,
-											global_index,
-											is_selected,
-											is_focused,
-											item_width,
-											virtualRow.size,
-											is_dark_mode,
-											set_focused_index,
-											handle_select,
-											set_preview_image
+										return (
+											<GalleryImage
+												img={img}
+												global_index={global_index}
+												is_selected={is_selected}
+												is_focused={is_focused}
+												item_width={item_width}
+												virtual_row_size={virtualRow.size}
+												is_dark_mode={is_dark_mode}
+												set_focused_index={set_focused_index}
+												handle_select={handle_select}
+												set_preview_image={set_preview_image}
+											/>
 										)
 									})}
 								</div>

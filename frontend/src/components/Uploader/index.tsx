@@ -73,6 +73,13 @@ export default function uploader({
 			error_files={upload.error_files}
 			is_uploading={upload.is_uploading}
 			pending_count={upload.pending_count}
+			google_auth={upload.google_auth}
+			datasets={upload.datasets}
+			new_dataset_name={upload.new_dataset_name}
+			on_new_dataset_name_change={upload.set_new_dataset_name}
+			new_dataset_description={upload.new_dataset_description}
+			on_new_dataset_description_change={upload.set_new_dataset_description}
+			is_all_complete={upload.is_all_complete}
 		/>
 	)
 }

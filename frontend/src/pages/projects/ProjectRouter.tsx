@@ -7,10 +7,13 @@ import { use_project_store } from '../../store/projectStore'
 import { map_project, type DbProject } from '../../utils/project_mapping'
 import type { Project } from '../../store/projectStore'
 import { use_app_context } from '../../contexts/app_context'
-import { project_dashboard } from '../ProjectDashboard'
-import DatasetsView from '../DatasetsView'
-import AnnotationStudio from '../AnnotationStudio'
-import WorkflowBuilder from '../WorkflowBuilder'
+import { project_dashboard as ProjectDashboard } from './pages/dashboard'
+import DatasetsView from './pages/datasets'
+import AnnotationStudio from './pages/annotation'
+import ModelsPage from './pages/models'
+import TrainingPage from './pages/training'
+import DeploymentPage from './pages/deployment'
+import WorkflowBuilder from './pages/workflow'
 import PlaceholderPage from '../../components/page_placeholder'
 
 export default function project_router() {
@@ -64,7 +67,10 @@ export default function project_router() {
 		}
 	}, [project_id, user, projects])
 
-	const sub_route = location.pathname.split('/').filter(Boolean).pop() ?? 'dashboard'
+	const path_segments = location.pathname.split('/').filter(Boolean)
+	const last_segment = path_segments[path_segments.length - 1] ?? ''
+	const second_last = path_segments[path_segments.length - 2] ?? ''
+	const sub_route = second_last === 'datasets' ? 'datasets' : last_segment || 'dashboard'
 	const is_annotation = sub_route === 'annotation'
 
 	return (
@@ -81,11 +87,11 @@ export default function project_router() {
 						<AnnotationStudio isDarkMode={is_dark_mode} />
 					) : sub_route === 'dashboard' ? (
 						project ? (
-							project_dashboard({
-								project,
-								is_dark_mode,
-								on_open_uploader: open_uploader
-							})
+							<ProjectDashboard
+								project={project}
+								is_dark_mode={is_dark_mode}
+								on_open_uploader={open_uploader}
+							/>
 						) : (
 							<div className="flex items-center justify-center h-full">
 								<div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500" />
@@ -94,13 +100,19 @@ export default function project_router() {
 					) : sub_route === 'datasets' ? (
 						<div className="p-4 lg:p-8">
 							<div className="max-w-7xl mx-auto">
-								<DatasetsView isDarkMode={is_dark_mode} onUpload={open_uploader} />
+								<DatasetsView is_dark_mode={is_dark_mode} on_upload={open_uploader} />
 							</div>
 						</div>
 					) : sub_route === 'workflow' ? (
 						<div className="h-full">
 							<WorkflowBuilder is_dark_mode={is_dark_mode} />
 						</div>
+					) : sub_route === 'models' ? (
+						<ModelsPage is_dark_mode={is_dark_mode} />
+					) : sub_route === 'training' ? (
+						<TrainingPage is_dark_mode={is_dark_mode} />
+					) : sub_route === 'deployment' ? (
+						<DeploymentPage is_dark_mode={is_dark_mode} />
 					) : (
 						<div className="h-full">
 							<PlaceholderPage />
