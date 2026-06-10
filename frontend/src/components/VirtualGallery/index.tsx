@@ -7,9 +7,13 @@ import { render_gallery_image, render_preview_modal } from './render'
 
 interface VirtualGalleryProps {
 	is_dark_mode: boolean
+	images?: MockImage[]
 }
 
-export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
+export default function virtual_gallery({
+	is_dark_mode,
+	images: external_images
+}: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
 	const [images, set_images] = useState<MockImage[]>([])
 	const [selected_images, set_selected_images] = useState<Set<number>>(new Set())
@@ -24,8 +28,12 @@ export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
 	const [column_count, set_column_count] = useState(4)
 
 	useEffect(() => {
-		set_images(generate_mock_images(100))
-	}, [])
+		if (external_images) {
+			set_images(external_images)
+		} else {
+			set_images(generate_mock_images(100))
+		}
+	}, [external_images])
 
 	const filtered_images = useMemo(() => {
 		if (!search_query) return images
@@ -62,6 +70,8 @@ export default function virtual_gallery({ is_dark_mode }: VirtualGalleryProps) {
 	})
 
 	useEffect(() => {
+		if (external_images) return
+
 		const [last_item] = [...row_virtualizer.getVirtualItems()].reverse()
 
 		if (!last_item) return

@@ -37,8 +37,17 @@ export function render_gallery_image(
 					src={img.url}
 					alt={`Img ${img.id}`}
 					loading="lazy"
+					onError={(e) => {
+						const el = e.currentTarget as HTMLImageElement
+						el.style.display = 'none'
+						const next = el.nextElementSibling as HTMLElement | null
+						if (next) next.style.display = 'flex'
+					}}
 					className="absolute inset-0 w-full h-full object-cover bg-zinc-100 dark:bg-zinc-900"
 				/>
+				<div className="absolute inset-0 hidden items-center justify-center text-zinc-400 dark:text-zinc-600 text-xs">
+					No preview
+				</div>
 
 				{is_focused && (
 					<div className="absolute inset-0 ring-4 ring-inset ring-white/30 dark:ring-white/20 pointer-events-none" />
@@ -117,10 +126,22 @@ export function render_preview_modal(
 				onClick={(e) => e.stopPropagation()}
 			>
 				<img
-					src={preview_image.url.replace('/640/480', '/1920/1080')}
+					src={preview_image.url}
 					alt="Preview"
 					className="max-h-[80vh] w-auto rounded-lg shadow-2xl object-contain drop-shadow-2xl"
+					onError={(e) => {
+						const el = e.currentTarget as HTMLImageElement
+						el.style.display = 'none'
+						const parent = el.parentElement
+						if (parent) {
+							const fallback = parent.querySelector('.preview-fallback') as HTMLElement | null
+							if (fallback) fallback.style.display = 'flex'
+						}
+					}}
 				/>
+				<div className="preview-fallback hidden max-h-[80vh] w-96 rounded-lg border-2 border-dashed border-zinc-700 items-center justify-center text-zinc-500 text-sm p-12">
+					Image preview not available
+				</div>
 				<div className="mt-6 flex flex-wrap justify-center gap-2">
 					{preview_image.classes.map((c: string) => (
 						<span

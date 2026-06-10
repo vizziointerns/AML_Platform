@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { CheckCircle2, X } from 'lucide-react'
 import AuthFlow from './pages/AuthFlow'
 import Uploader from './components/Uploader'
 import NewProjectDialog from './components/NewProjectDialog'
@@ -12,12 +13,32 @@ import ProjectsPage from './pages/projects/ProjectsPage'
 import ProjectRouter from './pages/projects/ProjectRouter'
 import PagePlaceholder from './components/page_placeholder'
 
+interface Toast {
+	id: string
+	message: string
+}
+
 function app_content() {
 	const { user, is_loading } = use_auth()
 	const [is_dark_mode, set_is_dark_mode] = useState(true)
 	const [is_mobile_menu_open, set_is_mobile_menu_open] = useState(false)
 	const [is_uploader_open, set_is_uploader_open] = useState(false)
 	const [is_new_project_open, set_is_new_project_open] = useState(false)
+	const [toasts, set_toasts] = useState<Toast[]>([])
+
+	useEffect(() => {
+		const on_upload_complete = (e: Event) => {
+			const detail = (e as CustomEvent).detail as { completed: number; total: number }
+			const id = crypto.randomUUID()
+			set_toasts((prev) => [
+				...prev,
+				{ id, message: `Upload complete: ${detail.completed}/${detail.total} files` }
+			])
+			setTimeout(() => set_toasts((prev) => prev.filter((t) => t.id !== id)), 4000)
+		}
+		window.addEventListener('upload-complete', on_upload_complete)
+		return () => window.removeEventListener('upload-complete', on_upload_complete)
+	}, [])
 
 	const theme_classes = is_dark_mode
 		? 'bg-[#09090b] text-zinc-200 selection:bg-blue-500/30'
@@ -77,6 +98,30 @@ function app_content() {
 								on_close={() => set_is_uploader_open(false)}
 								is_dark_mode={is_dark_mode}
 							/>
+
+							{toasts.length > 0 && (
+								<div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 max-w-sm w-full px-4">
+									{toasts.map((t) => (
+										<div
+											key={t.id}
+											className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-in slide-in-from-top-2 fade-in duration-300 ${
+												is_dark_mode
+													? 'bg-emerald-900/90 border-emerald-700 text-emerald-200'
+													: 'bg-emerald-50 border-emerald-200 text-emerald-800'
+											}`}
+										>
+											<CheckCircle2 size={18} className="shrink-0" />
+											<span className="text-sm font-medium flex-1">{t.message}</span>
+											<button
+												onClick={() => set_toasts((prev) => prev.filter((x) => x.id !== t.id))}
+												className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+											>
+												<X size={14} />
+											</button>
+										</div>
+									))}
+								</div>
+							)}
 
 							<NewProjectDialog
 								isOpen={is_new_project_open}
