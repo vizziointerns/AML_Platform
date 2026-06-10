@@ -2,7 +2,7 @@ import { use_app_context } from '../../contexts/app_context'
 import HomePage from './index'
 
 export default function home_shell() {
-	const { is_dark_mode, open_uploader } = use_app_context()
+	const { is_dark_mode, open_uploader, open_new_project } = use_app_context()
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 
 	return (
@@ -17,7 +17,11 @@ export default function home_shell() {
 							</p>
 						</div>
 					</div>
-					<HomePage is_dark_mode={is_dark_mode} on_open_uploader={open_uploader} />
+					<HomePage
+						is_dark_mode={is_dark_mode}
+						on_open_uploader={open_uploader}
+						on_open_new_project={open_new_project}
+					/>
 				</div>
 			</div>
 		</main>

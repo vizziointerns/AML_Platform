@@ -9,7 +9,7 @@ import {
 	Pencil,
 	Eraser
 } from 'lucide-react'
-import AnnotationCanvas from '../../components/AnnotationCanvas'
+import AnnotationCanvas from '../../../../components/AnnotationCanvas'
 import type { Annotation, Collaborator, Prediction, Mode, ClassInfo } from './types'
 import {
 	handle_mode_shortcut,
