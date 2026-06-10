@@ -22,7 +22,16 @@ export function dataset_list_row({
 		<tr
 			key={key}
 			onClick={() => on_select(dataset)}
-			className={`${row_hover} transition-colors cursor-pointer group`}
+			onKeyDown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault()
+					on_select(dataset)
+				}
+			}}
+			role="button"
+			tabIndex={0}
+			aria-label={`Select dataset ${dataset.name}`}
+			className={`${row_hover} transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/50`}
 		>
 			<td className="px-6 py-4">
 				<div className="flex items-center gap-3">

@@ -100,7 +100,7 @@ export default function project_router() {
 					) : sub_route === 'datasets' ? (
 						<div className="p-4 lg:p-8">
 							<div className="max-w-7xl mx-auto">
-								<DatasetsView isDarkMode={is_dark_mode} onUpload={open_uploader} />
+								<DatasetsView is_dark_mode={is_dark_mode} on_upload={open_uploader} />
 							</div>
 						</div>
 					) : sub_route === 'workflow' ? (

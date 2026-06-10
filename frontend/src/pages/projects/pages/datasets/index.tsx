@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Plus, AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import VirtualGallery from '../../../../components/VirtualGallery'
@@ -35,9 +35,10 @@ function dataset_explorer_view({
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
-	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
+	const hover_bg_subtle = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
+	const hover_border_subtle = is_dark_mode ? 'hover:border-zinc-800' : 'hover:border-zinc-200'
 
 	const gallery_images = images.map((img, idx) => ({
 		id: idx + 1,
@@ -45,7 +46,7 @@ function dataset_explorer_view({
 		width: img.width,
 		height: img.height,
 		classes: img.class_labels,
-		status: ''
+		status: 'unannotated'
 	}))
 
 	const info_parts = [
@@ -59,7 +60,7 @@ function dataset_explorer_view({
 				<div className="flex items-center gap-4">
 					<button
 						onClick={on_back}
-						className={`p-2 rounded-md hover:${bg_subtle} border border-transparent hover:${border_subtle} transition-colors text-zinc-500`}
+						className={`p-2 rounded-md ${hover_bg_subtle} border border-transparent ${hover_border_subtle} transition-colors text-zinc-500`}
 					>
 						<ArrowLeft size={20} />
 					</button>
@@ -75,7 +76,7 @@ function dataset_explorer_view({
 				<div className="flex items-center gap-3">
 					<button
 						onClick={on_add_data}
-						className={`px-4 py-2 text-sm font-medium flex items-center gap-2 rounded-md border ${border_subtle} ${bg_card} hover:${bg_subtle} transition-colors ${text_heading}`}
+						className={`px-4 py-2 text-sm font-medium flex items-center gap-2 rounded-md border ${border_subtle} ${bg_card} ${hover_bg_subtle} transition-colors ${text_heading}`}
 					>
 						<Plus size={16} /> Add Data
 					</button>
@@ -222,7 +223,7 @@ function delete_dialog({
 
 function toast_container(
 	toasts: Toast[],
-	set_toasts: React.Dispatch<React.SetStateAction<Toast[]>>,
+	set_toasts: Dispatch<SetStateAction<Toast[]>>,
 	is_dark_mode: boolean
 ) {
 	if (toasts.length === 0) return undefined
@@ -260,13 +261,12 @@ function toast_container(
 }
 
 export default function datasets_view({
-	isDarkMode,
-	onUpload
+	is_dark_mode,
+	on_upload
 }: {
-	isDarkMode: boolean
-	onUpload: () => void
+	is_dark_mode: boolean
+	on_upload: () => void
 }) {
-	const is_dark_mode = isDarkMode
 	const { projectId: project_id } = useParams()
 	const navigate = useNavigate()
 	const location = useLocation()
@@ -341,9 +341,13 @@ export default function datasets_view({
 	}, [refresh, show_toast])
 
 	const handle_import = () => {
-		onUpload()
+		on_upload()
 	}
 
+	const [search_query, set_search_query] = useState('')
+	const filtered_datasets = search_query
+		? datasets.filter((ds) => ds.name.toLowerCase().includes(search_query.toLowerCase()))
+		: datasets
 	const [open_menu_id, set_open_menu_id] = useState<string | undefined>(undefined)
 	const [delete_target, set_delete_target] = useState<DatasetInfo | undefined>(undefined)
 	const [is_deleting, set_is_deleting] = useState(false)
@@ -361,15 +365,6 @@ export default function datasets_view({
 	const handle_delete = async () => {
 		if (!delete_target) return
 		set_is_deleting(true)
-		const { error: err } = await supabase
-			.from('dataset_images')
-			.delete()
-			.eq('dataset_id', delete_target.id)
-		if (err) {
-			show_toast(`Failed to delete images: ${err.message}`, 'error')
-			set_is_deleting(false)
-			return
-		}
 		const { error: ds_err } = await supabase.from('datasets').delete().eq('id', delete_target.id)
 		if (ds_err) {
 			show_toast(`Failed to delete dataset: ${ds_err.message}`, 'error')
@@ -435,8 +430,8 @@ export default function datasets_view({
 		<>
 			{toast_container(toasts, set_toasts, is_dark_mode)}
 			{dataset_toolbar({
-				search_query: '',
-				on_search_change: () => {},
+				search_query,
+				on_search_change: set_search_query,
 				view_mode,
 				on_view_mode_change: set_view_mode,
 				is_dark_mode,
@@ -449,7 +444,7 @@ export default function datasets_view({
 					<div className="flex items-center justify-center py-20">
 						<div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500" />
 					</div>
-				) : datasets.length === 0 ? (
+				) : filtered_datasets.length === 0 ? (
 					<div
 						className={`flex flex-col items-center justify-center py-20 ${is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'}`}
 					>
@@ -457,7 +452,7 @@ export default function datasets_view({
 					</div>
 				) : view_mode === 'grid' ? (
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-						{datasets.map((ds) =>
+						{filtered_datasets.map((ds) =>
 							dataset_card({
 								key: ds.id,
 								dataset: ds,
@@ -491,7 +486,7 @@ export default function datasets_view({
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-zinc-800/20">
-										{datasets.map((ds) =>
+										{filtered_datasets.map((ds) =>
 											dataset_list_row({
 												key: ds.id,
 												dataset: ds,

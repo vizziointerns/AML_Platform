@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check, Maximize, X } from 'lucide-react'
 import type { MockImage } from './types'
 
@@ -26,6 +26,9 @@ export function gallery_image({
 	set_preview_image: (img: MockImage) => void
 }) {
 	const [has_error, set_has_error] = useState(false)
+	useEffect(() => {
+		set_has_error(false)
+	}, [img.url])
 	const border_cls = is_selected
 		? 'border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.2)] scale-[0.98]'
 		: is_focused
