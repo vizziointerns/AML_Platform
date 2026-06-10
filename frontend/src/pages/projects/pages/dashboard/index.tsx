@@ -94,7 +94,7 @@ export function project_dashboard({
 }) {
 	const { projectId: project_id } = useParams()
 	const navigate = useNavigate()
-	const { stats, is_loading } = use_project_stats(project_id)
+	const { stats, is_loading, error } = use_project_stats(project_id)
 
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 
@@ -108,7 +108,9 @@ export function project_dashboard({
 		{
 			label: 'Start Annotation',
 			icon: PenTool,
-			on_click: () => navigate(`/projects/${project_id}/annotation`)
+			on_click: () => {
+				if (project_id) navigate(`/projects/${project_id}/annotation`)
+			}
 		},
 		{
 			label: 'Export Dataset',
@@ -137,9 +139,17 @@ export function project_dashboard({
 					</div>
 				</div>
 
-				{is_loading
-					? render_skeleton_grid(is_dark_mode)
-					: render_stats_grid(stats, project, is_dark_mode)}
+				{error ? (
+					<div
+						className={`p-6 rounded-xl border text-center ${is_dark_mode ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-700'}`}
+					>
+						<p className="text-sm font-medium">Failed to load stats: {error}</p>
+					</div>
+				) : is_loading ? (
+					render_skeleton_grid(is_dark_mode)
+				) : (
+					render_stats_grid(stats, project, is_dark_mode)
+				)}
 
 				{quick_actions_card({ actions, is_dark_mode })}
 

@@ -130,10 +130,18 @@ async function upload_file_to_drive(
 
 		xhr.addEventListener('load', () => {
 			if (xhr.status === 200 || xhr.status === 201) {
-				const response = JSON.parse(xhr.responseText)
+				let drive_file_id = ''
+				let file_name = ''
+				try {
+					const response = JSON.parse(xhr.responseText)
+					drive_file_id = response.id ?? ''
+					file_name = response.name ?? ''
+				} catch {
+					/* malformed JSON fallback */
+				}
 				resolve({
-					drive_file_id: response.id,
-					file_name: response.name,
+					drive_file_id: drive_file_id || xhr.responseText.slice(0, 64),
+					file_name: file_name || file.name,
 					file_size: file.size,
 					mime_type: file.file.type
 				})

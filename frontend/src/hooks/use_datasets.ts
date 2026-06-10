@@ -33,6 +33,7 @@ export function use_datasets(project_id: string | undefined): UseDatasetsResult 
 			if (!project_id) {
 				set_datasets([])
 				set_is_loading(false)
+				set_error(undefined)
 				return
 			}
 
@@ -60,7 +61,14 @@ export function use_datasets(project_id: string | undefined): UseDatasetsResult 
 				return
 			}
 
-			set_datasets((data ?? []) as DatasetInfo[])
+			const normalized = (data ?? []).map((row) => ({
+				...row,
+				tags: Array.isArray(row.tags) ? row.tags : [],
+				image_count: row.image_count ?? 0,
+				class_count: row.class_count ?? 0,
+				storage_bytes: row.storage_bytes ?? 0
+			}))
+			set_datasets(normalized as DatasetInfo[])
 			set_is_loading(false)
 		},
 		[project_id]

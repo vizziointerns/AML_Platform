@@ -30,6 +30,7 @@ export function create_dataset_dialog({
 	const input_bg = is_dark_mode
 		? 'bg-zinc-800 border-zinc-700 text-zinc-100'
 		: 'bg-zinc-50 border-zinc-300 text-zinc-900'
+	const close_btn_hover = is_dark_mode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
 
 	const handle_save = async () => {
 		if (!name.trim()) {
@@ -87,7 +88,7 @@ export function create_dataset_dialog({
 					<h2 className={`text-lg font-semibold ${text_heading}`}>Create Dataset</h2>
 					<button
 						onClick={on_close}
-						className={`p-1 rounded-md hover:${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'} transition-colors ${text_muted}`}
+						className={`p-1 rounded-md ${close_btn_hover} transition-colors ${text_muted}`}
 					>
 						<X size={18} />
 					</button>

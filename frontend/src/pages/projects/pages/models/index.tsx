@@ -152,6 +152,8 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 										{model.name}
 									</h3>
 									<button
+										aria-label={model.is_favorited ? 'Unfavorite model' : 'Favorite model'}
+										aria-pressed={model.is_favorited}
 										className={`${model.is_favorited ? 'text-amber-500' : 'text-zinc-400'} hover:text-amber-500 shrink-0`}
 									>
 										<Star size={16} fill={model.is_favorited ? 'currentColor' : 'none'} />

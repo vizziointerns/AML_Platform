@@ -130,7 +130,8 @@ export default function upload_dialog({
 			>
 				<CheckCircle2 size={18} />
 				<span className="text-sm font-medium">
-					All done — {total_files} file{total_files !== 1 ? 's' : ''} uploaded to Google Drive
+					All done — {total_files} file{total_files !== 1 ? 's' : ''}{' '}
+					{google_auth.is_authenticated ? 'uploaded to Google Drive' : 'uploaded'}
 				</span>
 			</div>
 		)

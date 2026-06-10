@@ -14,7 +14,7 @@ export function dataset_list_row({
 }) {
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
-	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
+	const row_hover = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
 	const storage_gb = (dataset.storage_bytes / (1024 * 1024 * 1024)).toFixed(1)
 
@@ -22,7 +22,7 @@ export function dataset_list_row({
 		<tr
 			key={key}
 			onClick={() => on_select(dataset)}
-			className={`hover:${bg_subtle} transition-colors cursor-pointer group`}
+			className={`${row_hover} transition-colors cursor-pointer group`}
 		>
 			<td className="px-6 py-4">
 				<div className="flex items-center gap-3">

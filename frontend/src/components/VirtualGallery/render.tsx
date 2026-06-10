@@ -1,18 +1,31 @@
+import { useState } from 'react'
 import { Check, Maximize, X } from 'lucide-react'
 import type { MockImage } from './types'
 
-export function render_gallery_image(
-	img: MockImage,
-	global_index: number,
-	is_selected: boolean,
-	is_focused: boolean,
-	item_width: number,
-	virtual_row_size: number,
-	is_dark_mode: boolean,
-	set_focused_index: (i: number) => void,
-	handle_select: (id: number, shift_key: boolean) => void,
+export function gallery_image({
+	img,
+	global_index,
+	is_selected,
+	is_focused,
+	item_width,
+	virtual_row_size,
+	is_dark_mode,
+	set_focused_index,
+	handle_select,
+	set_preview_image
+}: {
+	img: MockImage
+	global_index: number
+	is_selected: boolean
+	is_focused: boolean
+	item_width: number
+	virtual_row_size: number
+	is_dark_mode: boolean
+	set_focused_index: (i: number) => void
+	handle_select: (id: number, shift_key: boolean) => void
 	set_preview_image: (img: MockImage) => void
-) {
+}) {
+	const [has_error, set_has_error] = useState(false)
 	const border_cls = is_selected
 		? 'border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.2)] scale-[0.98]'
 		: is_focused
@@ -33,21 +46,19 @@ export function render_gallery_image(
 				onDoubleClick={() => set_preview_image(img)}
 				className={`w-full h-full relative rounded-xl border-2 transition-all cursor-pointer overflow-hidden group ${border_cls}`}
 			>
-				<img
-					src={img.url}
-					alt={`Img ${img.id}`}
-					loading="lazy"
-					onError={(e) => {
-						const el = e.currentTarget as HTMLImageElement
-						el.style.display = 'none'
-						const next = el.nextElementSibling as HTMLElement | null
-						if (next) next.style.display = 'flex'
-					}}
-					className="absolute inset-0 w-full h-full object-cover bg-zinc-100 dark:bg-zinc-900"
-				/>
-				<div className="absolute inset-0 hidden items-center justify-center text-zinc-400 dark:text-zinc-600 text-xs">
-					No preview
-				</div>
+				{has_error ? (
+					<div className="absolute inset-0 flex items-center justify-center text-zinc-400 dark:text-zinc-600 text-xs bg-zinc-100 dark:bg-zinc-900 rounded-xl">
+						No preview
+					</div>
+				) : (
+					<img
+						src={img.url}
+						alt={`Img ${img.id}`}
+						loading="lazy"
+						onError={() => set_has_error(true)}
+						className="absolute inset-0 w-full h-full object-cover bg-zinc-100 dark:bg-zinc-900"
+					/>
+				)}
 
 				{is_focused && (
 					<div className="absolute inset-0 ring-4 ring-inset ring-white/30 dark:ring-white/20 pointer-events-none" />

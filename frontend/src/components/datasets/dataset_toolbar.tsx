@@ -20,16 +20,16 @@ export function dataset_toolbar({
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
-	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 
+	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 	const actions_bar =
 		on_import || on_create ? (
 			<div className="flex gap-2">
 				{on_import && (
 					<button
 						onClick={on_import}
-						className={`flex items-center gap-2 px-4 py-2 font-medium rounded-md border ${border_subtle} ${bg_card} hover:${bg_subtle} transition-colors text-sm`}
+						className={`flex items-center gap-2 px-4 py-2 font-medium rounded-md border ${border_subtle} ${bg_card} ${hover_bg} transition-colors text-sm`}
 					>
 						<Download size={16} /> Import
 					</button>

@@ -60,6 +60,7 @@ export function use_project_stats(project_id: string | undefined): UseProjectSta
 						storage_bytes: 0
 					})
 				} else {
+					set_stats(undefined)
 					set_error(err.message)
 				}
 				set_is_loading(false)

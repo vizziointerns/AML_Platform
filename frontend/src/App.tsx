@@ -29,7 +29,12 @@ function app_content() {
 	useEffect(() => {
 		const on_upload_complete = (e: Event) => {
 			const detail = (e as CustomEvent).detail as { completed: number; total: number }
-			const id = crypto.randomUUID()
+			let id: string
+			try {
+				id = crypto.randomUUID()
+			} catch {
+				id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+			}
 			set_toasts((prev) => [
 				...prev,
 				{ id, message: `Upload complete: ${detail.completed}/${detail.total} files` }

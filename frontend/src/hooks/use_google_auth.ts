@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.file'
 
@@ -45,6 +45,7 @@ export function use_google_auth(): UseGoogleAuthResult {
 
 	const client_id = get_client_id()
 	const is_configured = !!client_id
+	const sign_in_ref = useRef<() => void>(() => {})
 
 	const handle_token_response = useCallback((response: GoogleOAuthResponse | GoogleAuthError) => {
 		if ('error' in response) {
@@ -62,7 +63,7 @@ export function use_google_auth(): UseGoogleAuthResult {
 		if (expires_ms > 0) {
 			setTimeout(
 				() => {
-					sign_in()
+					sign_in_ref.current()
 				},
 				Math.min(expires_ms, 55 * 60 * 1000)
 			)
@@ -97,6 +98,8 @@ export function use_google_auth(): UseGoogleAuthResult {
 
 		client.requestAccessToken()
 	}, [client_id, handle_token_response])
+
+	sign_in_ref.current = sign_in
 
 	const sign_out = useCallback(() => {
 		set_access_token(undefined)

@@ -5,7 +5,6 @@ import VirtualGallery from '../../../../components/VirtualGallery'
 import { supabase } from '../../../../utils/supabase'
 import { use_datasets } from '../../../../hooks/use_datasets'
 import { use_dataset_images } from '../../../../hooks/use_dataset_images'
-import { use_google_picker } from '../../../../hooks/use_google_picker'
 import { dataset_card } from '../../../../components/datasets/dataset_card'
 import { dataset_list_row } from '../../../../components/datasets/dataset_list_row'
 import { dataset_toolbar } from '../../../../components/datasets/dataset_toolbar'
@@ -289,8 +288,15 @@ export default function datasets_view({
 	const [is_create_dialog_open, set_is_create_dialog_open] = useState(false)
 	const [toasts, set_toasts] = useState<Toast[]>([])
 
+	const gen_id = () => {
+		try {
+			return crypto.randomUUID()
+		} catch {
+			return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+		}
+	}
 	const show_toast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-		const id = crypto.randomUUID()
+		const id = gen_id()
 		set_toasts((prev) => [...prev, { id, message, type }])
 		setTimeout(() => {
 			set_toasts((prev) => prev.filter((t) => t.id !== id))
@@ -332,16 +338,10 @@ export default function datasets_view({
 			window.removeEventListener('datasets-changed', on_datasets_changed)
 			window.removeEventListener('upload-complete', on_upload_complete)
 		}
-	}, [refresh])
-
-	const { open_picker, is_available: is_google_picker_available } = use_google_picker(() => {})
+	}, [refresh, show_toast])
 
 	const handle_import = () => {
-		if (is_google_picker_available) {
-			open_picker()
-		} else {
-			onUpload()
-		}
+		onUpload()
 	}
 
 	const [open_menu_id, set_open_menu_id] = useState<string | undefined>(undefined)
@@ -365,8 +365,16 @@ export default function datasets_view({
 			.from('dataset_images')
 			.delete()
 			.eq('dataset_id', delete_target.id)
-		if (!err) {
-			await supabase.from('datasets').delete().eq('id', delete_target.id)
+		if (err) {
+			show_toast(`Failed to delete images: ${err.message}`, 'error')
+			set_is_deleting(false)
+			return
+		}
+		const { error: ds_err } = await supabase.from('datasets').delete().eq('id', delete_target.id)
+		if (ds_err) {
+			show_toast(`Failed to delete dataset: ${ds_err.message}`, 'error')
+			set_is_deleting(false)
+			return
 		}
 		set_is_deleting(false)
 		set_delete_target(undefined)
@@ -382,8 +390,15 @@ export default function datasets_view({
 	const handle_rename = async () => {
 		if (!rename_target || !rename_name.trim()) return
 		set_is_renaming(true)
-		await supabase.from('datasets').update({ name: rename_name.trim() }).eq('id', rename_target.id)
+		const { error: rename_err } = await supabase
+			.from('datasets')
+			.update({ name: rename_name.trim() })
+			.eq('id', rename_target.id)
 		set_is_renaming(false)
+		if (rename_err) {
+			show_toast(`Failed to rename: ${rename_err.message}`, 'error')
+			return
+		}
 		set_rename_target(undefined)
 		show_toast(`Dataset renamed to "${rename_name.trim()}"`)
 		refresh()

@@ -58,7 +58,24 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 				return
 			}
 
-			set_images((data ?? []) as DatasetImage[])
+			const validated = (data ?? [])
+				.filter(
+					(r): r is Record<string, unknown> & { id: string; file_url: string } =>
+						!!r && typeof r.id === 'string' && typeof r.file_url === 'string'
+				)
+				.map((r) => ({
+					id: r.id,
+					dataset_id: r.dataset_id ?? '',
+					file_name: r.file_name ?? '',
+					file_url: r.file_url,
+					width: r.width ?? 0,
+					height: r.height ?? 0,
+					file_size_bytes: r.file_size_bytes ?? 0,
+					class_labels: Array.isArray(r.class_labels) ? r.class_labels : [],
+					file_extension: r.file_extension ?? '',
+					uploaded_at: r.uploaded_at ?? ''
+				}))
+			set_images(validated as DatasetImage[])
 			set_is_loading(false)
 		})()
 

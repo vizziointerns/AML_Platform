@@ -27,6 +27,7 @@ export function quick_actions_card({
 						return (
 							<button
 								key={action.label}
+								type="button"
 								onClick={action.on_click}
 								className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
 							>
@@ -37,6 +38,7 @@ export function quick_actions_card({
 					return (
 						<button
 							key={action.label}
+							type="button"
 							onClick={action.on_click}
 							className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
 						>

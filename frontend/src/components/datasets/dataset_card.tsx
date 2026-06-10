@@ -35,7 +35,16 @@ export function dataset_card({
 		<div
 			key={key}
 			onClick={() => on_select(dataset)}
-			className={`rounded-xl border ${border_subtle} ${bg_card} cursor-pointer hover:border-blue-500/50 hover:shadow-md transition-all group`}
+			onKeyDown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault()
+					on_select(dataset)
+				}
+			}}
+			role="button"
+			tabIndex={0}
+			aria-label={`Select dataset ${dataset.name}`}
+			className={`rounded-xl border ${border_subtle} ${bg_card} cursor-pointer hover:border-blue-500/50 hover:shadow-md transition-all group focus:outline-none focus:ring-2 focus:ring-blue-500/50`}
 		>
 			<div
 				className={`h-32 ${is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-100'} p-4 relative flex items-center justify-center overflow-hidden rounded-t-xl`}
