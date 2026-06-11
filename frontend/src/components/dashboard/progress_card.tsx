@@ -14,7 +14,7 @@ export function progress_card({
 	const clamped_value = Math.min(100, Math.max(0, value))
 
 	return (
-		<div className={`p-5 rounded-xl border flex flex-col ${card_cls}`}>
+		<div className={`stat-card ${card_cls}`}>
 			<div className={`text-sm font-medium ${text_muted} mb-3`}>{label}</div>
 			<div className="text-2xl font-bold tracking-tight">{clamped_value}%</div>
 			<div

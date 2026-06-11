@@ -17,7 +17,7 @@ export function stat_card({
 		: 'bg-white border-zinc-200 shadow-sm'
 
 	return (
-		<div className={`p-5 rounded-xl border flex flex-col ${card_cls}`}>
+		<div className={`stat-card ${card_cls}`}>
 			<div className="flex items-center justify-between mb-3">
 				<div className={`text-sm font-medium ${text_muted}`}>{label}</div>
 				{Icon && (

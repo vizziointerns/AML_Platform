@@ -12,8 +12,8 @@ export default function page_placeholder() {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 
 	return (
-		<div className="flex-1 overflow-y-auto p-4 lg:p-8">
-			<div className="max-w-7xl mx-auto space-y-6">
+		<div className="page-layout">
+			<div className="page-content">
 				<div>
 					<h1 className="text-2xl font-semibold tracking-tight">{label}</h1>
 					<p className={`text-sm mt-1 ${text_muted}`}>{label} overview and management.</p>

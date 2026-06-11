@@ -119,34 +119,34 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 	}
 
 	return (
-		<div className="flex-1 overflow-y-auto p-4 lg:p-8">
-			<div className="max-w-7xl mx-auto space-y-6">
-				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+		<div className="page-layout">
+			<div className="page-content">
+				<div className="page-header">
 					<div>
 						<h1 className={`text-2xl font-semibold tracking-tight ${text_heading}`}>Training</h1>
 						<p className={`text-sm mt-1 ${text_muted}`}>
 							Manage model training jobs and monitor progress.
 						</p>
 					</div>
-					<button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors">
+					<button className="btn-primary">
 						<Plus size={16} /> New Training
 					</button>
 				</div>
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-					<div className={`p-5 rounded-xl border flex flex-col ${bg_card}`}>
+					<div className={`stat-card ${bg_card}`}>
 						<div className={`text-sm font-medium ${text_muted} mb-3`}>Active Jobs</div>
 						<div className={`text-2xl font-bold tracking-tight ${text_heading}`}>2</div>
 					</div>
-					<div className={`p-5 rounded-xl border flex flex-col ${bg_card}`}>
+					<div className={`stat-card ${bg_card}`}>
 						<div className={`text-sm font-medium ${text_muted} mb-3`}>Avg Accuracy</div>
 						<div className={`text-2xl font-bold tracking-tight ${text_heading}`}>78.2%</div>
 					</div>
-					<div className={`p-5 rounded-xl border flex flex-col ${bg_card}`}>
+					<div className={`stat-card ${bg_card}`}>
 						<div className={`text-sm font-medium ${text_muted} mb-3`}>Avg Loss</div>
 						<div className={`text-2xl font-bold tracking-tight ${text_heading}`}>0.43</div>
 					</div>
-					<div className={`p-5 rounded-xl border flex flex-col ${bg_card}`}>
+					<div className={`stat-card ${bg_card}`}>
 						<div className={`text-sm font-medium ${text_muted} mb-3`}>Total GPU Hours</div>
 						<div className={`text-2xl font-bold tracking-tight ${text_heading}`}>18.3</div>
 					</div>

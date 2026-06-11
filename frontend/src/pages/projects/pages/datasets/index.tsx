@@ -56,7 +56,7 @@ function dataset_explorer_view({
 
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500 flex flex-col h-[calc(100vh-140px)]">
-			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+			<div className="page-header shrink-0">
 				<div className="flex items-center gap-4">
 					<button
 						onClick={on_back}
@@ -442,7 +442,7 @@ export default function datasets_view({
 			<div className="mt-6">
 				{is_loading ? (
 					<div className="flex items-center justify-center py-20">
-						<div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500" />
+						<div className="loading-spinner" />
 					</div>
 				) : filtered_datasets.length === 0 ? (
 					<div

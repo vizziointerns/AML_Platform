@@ -120,7 +120,7 @@ export default function projects_view() {
 
 			{is_loading ? (
 				<div className="text-center py-20">
-					<div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500 mx-auto" />
+					<div className="loading-spinner mx-auto" />
 					<p className={`text-sm mt-4 ${text_muted}`}>Loading projects...</p>
 				</div>
 			) : error ? (

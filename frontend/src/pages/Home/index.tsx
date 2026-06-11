@@ -22,7 +22,7 @@ function stat_card({
 		: 'bg-white border-zinc-200 shadow-sm'
 
 	return (
-		<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
+		<div className={`stat-card ${card_classes}`}>
 			<div className="flex justify-between items-start mb-3">
 				<div className={`text-sm font-medium ${text_muted}`}>{title}</div>
 				<div className={`p-2 rounded-lg ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
@@ -40,7 +40,7 @@ function stat_skeleton({ is_dark_mode }: { is_dark_mode: boolean }) {
 		: 'bg-white border-zinc-200 shadow-sm'
 
 	return (
-		<div className={`p-5 rounded-xl border flex flex-col ${card_classes}`}>
+		<div className={`stat-card ${card_classes}`}>
 			<div className="flex justify-between items-start mb-3">
 				<div
 					className={`h-4 w-24 rounded animate-pulse ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
