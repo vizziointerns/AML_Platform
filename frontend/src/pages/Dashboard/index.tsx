@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
 	ImageIcon,
 	Box,
@@ -12,8 +12,15 @@ import {
 	Filter,
 	Calendar,
 	Activity,
-	Play
+	Play,
+	Trash2,
+	Edit3
 } from 'lucide-react'
+import { search_bar } from '../../components/ui/search_bar'
+import { pin_button } from '../../components/PinButton/index'
+import { delete_modal } from '../../components/DeleteModal/index'
+import { rename_modal } from '../../components/RenameModal/index'
+import { duplicate_button } from '../../components/DuplicateButton/index'
 import {
 	AreaChart,
 	Area,
@@ -26,6 +33,16 @@ import {
 	Bar,
 	Cell
 } from 'recharts'
+
+interface ProjectEntry {
+	id: string
+	name: string
+	status: string
+	progress: number
+	type: string
+	time: string
+	isPinned: boolean
+}
 
 function stat_card(
 	{
@@ -173,8 +190,14 @@ function render_projects_table(
 	bg_subtle: string,
 	border_subtle: string,
 	text_muted: string,
-	recent_projects: { name: string; status: string; progress: number; type: string; time: string }[],
-	isDarkMode: boolean
+	recent_projects: ProjectEntry[],
+	isDarkMode: boolean,
+	search_query: string,
+	on_search_change: (value: string) => void,
+	on_pin: (id: string) => void,
+	on_delete: (id: string, name: string) => void,
+	on_duplicate: (id: string) => void,
+	on_rename: (id: string, name: string) => void
 ) {
 	const status_tag = (status: string) => {
 		switch (status) {
@@ -209,9 +232,15 @@ function render_projects_table(
 
 	return (
 		<div className={`rounded-xl border flex flex-col ${card_classes} overflow-hidden`}>
-			<div className={`px-6 py-5 border-b flex justify-between items-center ${border_subtle}`}>
-				<h3 className="font-semibold text-base tracking-tight">Active Projects</h3>
-				<button className="text-sm text-blue-500 font-medium hover:text-blue-400">View All</button>
+			<div
+				className={`px-6 py-5 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${border_subtle}`}
+			>
+				<h3 className="font-semibold text-base tracking-tight shrink-0">Active Projects</h3>
+				{search_bar({
+					value: search_query,
+					on_change: on_search_change,
+					is_dark_mode: isDarkMode
+				})}
 			</div>
 			<div className="flex-1 overflow-x-auto">
 				{is_loading ? (
@@ -230,34 +259,91 @@ function render_projects_table(
 								<th className="px-6 py-3 font-medium">Status</th>
 								<th className="px-6 py-3 font-medium hidden sm:table-cell">Progress</th>
 								<th className="px-6 py-3 font-medium text-right">Updated</th>
+								<th className="px-6 py-3 font-medium text-right w-24">Actions</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-zinc-800/20">
-							{recent_projects.map((project, i) => (
-								<tr key={i} className={`hover:bg-zinc-500/5 transition-colors`}>
-									<td className="px-6 py-4">
-										<div className="font-medium">{project.name}</div>
-										<div className={`text-xs mt-0.5 ${text_muted}`}>{project.type}</div>
-									</td>
-									<td className="px-6 py-4 flex items-center gap-2">
-										{status_tag(project.status)}
-									</td>
-									<td className="px-6 py-4 hidden sm:table-cell w-48">
-										<div className="flex items-center gap-2">
-											<div
-												className={`h-1.5 flex-1 rounded-full overflow-hidden ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
-											>
-												<div
-													className={`h-full rounded-full ${project.status === 'deployed' ? 'bg-emerald-500' : project.status === 'training' ? 'bg-blue-500' : 'bg-zinc-500'}`}
-													style={{ width: `${project.progress}%` }}
-												/>
-											</div>
-											<span className={`text-xs ${text_muted} w-8`}>{project.progress}%</span>
+							{recent_projects.length === 0 ? (
+								<tr>
+									<td colSpan={5} className="px-6 py-12 text-center">
+										<div className="flex flex-col items-center gap-2">
+											<div className={`text-sm font-medium ${text_muted}`}>No projects found</div>
+											<div className={`text-xs ${text_muted}`}>Try adjusting your search query</div>
 										</div>
 									</td>
-									<td className={`px-6 py-4 text-right text-xs ${text_muted}`}>{project.time}</td>
 								</tr>
-							))}
+							) : (
+								recent_projects.map((project) => (
+									<tr key={project.id} className={`hover:bg-zinc-500/5 transition-colors`}>
+										<td className="px-6 py-4">
+											<div className="flex items-center gap-2">
+												{pin_button({
+													is_pinned: project.isPinned,
+													on_toggle: () => on_pin(project.id),
+													is_dark_mode: isDarkMode
+												})}
+												<div>
+													<div className="font-medium">{project.name}</div>
+													<div className={`text-xs mt-0.5 ${text_muted}`}>{project.type}</div>
+												</div>
+											</div>
+										</td>
+										<td className="px-6 py-4 flex items-center gap-2">
+											{status_tag(project.status)}
+										</td>
+										<td className="px-6 py-4 hidden sm:table-cell w-48">
+											<div className="flex items-center gap-2">
+												<div
+													className={`h-1.5 flex-1 rounded-full overflow-hidden ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
+												>
+													<div
+														className={`h-full rounded-full ${project.status === 'deployed' ? 'bg-emerald-500' : project.status === 'training' ? 'bg-blue-500' : 'bg-zinc-500'}`}
+														style={{ width: `${project.progress}%` }}
+													/>
+												</div>
+												<span className={`text-xs ${text_muted} w-8`}>{project.progress}%</span>
+											</div>
+										</td>
+										<td className={`px-6 py-4 text-right text-xs ${text_muted}`}>{project.time}</td>
+										<td className="px-6 py-4 text-right">
+											<div className="flex items-center justify-end gap-1">
+												{duplicate_button({
+													on_duplicate: () => on_duplicate(project.id),
+													is_dark_mode: isDarkMode
+												})}
+												<button
+													onClick={(e) => {
+														e.stopPropagation()
+														on_rename(project.id, project.name)
+													}}
+													title="Rename project"
+													className={`rounded p-1 transition-colors ${
+														isDarkMode
+															? 'text-zinc-600 hover:text-blue-400'
+															: 'text-zinc-300 hover:text-blue-500'
+													}`}
+												>
+													<Edit3 size={14} />
+												</button>
+												<button
+													onClick={(e) => {
+														e.stopPropagation()
+														on_delete(project.id, project.name)
+													}}
+													title="Delete project"
+													className={`rounded p-1 transition-colors ${
+														isDarkMode
+															? 'text-zinc-600 hover:text-red-400'
+															: 'text-zinc-300 hover:text-red-500'
+													}`}
+												>
+													<Trash2 size={14} />
+												</button>
+											</div>
+										</td>
+									</tr>
+								))
+							)}
 						</tbody>
 					</table>
 				)}
@@ -434,6 +520,50 @@ function render_alerts_widget(
 export default function dashboard({ isDarkMode }: { isDarkMode: boolean }) {
 	const [is_loading, set_is_loading] = useState(true)
 	const [time_range, set_time_range] = useState('7d')
+	const [search_query, set_search_query] = useState('')
+	const [projects, set_projects] = useState<ProjectEntry[]>([
+		{
+			id: '1',
+			name: 'Autonomous Driving v4',
+			status: 'training',
+			progress: 78,
+			type: 'Object Detection',
+			time: '2h ago',
+			isPinned: false
+		},
+		{
+			id: '2',
+			name: 'Traffic Cam Analysis',
+			status: 'deployed',
+			progress: 100,
+			type: 'Classification',
+			time: '5h ago',
+			isPinned: false
+		},
+		{
+			id: '3',
+			name: 'Pedestrian Tracking',
+			status: 'queued',
+			progress: 0,
+			type: 'Segmentation',
+			time: '1d ago',
+			isPinned: false
+		},
+		{
+			id: '4',
+			name: 'Retail Items DB',
+			status: 'annotating',
+			progress: 45,
+			type: 'Object Detection',
+			time: '2d ago',
+			isPinned: false
+		}
+	])
+	const [delete_target, set_delete_target] = useState<{ id: string; name: string } | undefined>()
+	const [is_deleting, set_is_deleting] = useState(false)
+	const [rename_target, set_rename_target] = useState<{ id: string; name: string } | undefined>()
+	const [is_renaming, set_is_renaming] = useState(false)
+	const [toast, set_toast] = useState<{ message: string; type: 'success' | 'error' } | undefined>()
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -441,6 +571,12 @@ export default function dashboard({ isDarkMode }: { isDarkMode: boolean }) {
 		}, 1500)
 		return () => clearTimeout(timer)
 	}, [time_range])
+
+	useEffect(() => {
+		if (!toast) return undefined
+		const timer = setTimeout(() => set_toast(undefined), 3000)
+		return () => clearTimeout(timer)
+	}, [toast])
 
 	const card_classes = isDarkMode
 		? 'bg-zinc-900 border-zinc-800'
@@ -467,36 +603,87 @@ export default function dashboard({ isDarkMode }: { isDarkMode: boolean }) {
 		{ name: 'Edge Devices', load: 20, color: '#8b5cf6' }
 	]
 
-	const recent_projects = [
-		{
-			name: 'Autonomous Driving v4',
-			status: 'training',
-			progress: 78,
-			type: 'Object Detection',
-			time: '2h ago'
-		},
-		{
-			name: 'Traffic Cam Analysis',
-			status: 'deployed',
-			progress: 100,
-			type: 'Classification',
-			time: '5h ago'
-		},
-		{
-			name: 'Pedestrian Tracking',
-			status: 'queued',
-			progress: 0,
-			type: 'Segmentation',
-			time: '1d ago'
-		},
-		{
-			name: 'Retail Items DB',
-			status: 'annotating',
-			progress: 45,
-			type: 'Object Detection',
-			time: '2d ago'
+	const projects_sorted = useMemo(
+		() =>
+			[...projects].sort((a, b) => {
+				if (a.isPinned && !b.isPinned) return -1
+				if (!a.isPinned && b.isPinned) return 1
+				return 0
+			}),
+		[projects]
+	)
+
+	const filtered_projects = useMemo(
+		() =>
+			search_query
+				? projects_sorted.filter((p) => p.name.toLowerCase().includes(search_query.toLowerCase()))
+				: projects_sorted,
+		[search_query, projects_sorted]
+	)
+
+	const handle_pin = useCallback((id: string) => {
+		set_projects((prev) => prev.map((p) => (p.id === id ? { ...p, isPinned: !p.isPinned } : p)))
+	}, [])
+
+	const handle_delete_request = useCallback((id: string, name: string) => {
+		set_delete_target({ id, name })
+	}, [])
+
+	const handle_delete_confirm = useCallback(async () => {
+		if (!delete_target) return
+		set_is_deleting(true)
+		try {
+			set_projects((prev) => prev.filter((p) => p.id !== delete_target.id))
+			set_delete_target(undefined)
+			set_toast({ message: 'Project deleted successfully.', type: 'success' })
+		} catch {
+			set_toast({ message: 'Failed to delete project. Please try again.', type: 'error' })
+		} finally {
+			set_is_deleting(false)
 		}
-	]
+	}, [delete_target])
+
+	const handle_duplicate = useCallback((id: string) => {
+		set_projects((prev) => {
+			const source = prev.find((p) => p.id === id)
+			if (!source) return prev
+			const new_id = crypto.randomUUID()
+			const new_project: ProjectEntry = {
+				...source,
+				id: new_id,
+				name: `${source.name} (Copy)`,
+				isPinned: false
+			}
+			const idx = prev.findIndex((p) => p.id === id)
+			const next = [...prev]
+			next.splice(idx + 1, 0, new_project)
+			return next
+		})
+		set_toast({ message: 'Project duplicated successfully.', type: 'success' })
+	}, [])
+
+	const handle_rename_request = useCallback((id: string, name: string) => {
+		set_rename_target({ id, name })
+	}, [])
+
+	const handle_rename = useCallback(
+		async (new_name: string) => {
+			if (!rename_target) return
+			set_is_renaming(true)
+			try {
+				set_projects((prev) =>
+					prev.map((p) => (p.id === rename_target.id ? { ...p, name: new_name } : p))
+				)
+				set_rename_target(undefined)
+				set_toast({ message: 'Project renamed successfully.', type: 'success' })
+			} catch {
+				set_toast({ message: 'Failed to rename project. Please try again.', type: 'error' })
+			} finally {
+				set_is_renaming(false)
+			}
+		},
+		[rename_target]
+	)
 
 	const team_activity = [
 		{
@@ -613,8 +800,14 @@ export default function dashboard({ isDarkMode }: { isDarkMode: boolean }) {
 						bg_subtle,
 						border_subtle,
 						text_muted,
-						recent_projects,
-						isDarkMode
+						filtered_projects,
+						isDarkMode,
+						search_query,
+						set_search_query,
+						handle_pin,
+						handle_delete_request,
+						handle_duplicate,
+						handle_rename_request
 					)}
 				</div>
 
@@ -624,6 +817,37 @@ export default function dashboard({ isDarkMode }: { isDarkMode: boolean }) {
 					{render_team_activity(is_loading, card_classes, bg_subtle, team_activity, isDarkMode)}
 				</div>
 			</div>
+
+			{delete_modal({
+				is_open: delete_target !== undefined,
+				project_name: delete_target?.name ?? '',
+				on_close: () => set_delete_target(undefined),
+				on_confirm: handle_delete_confirm,
+				is_dark_mode: isDarkMode,
+				is_deleting
+			})}
+
+			{rename_modal({
+				is_open: rename_target !== undefined,
+				current_name: rename_target?.name ?? '',
+				existing_names: projects.map((p) => p.name),
+				on_close: () => set_rename_target(undefined),
+				on_confirm: handle_rename,
+				is_dark_mode: isDarkMode,
+				is_saving: is_renaming
+			})}
+
+			{toast && (
+				<div
+					className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg border text-sm font-medium animate-in slide-in-from-bottom-2 duration-300 ${
+						toast.type === 'success'
+							? 'bg-emerald-600 text-white border-emerald-500'
+							: 'bg-red-600 text-white border-red-500'
+					}`}
+				>
+					{toast.message}
+				</div>
+			)}
 		</div>
 	)
 }

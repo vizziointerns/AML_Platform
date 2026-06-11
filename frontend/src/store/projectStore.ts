@@ -24,6 +24,7 @@ export interface Project {
 	isPinned: boolean
 	isFavorite: boolean
 	thumbnail: string
+	coverImageUrl: string
 }
 
 interface ProjectState {

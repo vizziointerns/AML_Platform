@@ -147,8 +147,14 @@ export function project_dashboard({
 					</div>
 				) : is_loading ? (
 					render_skeleton_grid(is_dark_mode)
-				) : (
+				) : stats ? (
 					render_stats_grid(stats, project, is_dark_mode)
+				) : (
+					<div
+						className={`p-6 rounded-xl border text-center ${is_dark_mode ? 'bg-zinc-900 border-zinc-800 text-zinc-400' : 'bg-white border-zinc-200 text-zinc-500'}`}
+					>
+						<p className="text-sm">No stats available yet. Upload data to get started.</p>
+					</div>
 				)}
 
 				{quick_actions_card({ actions, is_dark_mode })}

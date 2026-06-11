@@ -35,7 +35,7 @@ export function use_project_stats(project_id: string | undefined): UseProjectSta
 				.from('project_stats')
 				.select('*')
 				.eq('project_id', project_id)
-				.single()
+				.maybeSingle()
 
 			if (is_cancelled) return
 
@@ -44,21 +44,7 @@ export function use_project_stats(project_id: string | undefined): UseProjectSta
 					err.message?.includes('does not exist') ||
 					err.message?.includes('Could not find the table')
 				) {
-					set_stats({
-						total_images: 0,
-						total_annotations: 0,
-						total_classes: 0,
-						total_datasets: 0,
-						storage_bytes: 0
-					})
-				} else if (err.message?.includes('row')) {
-					set_stats({
-						total_images: 0,
-						total_annotations: 0,
-						total_classes: 0,
-						total_datasets: 0,
-						storage_bytes: 0
-					})
+					set_stats(undefined)
 				} else {
 					set_stats(undefined)
 					set_error(err.message)
@@ -75,6 +61,8 @@ export function use_project_stats(project_id: string | undefined): UseProjectSta
 					total_datasets: data.total_datasets ?? 0,
 					storage_bytes: data.storage_bytes ?? 0
 				})
+			} else {
+				set_stats(undefined)
 			}
 			set_is_loading(false)
 		})()
