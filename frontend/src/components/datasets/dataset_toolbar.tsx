@@ -35,10 +35,7 @@ export function dataset_toolbar({
 					</button>
 				)}
 				{on_create && (
-					<button
-						onClick={on_create}
-						className="btn-primary"
-					>
+					<button onClick={on_create} className="btn-primary">
 						<Plus size={16} /> Create Dataset
 					</button>
 				)}
