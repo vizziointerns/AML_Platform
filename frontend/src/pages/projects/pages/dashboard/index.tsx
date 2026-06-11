@@ -120,9 +120,9 @@ export function project_dashboard({
 	]
 
 	return (
-		<div className="flex-1 overflow-y-auto p-4 lg:p-8">
-			<div className="max-w-7xl mx-auto space-y-6">
-				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+		<div className="page-layout">
+			<div className="page-content">
+				<div className="page-header mb-8">
 					<div>
 						<h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
 						<p className={`text-sm mt-1 ${text_muted}`}>

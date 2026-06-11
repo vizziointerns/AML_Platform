@@ -37,7 +37,7 @@ export function dataset_toolbar({
 				{on_create && (
 					<button
 						onClick={on_create}
-						className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors"
+						className="btn-primary"
 					>
 						<Plus size={16} /> Create Dataset
 					</button>
@@ -56,7 +56,7 @@ export function dataset_toolbar({
 
 	return (
 		<>
-			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+			<div className="page-header mb-2">
 				<div>
 					<h1 className={`text-2xl font-semibold tracking-tight ${text_heading}`}>Datasets</h1>
 					<p className={`text-sm mt-1 ${text_muted}`}>

@@ -138,16 +138,16 @@ export default function deployment_page({ is_dark_mode }: { is_dark_mode: boolea
 	}
 
 	return (
-		<div className="flex-1 overflow-y-auto p-4 lg:p-8">
-			<div className="max-w-7xl mx-auto space-y-6">
-				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+		<div className="page-layout">
+			<div className="page-content">
+				<div className="page-header">
 					<div>
 						<h1 className={`text-2xl font-semibold tracking-tight ${text_heading}`}>Deployment</h1>
 						<p className={`text-sm mt-1 ${text_muted}`}>
 							Manage model deployments across environments.
 						</p>
 					</div>
-					<button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors">
+					<button className="btn-primary">
 						<Plus size={16} /> New Deployment
 					</button>
 				</div>

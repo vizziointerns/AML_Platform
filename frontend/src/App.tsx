@@ -70,7 +70,7 @@ function app_content() {
 	if (is_loading) {
 		return (
 			<div className="h-screen w-full bg-[#09090b] flex items-center justify-center">
-				<div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500" />
+				<div className="loading-spinner" />
 			</div>
 		)
 	}
