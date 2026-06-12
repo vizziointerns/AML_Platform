@@ -1,14 +1,15 @@
-# AML_Platform
+# AML Platform
 
-A computer vision platform — manage datasets, annotate images, train models, and build ML workflows.
+A computer vision platform — manage datasets, annotate images with AI-assisted tools, train models, and build ML workflows.
 
 ## Tech Stack
 
 | Layer      | Stack                                                           |
 | ---------- | --------------------------------------------------------------- |
-| Frontend   | React 19, TypeScript, Vite 8, Tailwind CSS 4, Ant Design 6     |
+| Frontend   | React 19, TypeScript, Vite 8, Tailwind CSS 4, Konva (canvas)   |
 | Backend    | Python 3.12, FastAPI, SQLAlchemy, Alembic                       |
-| Database   | SQLite (dev), PostgreSQL (prod)                                 |
+| Database   | SQLite (dev), PostgreSQL (prod), Supabase (auth + storage)      |
+| Storage    | Google Drive API (image upload), Supabase (metadata)            |
 | CI         | GitHub Actions — frontend (pnpm) + backend (pip)                |
 
 ## Prerequisites
@@ -17,29 +18,47 @@ A computer vision platform — manage datasets, annotate images, train models, a
 - **pnpm** 9+ (only pnpm — npm/yarn will refuse to install)
 - **Python** 3.12+
 - **(Optional)** Docker Desktop for local Postgres
+- **Google Cloud** project with Drive API enabled (for image upload)
+- **Supabase** project (for auth, database, and RLS)
 
 ## Project Structure
 
 ```
-datature-clone/
+AML_Platform/
 ├── frontend/               # React SPA (pnpm)
 │   ├── src/
-│   │   ├── components/     # UI components (annotation, gallery, uploader, etc.)
-│   │   ├── pages/          # Route pages (Dashboard, Projects, Datasets, etc.)
-│   │   └── store/          # Zustand state management
-│   ├── .npmrc              # Enforces pnpm-only
+│   │   ├── api/            # API client (Drive upload, Supabase)
+│   │   ├── components/     # UI components
+│   │   │   ├── AnnotationBox/     # Bounding box annotation rendering
+│   │   │   ├── AnnotationCanvas/  # Canvas with drawing tools
+│   │   │   ├── AnnotationPolygon/ # Polygon annotation rendering
+│   │   │   ├── VirtualGallery/    # Virtual-scrolled image gallery
+│   │   │   ├── Uploader/          # Google Drive upload dialog
+│   │   │   ├── Sidebar/           # App & project sidebar
+│   │   │   └── ui/                # Shared primitives
+│   │   ├── contexts/        # Auth & app context
+│   │   ├── hooks/           # Custom hooks (datasets, images, upload)
+│   │   ├── pages/           # Route pages
+│   │   │   └── projects/pages/
+│   │   │       ├── annotation/    # Annotation studio (canvas, tools)
+│   │   │       ├── datasets/      # Dataset explorer & gallery
+│   │   │       ├── dashboard/     # Project dashboard
+│   │   │       └── ...
+│   │   ├── store/           # Zustand state management
+│   │   └── utils/           # Supabase client, project mapping
+│   ├── .npmrc
 │   └── package.json
 ├── backend/                # FastAPI server
 │   ├── app/
-│   │   ├── api/            # Route handlers
+│   │   ├── api/routes/     # Route handlers (health, projects)
 │   │   ├── core/           # Config, settings
 │   │   ├── db/             # Database session & base
-│   │   └── models/         # SQLAlchemy models
+│   │   └── models/         # SQLAlchemy models (User)
 │   ├── alembic/            # Migrations
-│   └── .env.example        # Environment template
+│   └── .env.example
 ├── docker-compose.yml      # Postgres 16 (dev)
-├── Makefile                # Backend / docker shortcuts
-└── .github/workflows/      # CI pipelines
+├── Makefile
+└── .github/workflows/
 ```
 
 ## Quick Start
@@ -66,28 +85,55 @@ pnpm install
 pnpm run dev
 ```
 
-Opens at `http://localhost:5173`. The dev server proxies `/api` to the backend.
-
-## Package Manager
-
-This project uses **pnpm only**. An `.npmrc` with `engine-strict=true` prevents npm/yarn from installing. If you see an error about `packageManager`, make sure you're using pnpm:
-
-```powershell
-npm install -g pnpm   # Install pnpm globally
-pnpm --version        # Should be 9.x
-```
+Opens at `http://localhost:5173`.
 
 ## Environment Variables
 
 Copy `backend/.env.example` to `backend/.env`:
 
 ```env
-APP_NAME=datature-clone-backend
+APP_NAME=AML_Platform-backend
 ENVIRONMENT=local
 API_PREFIX=/api
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-DATABASE_URL=sqlite:///./dev.db    # Switch to Postgres URL for prod
+DATABASE_URL=sqlite:///./dev.db
 ```
+
+Create a `frontend/.env.local` file:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+```
+
+## Key Features
+
+### Annotation Studio
+- **6 tools**: Select, Pan, Bounding Box, Polygon, Brush, Eraser
+- Keyboard shortcuts (V/H/B/P/W/E, [+/- zoom, Ctrl+Z/Y undo/redo)
+- Annotation history with undo/redo (up to 50 steps)
+- Resizable left/right panels with class list and properties
+- Hover highlighting, drag/resize existing annotations
+- Locked annotation support
+
+### Dataset Management
+- Create, rename, delete datasets
+- Image gallery with virtual scrolling (supports thousands of images)
+- Search by class label, filter by status
+- Click-to-annotate from gallery
+
+### Image Upload (Google Drive)
+- OAuth 2.0 via Google Identity Services
+- Resumable upload to Google Drive
+- Metadata stored in Supabase (`dataset_images` table)
+- Images served via Google's CDN thumbnail URL
+- Upload progress tracking and cancellation
+
+### Authentication
+- Supabase Auth (email/password)
+- Google OAuth sign-in
+- Protected routes and row-level security
 
 ## Scripts
 
@@ -101,8 +147,6 @@ DATABASE_URL=sqlite:///./dev.db    # Switch to Postgres URL for prod
 | `pnpm run lint`          | ESLint                   |
 | `pnpm run format:check`  | Prettier check           |
 | `pnpm exec tsc -b`       | TypeScript check         |
-| `pnpm exec vitest run`   | Unit tests               |
-| `pnpm exec playwright test` | E2E tests            |
 
 ### Backend
 
@@ -110,7 +154,6 @@ DATABASE_URL=sqlite:///./dev.db    # Switch to Postgres URL for prod
 | -------------------------------- | ---------------------- |
 | `uvicorn main:app --reload`      | Dev server             |
 | `mypy .`                         | Type check             |
-| `python -m pytest`               | Unit tests             |
 | `alembic upgrade head`           | Run migrations         |
 | `alembic revision --autogenerate -m "message"` | New migration |
 
@@ -121,31 +164,7 @@ docker compose up -d postgres    # Start Postgres
 docker compose down              # Stop Postgres
 ```
 
-After starting Postgres, set `DATABASE_URL` in `backend/.env`:
-
-```text
-DATABASE_URL=postgresql+psycopg://datature:datature@localhost:5432/datature
-```
-
-Then run `alembic upgrade head`.
-
-## Pre-push Hooks
-
-Lefthook runs lint, format check, type check, and audit on `git push`. Install once:
-
-```powershell
-cd frontend
-pnpm exec lefthook install
-```
-
-Run hooks manually:
-
-```powershell
-pnpm exec lefthook run pre-commit
-pnpm exec lefthook run pre-push
-```
-
-## Frontend Architecture
+## Routes
 
 | Route        | Page                     | Description                          |
 | ------------ | ------------------------ | ------------------------------------ |
@@ -154,19 +173,41 @@ pnpm exec lefthook run pre-push
 | `datasets`   | DatasetsView             | Dataset explorer & image gallery     |
 | `annotation` | AnnotationStudio         | Canvas annotation (bbox/polygon/brush) |
 | `workflow`   | WorkflowBuilder          | Visual pipeline builder (React Flow) |
-| `models`     | (placeholder)            |                                     |
-| `training`   | (placeholder)            |                                     |
-| `deployments`| (placeholder)            |                                     |
-| `settings`   | (placeholder)            |                                     |
 | `auth/*`     | AuthFlow                 | Login, signup, onboarding, invite    |
 
-Key libraries: **Zustand** (state), **React Router** (navigation), **Konva** (annotation canvas), **React Flow** (workflow graphs), **Recharts** (charts).
+## Database Schema
+
+### `datasets`
+Stores dataset metadata per project.
+
+| Column        | Type      | Notes                        |
+|---------------|-----------|------------------------------|
+| id            | UUID      | Primary key                  |
+| project_id    | TEXT      | References projects(id)      |
+| name          | TEXT      |                              |
+| image_count   | INTEGER   | Incremented on upload        |
+| class_count   | INTEGER   | Populated during annotation  |
+| tags          | TEXT[]    |                              |
+| storage_bytes | BIGINT    |                              |
+
+### `dataset_images`
+Stores per-image metadata linked to Google Drive.
+
+| Column       | Type      | Notes                              |
+|--------------|-----------|------------------------------------|
+| id           | UUID      | Primary key                        |
+| dataset_id   | UUID      | FK to datasets(id)                 |
+| file_name    | TEXT      |                                    |
+| file_url     | TEXT      | `lh3.googleusercontent.com/d/{id}` |
+| width/height | INTEGER   | Currently placeholder (0)          |
+| class_labels | TEXT[]    | Populated during annotation        |
+
+Row-level security (RLS) policies restrict access to the owning user's projects.
 
 ## Code Conventions
 
-- **Variables** — `snake_case` or `UPPER_CASE`
-- **Functions** — `snake_case`
-- **Booleans** — prefix with `is_`, `has_`, `can_`, `should_`, `will_`, `did_`
+- **Variables & functions** — `snake_case`
+- **Booleans** — prefix with `is_`, `has_`, `can_` (`is_dark_mode`)
 - **No `null`** — use `undefined`
 - **No `console.log`** — use `console.warn`, `console.error`, or `console.info`
 - ESLint enforces these rules automatically.

@@ -8,20 +8,22 @@ import { gallery_image as GalleryImage, render_preview_modal } from './render'
 interface VirtualGalleryProps {
 	is_dark_mode: boolean
 	images?: MockImage[]
+	on_open_annotation?: (img: MockImage) => void
 }
 
 export default function virtual_gallery({
 	is_dark_mode,
-	images: external_images
+	images: external_images,
+	on_open_annotation
 }: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
 	const [images, set_images] = useState<MockImage[]>([])
-	const [selected_images, set_selected_images] = useState<Set<number>>(new Set())
+	const [selected_images, set_selected_images] = useState<Set<MockImage['id']>>(new Set())
 	const [zoom_level, set_zoom_level] = useState(1)
 	const [focused_index, set_focused_index] = useState<number | undefined>(undefined)
 	const [preview_image, set_preview_image] = useState<MockImage | undefined>(undefined)
 	const [is_loading, set_is_loading] = useState(false)
-	const [last_selected, set_last_selected] = useState<number | undefined>(undefined)
+	const [last_selected, set_last_selected] = useState<MockImage['id'] | undefined>(undefined)
 
 	const parent_ref = useRef<HTMLDivElement>(undefined!)
 	const container_width_ref = useRef<number>(0)
@@ -116,7 +118,7 @@ export default function virtual_gallery({
 		return () => window.removeEventListener('keydown', handle_key_down)
 	}, [focused_index, column_count, filtered_images, row_virtualizer])
 
-	const toggle_single_selection = (set: Set<number>, id: number) => {
+	const toggle_single_selection = (set: Set<MockImage['id']>, id: MockImage['id']) => {
 		if (set.has(id)) {
 			set.delete(id)
 		} else {
@@ -124,7 +126,11 @@ export default function virtual_gallery({
 		}
 	}
 
-	const add_range_selection = (set: Set<number>, id: number, anchor: number | undefined) => {
+	const add_range_selection = (
+		set: Set<MockImage['id']>,
+		id: MockImage['id'],
+		anchor: MockImage['id'] | undefined
+	) => {
 		if (anchor === undefined) return
 
 		const start = filtered_images.findIndex((img) => img.id === anchor)
@@ -139,7 +145,7 @@ export default function virtual_gallery({
 		}
 	}
 
-	const handle_select = (id: number, shift_key: boolean) => {
+	const handle_select = (id: MockImage['id'], shift_key: boolean) => {
 		set_selected_images((prev) => {
 			const new_set = new Set(prev)
 
@@ -280,6 +286,7 @@ export default function virtual_gallery({
 												set_focused_index={set_focused_index}
 												handle_select={handle_select}
 												set_preview_image={set_preview_image}
+												on_open_annotation={on_open_annotation}
 											/>
 										)
 									})}

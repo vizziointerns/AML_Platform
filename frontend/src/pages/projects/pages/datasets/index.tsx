@@ -40,8 +40,8 @@ function dataset_explorer_view({
 	const hover_bg_subtle = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 	const hover_border_subtle = is_dark_mode ? 'hover:border-zinc-800' : 'hover:border-zinc-200'
 
-	const gallery_images = images.map((img, idx) => ({
-		id: idx + 1,
+	const gallery_images = images.map((img) => ({
+		id: img.id,
 		url: img.file_url,
 		width: img.width,
 		height: img.height,

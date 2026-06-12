@@ -49,10 +49,12 @@ export function navigate_gallery(
 		filtered_images: MockImage[]
 		column_count: number
 		row_virtualizer: Virtualizer<HTMLDivElement, Element>
-		handle_select: (id: number, shift_key: boolean) => void
+		handle_select: (id: MockImage['id'], shift_key: boolean) => void
 		set_focused_index: (i: number | undefined) => void
 		set_preview_image: (img: MockImage | undefined) => void
-		set_selected_images: (value: Set<number> | ((prev: Set<number>) => Set<number>)) => void
+		set_selected_images: (
+			value: Set<MockImage['id']> | ((prev: Set<MockImage['id']>) => Set<MockImage['id']>)
+		) => void
 	}
 ) {
 	const {
@@ -93,7 +95,7 @@ export function navigate_gallery(
 	}
 
 	if (e.key === 'Escape') {
-		set_selected_images(new Set<number>())
+		set_selected_images(new Set<MockImage['id']>())
 		set_focused_index(undefined)
 		set_preview_image(undefined)
 		return
