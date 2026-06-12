@@ -1,4 +1,4 @@
-# Datature Clone
+# AML_Platform
 
 A computer vision platform — manage datasets, annotate images, train models, and build ML workflows.
 
