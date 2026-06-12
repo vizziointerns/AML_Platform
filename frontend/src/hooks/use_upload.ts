@@ -31,6 +31,20 @@ export function use_upload(on_close: () => void) {
 	const folder_input_ref = useRef<HTMLInputElement>(undefined!)
 	const google_auth = use_google_auth()
 
+	/* auto-trigger Google auth when the dialog opens */
+	const auto_connect_ref = useRef(false)
+	useEffect(() => {
+		if (
+			!auto_connect_ref.current &&
+			google_auth.is_configured &&
+			!google_auth.is_authenticated &&
+			!google_auth.is_loading
+		) {
+			auto_connect_ref.current = true
+			google_auth.sign_in()
+		}
+	}, [])
+
 	const total_files = files.length
 	const completed_files = files.filter((f) => f.status === 'success').length
 	const error_files = files.filter((f) => f.status === 'error').length

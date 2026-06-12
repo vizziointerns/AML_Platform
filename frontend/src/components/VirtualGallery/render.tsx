@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Check, Maximize, X } from 'lucide-react'
+import { Check, Maximize, X, PenTool } from 'lucide-react'
 import type { MockImage } from './types'
 
 export function gallery_image({
@@ -12,7 +12,8 @@ export function gallery_image({
 	is_dark_mode,
 	set_focused_index,
 	handle_select,
-	set_preview_image
+	set_preview_image,
+	on_open_annotation
 }: {
 	img: MockImage
 	global_index: number
@@ -24,6 +25,7 @@ export function gallery_image({
 	set_focused_index: (i: number) => void
 	handle_select: (id: number, shift_key: boolean) => void
 	set_preview_image: (img: MockImage) => void
+	on_open_annotation?: (img: MockImage) => void
 }) {
 	const [has_error, set_has_error] = useState(false)
 	useEffect(() => {
@@ -90,7 +92,17 @@ export function gallery_image({
 					</div>
 				</div>
 
-				<div className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity">
+				<div className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+					<button
+						onClick={(e) => {
+							e.stopPropagation()
+							on_open_annotation?.(img)
+						}}
+						className="p-1 rounded bg-blue-600/80 text-white hover:bg-blue-700 backdrop-blur-md"
+						title="Annotate"
+					>
+						<PenTool size={14} />
+					</button>
 					<button
 						onClick={(e) => {
 							e.stopPropagation()

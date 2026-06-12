@@ -8,11 +8,13 @@ import { gallery_image as GalleryImage, render_preview_modal } from './render'
 interface VirtualGalleryProps {
 	is_dark_mode: boolean
 	images?: MockImage[]
+	on_open_annotation?: (img: MockImage) => void
 }
 
 export default function virtual_gallery({
 	is_dark_mode,
-	images: external_images
+	images: external_images,
+	on_open_annotation
 }: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
 	const [images, set_images] = useState<MockImage[]>([])
@@ -280,6 +282,7 @@ export default function virtual_gallery({
 												set_focused_index={set_focused_index}
 												handle_select={handle_select}
 												set_preview_image={set_preview_image}
+												on_open_annotation={on_open_annotation}
 											/>
 										)
 									})}

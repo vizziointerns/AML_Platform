@@ -3,7 +3,7 @@ export interface VirtualGalleryProps {
 }
 
 export interface MockImage {
-	id: number
+	id: string | number
 	status: string
 	classes: string[]
 	width: number
