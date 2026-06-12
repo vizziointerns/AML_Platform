@@ -31,7 +31,7 @@ export function use_upload(on_close: () => void) {
 	const folder_input_ref = useRef<HTMLInputElement>(undefined!)
 	const google_auth = use_google_auth()
 
-	/* auto-trigger Google auth when the dialog opens */
+	/* runs once on mount: auto-trigger Google auth when the dialog opens */
 	const auto_connect_ref = useRef(false)
 	useEffect(() => {
 		if (

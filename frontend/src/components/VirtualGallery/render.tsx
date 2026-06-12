@@ -23,7 +23,7 @@ export function gallery_image({
 	virtual_row_size: number
 	is_dark_mode: boolean
 	set_focused_index: (i: number) => void
-	handle_select: (id: number, shift_key: boolean) => void
+	handle_select: (id: MockImage['id'], shift_key: boolean) => void
 	set_preview_image: (img: MockImage) => void
 	on_open_annotation?: (img: MockImage) => void
 }) {

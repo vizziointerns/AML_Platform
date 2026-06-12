@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # AML Platform
+=======
+# AML_Platform
+>>>>>>> 8b55ca1f47b2a34f0d7e80ddf6a75bfa740c706a
 
 A computer vision platform — manage datasets, annotate images with AI-assisted tools, train models, and build ML workflows.
 
