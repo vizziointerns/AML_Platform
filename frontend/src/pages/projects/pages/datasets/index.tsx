@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Plus, AlertTriangle, CheckCircle2, X } from 'lucide-react'
+import { ArrowLeft, Plus, AlertTriangle, CheckCircle2, X, Database } from 'lucide-react'
 import VirtualGallery from '../../../../components/VirtualGallery'
 import { supabase } from '../../../../utils/supabase'
 import { use_datasets } from '../../../../hooks/use_datasets'
@@ -90,7 +90,28 @@ function dataset_explorer_view({
 			</div>
 
 			<div className="flex-1 min-h-[500px]">
-				<VirtualGallery is_dark_mode={is_dark_mode} images={gallery_images} />
+				{images.length === 0 ? (
+					<div
+						className={`flex flex-col items-center justify-center h-full rounded-xl border ${border_subtle} ${bg_card}`}
+					>
+						<Database
+							size={48}
+							className={`${is_dark_mode ? 'text-zinc-700' : 'text-zinc-300'} mb-4`}
+						/>
+						<p className={`text-sm font-medium ${text_heading}`}>No data yet</p>
+						<p className={`text-xs mt-1 ${text_muted} mb-4`}>
+							Upload images to start annotating and training.
+						</p>
+						<button
+							onClick={on_add_data}
+							className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+						>
+							<Plus size={16} /> Upload Data
+						</button>
+					</div>
+				) : (
+					<VirtualGallery is_dark_mode={is_dark_mode} images={gallery_images} />
+				)}
 			</div>
 		</div>
 	)

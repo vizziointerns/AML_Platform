@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { CheckCircle2, X } from 'lucide-react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { CheckCircle2, AlertCircle, X } from 'lucide-react'
 import AuthFlow from './pages/AuthFlow'
 import Uploader from './components/Uploader'
 import NewProjectDialog from './components/NewProjectDialog'
+import NewProjectPage from './pages/NewProject'
 import { APP_CONTEXT } from './contexts/app_context'
 import type { AppContextValue } from './contexts/app_context'
 import { auth_provider as AuthProvider, use_auth } from './contexts/auth_context'
@@ -12,10 +13,13 @@ import HomeShell from './pages/Home/Shell'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import ProjectRouter from './pages/projects/ProjectRouter'
 import PagePlaceholder from './components/page_placeholder'
+import AccountShell from './pages/Account/Shell'
+import DatasetsPage from './pages/Datasets'
 
 interface Toast {
 	id: string
 	message: string
+	type: 'success' | 'error'
 }
 
 function app_content() {
@@ -25,6 +29,7 @@ function app_content() {
 	const [is_uploader_open, set_is_uploader_open] = useState(false)
 	const [is_new_project_open, set_is_new_project_open] = useState(false)
 	const [toasts, set_toasts] = useState<Toast[]>([])
+	const navigate = useNavigate()
 
 	useEffect(() => {
 		const on_upload_complete = (e: Event) => {
@@ -37,12 +42,31 @@ function app_content() {
 			}
 			set_toasts((prev) => [
 				...prev,
-				{ id, message: `Upload complete: ${detail.completed}/${detail.total} files` }
+				{
+					id,
+					message: `Upload complete: ${detail.completed}/${detail.total} files`,
+					type: 'success'
+				}
 			])
 			setTimeout(() => set_toasts((prev) => prev.filter((t) => t.id !== id)), 4000)
 		}
+		const on_project_toast = (e: Event) => {
+			const detail = (e as CustomEvent).detail as { message: string; type: 'success' | 'error' }
+			let id: string
+			try {
+				id = crypto.randomUUID()
+			} catch {
+				id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+			}
+			set_toasts((prev) => [...prev, { id, message: detail.message, type: detail.type }])
+			setTimeout(() => set_toasts((prev) => prev.filter((t) => t.id !== id)), 4000)
+		}
 		window.addEventListener('upload-complete', on_upload_complete)
-		return () => window.removeEventListener('upload-complete', on_upload_complete)
+		window.addEventListener('project-toast', on_project_toast)
+		return () => {
+			window.removeEventListener('upload-complete', on_upload_complete)
+			window.removeEventListener('project-toast', on_project_toast)
+		}
 	}, [])
 
 	const theme_classes = is_dark_mode
@@ -53,7 +77,7 @@ function app_content() {
 		is_dark_mode,
 		toggle_theme: () => set_is_dark_mode((prev) => !prev),
 		open_uploader: () => set_is_uploader_open(true),
-		open_new_project: () => set_is_new_project_open(true),
+		open_new_project: () => navigate('/new-project'),
 		is_mobile_menu_open,
 		open_mobile_menu: () => set_is_mobile_menu_open(true),
 		close_mobile_menu: () => set_is_mobile_menu_open(false)
@@ -93,6 +117,9 @@ function app_content() {
 										<Route path="projects" element={<ProjectsPage />} />
 										<Route path="projects/:projectId/*" element={<ProjectRouter />} />
 										<Route path="settings" element={<PagePlaceholder />} />
+										<Route path="datasets" element={<DatasetsPage />} />
+										<Route path="account" element={<AccountShell />} />
+										<Route path="new-project" element={<NewProjectPage />} />
 										<Route path="*" element={<Navigate to="/home" replace />} />
 									</Route>
 								</Routes>
@@ -106,25 +133,35 @@ function app_content() {
 
 							{toasts.length > 0 && (
 								<div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 max-w-sm w-full px-4">
-									{toasts.map((t) => (
-										<div
-											key={t.id}
-											className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-in slide-in-from-top-2 fade-in duration-300 ${
-												is_dark_mode
-													? 'bg-emerald-900/90 border-emerald-700 text-emerald-200'
-													: 'bg-emerald-50 border-emerald-200 text-emerald-800'
-											}`}
-										>
-											<CheckCircle2 size={18} className="shrink-0" />
-											<span className="text-sm font-medium flex-1">{t.message}</span>
-											<button
-												onClick={() => set_toasts((prev) => prev.filter((x) => x.id !== t.id))}
-												className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+									{toasts.map((t) => {
+										const is_error = t.type === 'error'
+										const toast_styles = is_error
+											? is_dark_mode
+												? 'bg-red-900/90 border-red-700 text-red-200'
+												: 'bg-red-50 border-red-200 text-red-800'
+											: is_dark_mode
+												? 'bg-emerald-900/90 border-emerald-700 text-emerald-200'
+												: 'bg-emerald-50 border-emerald-200 text-emerald-800'
+										return (
+											<div
+												key={t.id}
+												className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-in slide-in-from-top-2 fade-in duration-300 ${toast_styles}`}
 											>
-												<X size={14} />
-											</button>
-										</div>
-									))}
+												{is_error ? (
+													<AlertCircle size={18} className="shrink-0" />
+												) : (
+													<CheckCircle2 size={18} className="shrink-0" />
+												)}
+												<span className="text-sm font-medium flex-1">{t.message}</span>
+												<button
+													onClick={() => set_toasts((prev) => prev.filter((x) => x.id !== t.id))}
+													className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+												>
+													<X size={14} />
+												</button>
+											</div>
+										)
+									})}
 								</div>
 							)}
 

@@ -9,7 +9,8 @@ import {
 	GitBranch,
 	Home,
 	Layers,
-	Settings
+	Settings,
+	UserCircle
 } from 'lucide-react'
 
 export interface NavItem {
@@ -20,10 +21,14 @@ export interface NavItem {
 
 export const APP_NAV_ITEMS: NavItem[] = [
 	{ id: 'home', label: 'Home', icon: Home },
-	{ id: 'projects', label: 'Projects', icon: Layers }
+	{ id: 'projects', label: 'Projects', icon: Layers },
+	{ id: 'datasets', label: 'Datasets', icon: Database }
 ]
 
-export const APP_BOTTOM_ITEMS: NavItem[] = [{ id: 'settings', label: 'Settings', icon: Settings }]
+export const APP_BOTTOM_ITEMS: NavItem[] = [
+	{ id: 'settings', label: 'Settings', icon: Settings },
+	{ id: 'account', label: 'Account', icon: UserCircle }
+]
 
 export const PROJECT_NAV_ITEMS: NavItem[] = [
 	{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

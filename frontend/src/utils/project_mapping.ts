@@ -27,6 +27,7 @@ export interface DbProject {
 	is_pinned: boolean
 	is_favorite: boolean
 	thumbnail: string
+	cover_image_url?: string
 }
 
 export function map_project(db: DbProject): Project {
@@ -49,6 +50,7 @@ export function map_project(db: DbProject): Project {
 		lastUpdated: db.last_updated,
 		isPinned: db.is_pinned,
 		isFavorite: db.is_favorite,
-		thumbnail: db.thumbnail ?? ''
+		thumbnail: db.thumbnail ?? '',
+		coverImageUrl: db.cover_image_url ?? undefined
 	}
 }

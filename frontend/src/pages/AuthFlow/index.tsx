@@ -67,7 +67,7 @@ export default function auth_flow() {
 				<div className="h-12 w-12 rounded-xl border border-zinc-800 bg-zinc-950/50 shadow-xl flex items-center justify-center mb-4">
 					<Box className="w-6 h-6 text-blue-500" />
 				</div>
-				<h1 className="text-2xl font-semibold tracking-tight text-white mb-1">VisionCore</h1>
+				<h1 className="text-2xl font-semibold tracking-tight text-white mb-1">AML Platform</h1>
 				<p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold flex items-center gap-2">
 					<span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
 					System Auth

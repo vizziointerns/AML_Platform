@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Menu, ChevronRight, Search, Sun, Moon, Bell, User, LogOut } from 'lucide-react'
+import { Menu, ChevronRight, Search, Sun, Moon, Bell, User } from 'lucide-react'
 import { use_project_store } from '../store/projectStore'
 import { use_app_context } from '../contexts/app_context'
 import { use_auth } from '../contexts/auth_context'
+import { user_menu as UserMenu } from './Account/UserMenu'
 
 function build_breadcrumbs(
 	path_parts: string[],
@@ -123,34 +124,21 @@ export function header_content() {
 					<button
 						onClick={() => set_is_menu_open(!is_menu_open)}
 						className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+						aria-label="Open user menu"
+						aria-expanded={is_menu_open}
+						aria-haspopup="true"
 					>
 						<div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white border-2 border-zinc-950 shadow-sm">
 							<User size={14} />
 						</div>
 					</button>
 
-					{is_menu_open && (
-						<div
-							className={`absolute right-0 mt-2 w-48 rounded-xl border shadow-xl overflow-hidden z-50 ${
-								is_dark_mode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
-							}`}
-						>
-							<button
-								onClick={() => {
-									sign_out()
-									set_is_menu_open(false)
-								}}
-								className={`flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
-									is_dark_mode
-										? 'text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50'
-										: 'text-zinc-600 hover:text-red-600 hover:bg-zinc-100'
-								}`}
-							>
-								<LogOut size={16} />
-								Sign Out
-							</button>
-						</div>
-					)}
+					{UserMenu({
+						is_dark_mode,
+						is_open: is_menu_open,
+						on_close: () => set_is_menu_open(false),
+						on_sign_out: sign_out
+					})}
 				</div>
 			</div>
 		</header>
