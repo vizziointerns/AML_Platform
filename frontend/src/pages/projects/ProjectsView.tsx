@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { use_project_store, type ProjectType } from '../../store/projectStore'
 import { use_app_context } from '../../contexts/app_context'
@@ -11,12 +11,21 @@ import {
 	MoreVertical,
 	Pin,
 	Clock,
-	Edit3
+	Edit3,
+	CheckCircle2,
+	X
 } from 'lucide-react'
+import DeleteProjectDialog from '../../components/DeleteProjectDialog'
+import type { Project } from '../../store/projectStore'
+
+interface Toast {
+	id: string
+	message: string
+}
 
 export default function projects_view() {
 	const { is_dark_mode, open_new_project } = use_app_context()
-	const { is_loading, error } = use_projects()
+	const { is_loading, error, refetch } = use_projects()
 	const {
 		projects,
 		searchQuery: search_query,
@@ -26,7 +35,6 @@ export default function projects_view() {
 		setFilterType: set_filter_type,
 		setSortBy: set_sort_by,
 		togglePin: toggle_pin,
-		deleteProject: delete_project,
 		duplicateProject: duplicate_project
 	} = use_project_store()
 
@@ -34,6 +42,14 @@ export default function projects_view() {
 
 	const [view_mode, set_view_mode] = useState<'grid' | 'list'>('grid')
 	const [menu_open, set_menu_open] = useState<string | undefined>(undefined)
+	const [delete_target, set_delete_target] = useState<Project | undefined>(undefined)
+	const [toasts, set_toasts] = useState<Toast[]>([])
+
+	const show_toast = useCallback((message: string) => {
+		const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+		set_toasts((prev) => [...prev, { id, message }])
+		setTimeout(() => set_toasts((prev) => prev.filter((t) => t.id !== id)), 4000)
+	}, [])
 
 	const filtered = projects
 		.filter(
@@ -184,7 +200,8 @@ export default function projects_view() {
 											className={`absolute right-0 top-8 w-36 rounded-lg border ${border_subtle} ${bg_card} shadow-xl z-10 py-1`}
 										>
 											<button
-												onClick={() => {
+												onClick={(e) => {
+													e.stopPropagation()
 													duplicate_project(project.id)
 													set_menu_open(undefined)
 												}}
@@ -193,8 +210,9 @@ export default function projects_view() {
 												<Edit3 size={14} /> Duplicate
 											</button>
 											<button
-												onClick={() => {
-													delete_project(project.id)
+												onClick={(e) => {
+													e.stopPropagation()
+													set_delete_target(project)
 													set_menu_open(undefined)
 												}}
 												className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2"
@@ -244,6 +262,41 @@ export default function projects_view() {
 					))}
 				</div>
 			)}
+
+			{toasts.length > 0 && (
+				<div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 max-w-sm w-full px-4">
+					{toasts.map((t) => (
+						<div
+							key={t.id}
+							className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-in slide-in-from-top-2 fade-in duration-300 ${
+								is_dark_mode
+									? 'bg-emerald-900/90 border-emerald-700 text-emerald-200'
+									: 'bg-emerald-50 border-emerald-200 text-emerald-800'
+							}`}
+						>
+							<CheckCircle2 size={18} className="shrink-0" />
+							<span className="text-sm font-medium flex-1">{t.message}</span>
+							<button
+								onClick={() => set_toasts((prev) => prev.filter((x) => x.id !== t.id))}
+								className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+							>
+								<X size={14} />
+							</button>
+						</div>
+					))}
+				</div>
+			)}
+
+			<DeleteProjectDialog
+				isOpen={delete_target !== undefined}
+				project={delete_target}
+				on_close={() => set_delete_target(undefined)}
+				is_dark_mode={is_dark_mode}
+				on_deleted={(name) => {
+					show_toast(`Project "${name}" deleted`)
+					refetch()
+				}}
+			/>
 		</div>
 	)
 }
