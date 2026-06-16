@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { use_project_store, type ProjectType } from '../../store/projectStore'
+import { use_project_store, type Project, type ProjectType } from '../../store/projectStore'
 import { use_app_context } from '../../contexts/app_context'
 import { use_projects } from '../../hooks/use_projects'
 import {
@@ -11,8 +11,38 @@ import {
 	MoreVertical,
 	Pin,
 	Clock,
-	Edit3
+	Edit3,
+	AlertTriangle
 } from 'lucide-react'
+import DeleteProjectDialog from '../../components/DeleteProjectDialog'
+
+function toast_bar({
+	toast,
+	on_dismiss
+}: {
+	toast: { type: 'success' | 'error'; message: string }
+	on_dismiss: () => void
+}) {
+	return (
+		<div
+			className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-2xl border text-sm font-medium animate-in slide-in-from-bottom-4 duration-300 flex items-center gap-3 ${
+				toast.type === 'success'
+					? 'bg-emerald-900/90 border-emerald-700/50 text-emerald-200 backdrop-blur-sm'
+					: 'bg-red-900/90 border-red-700/50 text-red-200 backdrop-blur-sm'
+			}`}
+			onClick={on_dismiss}
+		>
+			{toast.type === 'success' ? (
+				<svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+				</svg>
+			) : (
+				<AlertTriangle size={18} className="text-red-400 shrink-0" />
+			)}
+			{toast.message}
+		</div>
+	)
+}
 
 export default function projects_view() {
 	const { is_dark_mode, open_new_project } = use_app_context()
@@ -26,7 +56,6 @@ export default function projects_view() {
 		setFilterType: set_filter_type,
 		setSortBy: set_sort_by,
 		togglePin: toggle_pin,
-		deleteProject: delete_project,
 		duplicateProject: duplicate_project
 	} = use_project_store()
 
@@ -51,6 +80,15 @@ export default function projects_view() {
 						: b.lastUpdated - a.lastUpdated
 		)
 
+	const [delete_target, set_delete_target] = useState<Project | undefined>(undefined)
+	const [toast, set_toast] = useState<{ type: 'success' | 'error'; message: string } | undefined>(undefined)
+
+	useEffect(() => {
+		if (!toast) return
+		const timer = setTimeout(() => set_toast(undefined), 4000)
+		return () => clearTimeout(timer)
+	}, [toast])
+
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
@@ -58,6 +96,7 @@ export default function projects_view() {
 	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-100'
 
 	return (
+		<>
 		<div className="p-6 space-y-6">
 			<div className="flex items-center justify-between">
 				<h1 className={`text-2xl font-bold ${text_heading}`}>Projects</h1>
@@ -193,13 +232,15 @@ export default function projects_view() {
 												<Edit3 size={14} /> Duplicate
 											</button>
 											<button
-												onClick={() => {
-													delete_project(project.id)
+												onClick={(e) => {
+													e.stopPropagation()
+													e.preventDefault()
+													set_delete_target(project)
 													set_menu_open(undefined)
 												}}
 												className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2"
 											>
-												<span className="text-red-500">🗑</span> Delete
+												<AlertTriangle size={14} className="text-red-500" /> Delete
 											</button>
 										</div>
 									)}
@@ -245,5 +286,15 @@ export default function projects_view() {
 				</div>
 			)}
 		</div>
+
+		{toast && toast_bar({ toast, on_dismiss: () => set_toast(undefined) })}
+
+		<DeleteProjectDialog
+			delete_target={delete_target}
+			on_close={() => set_delete_target(undefined)}
+			on_success={(name) => set_toast({ type: 'success', message: `"${name}" has been deleted.` })}
+			is_dark_mode={is_dark_mode}
+		/>
+		</>
 	)
 }
