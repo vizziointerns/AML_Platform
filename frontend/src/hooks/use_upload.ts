@@ -43,7 +43,7 @@ export function use_upload(on_close: () => void) {
 			auto_connect_ref.current = true
 			google_auth.sign_in()
 		}
-	}, [])
+	}, [google_auth])
 
 	const total_files = files.length
 	const completed_files = files.filter((f) => f.status === 'success').length
@@ -141,7 +141,7 @@ export function use_upload(on_close: () => void) {
 									progress: 100,
 									status: 'success',
 									chunkProgress: { loaded: f.size, total: f.size }
-								}
+							  }
 							: f
 					)
 				)
