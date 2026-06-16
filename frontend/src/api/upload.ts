@@ -40,7 +40,7 @@ async function save_image_metadata(
 	drive_file_id: string,
 	file_size: number
 ): Promise<void> {
-	const drive_url = `https://lh3.googleusercontent.com/d/${drive_file_id}`
+	const drive_url = `https://drive.google.com/thumbnail?id=${drive_file_id}&sz=w1000`
 	const { error: db_err } = await supabase.from('dataset_images').insert({
 		dataset_id,
 		file_name,
