@@ -264,13 +264,13 @@ function onboarding_view() {
 					<div className="space-y-4">
 						<div className="space-y-2">
 							<label className="text-sm font-medium text-zinc-300">Workspace Name</label>
-							<Input placeholder="Acme Corp" autoFocus />
+							<Input placeholder="AML Platform" autoFocus />
 						</div>
 						<div className="space-y-2">
 							<label className="text-sm font-medium text-zinc-300">Workspace Slug</label>
 							<div className="flex items-center">
 								<span className="pl-3 pr-1 py-2.5 bg-zinc-900/80 border border-r-0 border-zinc-800 rounded-l-lg text-zinc-500 text-sm h-[42px] leading-relaxed">
-									visioncore.ai/
+									amlplatform.ai/
 								</span>
 								<input
 									type="text"
@@ -345,7 +345,7 @@ function invite_view({ set_view }: { set_view: (view: AuthView) => void }) {
 				</div>
 			</div>
 			<div>
-				<h2 className="text-xl font-semibold text-white mb-1">Join Acme Corp</h2>
+				<h2 className="text-xl font-semibold text-white mb-1">Join AML Platform</h2>
 				<p className="text-sm text-zinc-400 max-w-[260px] mx-auto">
 					Sarah has invited you to join their workspace as an{' '}
 					<span className="text-zinc-200 font-medium">Annotator</span>.
