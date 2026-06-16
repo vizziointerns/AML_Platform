@@ -141,7 +141,7 @@ export function use_upload(on_close: () => void) {
 									progress: 100,
 									status: 'success',
 									chunkProgress: { loaded: f.size, total: f.size }
-							  }
+								}
 							: f
 					)
 				)
