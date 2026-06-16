@@ -115,9 +115,8 @@ export default function delete_project_dialog({
 
 					<div className="px-6 py-6 space-y-4">
 						<p className={`text-sm ${text_muted}`}>
-							Please type{' '}
-							<span className="font-semibold text-red-500">{target.name}</span> to confirm
-							deletion.
+							Please type <span className="font-semibold text-red-500">{target.name}</span> to
+							confirm deletion.
 						</p>
 						<div className="space-y-1.5">
 							<label className={`text-sm font-medium ${text_heading}`}>
