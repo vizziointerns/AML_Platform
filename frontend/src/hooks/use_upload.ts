@@ -16,15 +16,20 @@ export function use_upload(on_close: () => void) {
 	})()
 
 	const { datasets } = use_datasets(project_id)
-	const [target_dataset, set_target_dataset] = useState('')
+	const [target_dataset, set_target_dataset_state] = useState('')
 	const [new_dataset_name, set_new_dataset_name] = useState('')
 	const [new_dataset_description, set_new_dataset_description] = useState('')
 	const resolved_dataset_id_ref = useRef<string | undefined>(undefined)
 
+	function set_target_dataset(value: string) {
+		set_upload_error(undefined)
+		set_target_dataset_state(value)
+	}
+
 	useEffect(() => {
 		if (!target_dataset && datasets.length > 0) {
 			const first = datasets[0]
-			if (first) set_target_dataset(first.id)
+			if (first) set_target_dataset_state(first.id)
 		}
 	}, [datasets, target_dataset])
 	const file_input_ref = useRef<HTMLInputElement>(undefined!)
@@ -121,6 +126,7 @@ export function use_upload(on_close: () => void) {
 		[process_files]
 	)
 
+	const [upload_error, set_upload_error] = useState<string | undefined>(undefined)
 	const [should_upload_after_auth, set_should_upload_after_auth] = useState(false)
 
 	const make_callbacks = useCallback(
@@ -197,6 +203,13 @@ export function use_upload(on_close: () => void) {
 
 		const dataset_id = await resolve_dataset_id()
 		if (!dataset_id) {
+			if (target_dataset === '__new__' && !new_dataset_name.trim()) {
+				set_upload_error('Please enter a name for the new dataset.')
+			} else if (datasets.length === 0) {
+				set_upload_error('No datasets available. Please create a dataset first.')
+			} else {
+				set_upload_error('Please select a target dataset.')
+			}
 			return
 		}
 
@@ -311,6 +324,8 @@ export function use_upload(on_close: () => void) {
 
 	return {
 		files,
+		upload_error,
+		set_upload_error,
 		is_minimized,
 		set_is_minimized,
 		is_drag_active,

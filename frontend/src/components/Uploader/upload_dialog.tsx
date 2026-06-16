@@ -1,4 +1,4 @@
-import { Minimize2, X, CheckCircle2, Cloud } from 'lucide-react'
+import { Minimize2, X, CheckCircle2, Cloud, AlertTriangle } from 'lucide-react'
 import type { UploadFile } from './types'
 import DragDropZone from './drag_drop_zone'
 import FileItem from './file_item'
@@ -41,7 +41,9 @@ export default function upload_dialog({
 	on_new_dataset_name_change,
 	new_dataset_description,
 	on_new_dataset_description_change,
-	is_all_complete
+	is_all_complete,
+	upload_error,
+	on_clear_upload_error
 }: {
 	on_close: () => void
 	on_minimize: () => void
@@ -86,6 +88,8 @@ export default function upload_dialog({
 	new_dataset_description: string
 	on_new_dataset_description_change: (v: string) => void
 	is_all_complete: boolean
+	upload_error: string | undefined
+	on_clear_upload_error: () => void
 }) {
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
@@ -117,6 +121,24 @@ export default function upload_dialog({
 					className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
 				>
 					{google_auth.is_loading ? 'Connecting...' : 'Connect'}
+				</button>
+			</div>
+		)
+	}
+
+	const render_upload_error = () => {
+		if (!upload_error) return undefined
+		return (
+			<div
+				className={`flex items-center gap-2 p-3 rounded-lg border ${is_dark_mode ? 'border-red-500/30 bg-red-500/10 text-red-400' : 'border-red-200 bg-red-50 text-red-700'}`}
+			>
+				<AlertTriangle size={16} className="shrink-0" />
+				<span className="text-sm font-medium flex-1">{upload_error}</span>
+				<button
+					onClick={on_clear_upload_error}
+					className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+				>
+					<X size={14} />
 				</button>
 			</div>
 		)
@@ -176,6 +198,8 @@ export default function upload_dialog({
 
 					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
 						{render_google_banner()}
+
+						{render_upload_error()}
 
 						{render_complete_banner()}
 

@@ -80,6 +80,8 @@ export default function uploader({
 			new_dataset_description={upload.new_dataset_description}
 			on_new_dataset_description_change={upload.set_new_dataset_description}
 			is_all_complete={upload.is_all_complete}
+			upload_error={upload.upload_error}
+			on_clear_upload_error={() => upload.set_upload_error(undefined)}
 		/>
 	)
 }
