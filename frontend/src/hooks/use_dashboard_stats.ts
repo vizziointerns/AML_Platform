@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../utils/supabase'
 import { use_auth } from '../contexts/auth_context'
 
@@ -20,6 +20,11 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 	const [stats, set_stats] = useState<DashboardStats | undefined>()
 	const [is_loading, set_is_loading] = useState(true)
 	const [error, set_error] = useState<string | undefined>()
+	const [refresh_key, set_refresh_key] = useState(0)
+
+	const refresh = useCallback(() => {
+		set_refresh_key((current) => current + 1)
+	}, [])
 
 	useEffect(() => {
 		if (!user) {
@@ -34,12 +39,12 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 		set_error(undefined)
 		;(async () => {
 			const {
-				data,
+				data: project_rows,
 				count,
 				error: err
 			} = await supabase
 				.from('projects')
-				.select('dataset_count, members', { count: 'exact' })
+				.select('id, members', { count: 'exact' })
 				.eq('user_id', user.id)
 
 			if (is_cancelled) return
@@ -57,9 +62,42 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 				return
 			}
 
-			const total_images = (data ?? []).reduce((sum, p) => sum + (p.dataset_count ?? 0), 0)
+			const project_ids = (project_rows ?? []).map((project) => project.id).filter(Boolean)
+			let total_images = 0
+			let storage_used_bytes = 0
+
+			if (project_ids.length > 0) {
+				const { data: datasets, error: dataset_err } = await supabase
+					.from('datasets')
+					.select('image_count, storage_bytes')
+					.in('project_id', project_ids)
+
+				if (is_cancelled) return
+
+				if (dataset_err) {
+					if (
+						!dataset_err.message?.includes('does not exist') &&
+						!dataset_err.message?.includes('Could not find the table') &&
+						dataset_err.code !== '406'
+					) {
+						set_error(dataset_err.message)
+						set_is_loading(false)
+						return
+					}
+				} else {
+					total_images = (datasets ?? []).reduce(
+						(sum, dataset) => sum + (dataset.image_count ?? 0),
+						0
+					)
+					storage_used_bytes = (datasets ?? []).reduce(
+						(sum, dataset) => sum + (dataset.storage_bytes ?? 0),
+						0
+					)
+				}
+			}
+
 			const unique_members = new Set<string>()
-			for (const p of data ?? []) {
+			for (const p of project_rows ?? []) {
 				for (const m of p.members ?? []) {
 					unique_members.add(m)
 				}
@@ -68,7 +106,7 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 				total_projects: count ?? 0,
 				total_images,
 				team_members: unique_members.size,
-				storage_used_bytes: 0
+				storage_used_bytes
 			})
 			set_is_loading(false)
 		})()
@@ -76,7 +114,46 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 		return () => {
 			is_cancelled = true
 		}
-	}, [user])
+	}, [user, refresh_key])
+
+	useEffect(() => {
+		if (!user) return
+
+		const channel = supabase
+			.channel(`dashboard-stats-${user.id}`)
+			.on(
+				'postgres_changes',
+				{
+					event: '*',
+					schema: 'public',
+					table: 'projects',
+					filter: `user_id=eq.${user.id}`
+				},
+				refresh
+			)
+			.on(
+				'postgres_changes',
+				{
+					event: '*',
+					schema: 'public',
+					table: 'datasets'
+				},
+				refresh
+			)
+			.subscribe()
+
+		const on_focus = () => refresh()
+		window.addEventListener('focus', on_focus)
+		window.addEventListener('datasets-changed', refresh)
+		window.addEventListener('upload-complete', refresh)
+
+		return () => {
+			window.removeEventListener('focus', on_focus)
+			window.removeEventListener('datasets-changed', refresh)
+			window.removeEventListener('upload-complete', refresh)
+			void supabase.removeChannel(channel)
+		}
+	}, [user, refresh])
 
 	return { stats, is_loading, error }
 }
