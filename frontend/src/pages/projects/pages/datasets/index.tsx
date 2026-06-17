@@ -423,9 +423,7 @@ export default function datasets_view({
 			}
 
 			show_toast(
-				result.deleted_count === 1
-					? '1 image deleted'
-					: `${result.deleted_count} images deleted`
+				result.deleted_count === 1 ? '1 image deleted' : `${result.deleted_count} images deleted`
 			)
 			refresh()
 		},

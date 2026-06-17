@@ -46,7 +46,10 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 			set_error(undefined)
 			set_images(previous_images.filter((image) => !ids_to_delete.has(image.id)))
 
-			const { error: delete_error } = await supabase.from('dataset_images').delete().in('id', image_ids)
+			const { error: delete_error } = await supabase
+				.from('dataset_images')
+				.delete()
+				.in('id', image_ids)
 
 			if (delete_error) {
 				set_images(previous_images)
