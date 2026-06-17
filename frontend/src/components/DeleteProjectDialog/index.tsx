@@ -42,7 +42,7 @@ export default function delete_project_dialog({
 	const target = delete_target
 
 	async function handle_delete() {
-		if (!user) return
+		if (!user || is_deleting) return
 
 		const trimmed = confirm_name.trim()
 		if (trimmed !== target.name) {
@@ -53,11 +53,12 @@ export default function delete_project_dialog({
 		set_is_deleting(true)
 		set_confirm_error('')
 
-		const { error: err } = await supabase
+		const { data, error: err } = await supabase
 			.from('projects')
 			.delete()
 			.eq('id', target.id)
 			.eq('user_id', user.id)
+			.select()
 
 		if (err) {
 			set_is_deleting(false)
@@ -65,13 +66,20 @@ export default function delete_project_dialog({
 			return
 		}
 
-		delete_project(target.id)
+		if (!data || data.length === 0) {
+			set_is_deleting(false)
+			set_confirm_error('No project was deleted')
+			return
+		}
+
 		set_is_deleting(false)
+		delete_project(target.id)
 		on_success?.(target.name)
 		on_close()
 	}
 
 	function handle_close() {
+		if (is_deleting) return
 		set_confirm_name('')
 		set_confirm_error('')
 		set_is_deleting(false)
@@ -86,10 +94,13 @@ export default function delete_project_dialog({
 			/>
 			<div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
 				<div
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="delete-project-dialog-title"
 					className={`pointer-events-auto w-full max-w-md rounded-xl shadow-2xl border ${border_subtle} ${bg_card} animate-in zoom-in-95 duration-300`}
 					onClick={(e) => e.stopPropagation()}
 					onKeyDown={(e) => {
-						if (e.key === 'Enter' && !e.shiftKey) {
+						if (e.key === 'Enter' && !e.shiftKey && !is_deleting) {
 							e.preventDefault()
 							handle_delete()
 						}
@@ -100,13 +111,14 @@ export default function delete_project_dialog({
 							<AlertTriangle size={20} className="text-red-500" />
 						</div>
 						<div>
-							<h2 className={`text-lg font-semibold tracking-tight ${text_heading}`}>
+							<h2 id="delete-project-dialog-title" className={`text-lg font-semibold tracking-tight ${text_heading}`}>
 								Delete Project
 							</h2>
 							<p className={`text-sm ${text_muted}`}>This action cannot be undone.</p>
 						</div>
 						<button
 							className={`ml-auto p-2 rounded-md ${is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'} transition-colors text-zinc-400`}
+						aria-label="Close dialog"
 							onClick={handle_close}
 						>
 							<X size={18} />
