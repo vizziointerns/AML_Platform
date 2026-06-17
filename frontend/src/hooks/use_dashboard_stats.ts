@@ -16,14 +16,14 @@ export interface UseDashboardStatsResult {
 }
 
 function is_table_not_found_error(err: { message?: string }): boolean {
-	return err.message?.includes('does not exist') || err.message?.includes('Could not find the table')
+	return (
+		(err.message?.includes('does not exist') ?? false) ||
+		(err.message?.includes('Could not find the table') ?? false)
+	)
 }
 
 async function fetch_projects(user_id: string) {
-	return supabase
-		.from('projects')
-		.select('id, members', { count: 'exact' })
-		.eq('user_id', user_id)
+	return supabase.from('projects').select('id, members', { count: 'exact' }).eq('user_id', user_id)
 }
 
 async function fetch_datasets(project_ids: string[]) {
@@ -66,11 +66,7 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 		set_is_loading(true)
 		set_error(undefined)
 		;(async () => {
-			const {
-				data: project_rows,
-				count,
-				error: err
-			} = await fetch_projects(user.id)
+			const { data: project_rows, count, error: err } = await fetch_projects(user.id)
 
 			if (is_cancelled) return
 
@@ -93,9 +89,8 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 
 				if (is_cancelled) return
 
-				const is_dataset_error = dataset_err &&
-					!is_table_not_found_error(dataset_err) &&
-					dataset_err.code !== '406'
+				const is_dataset_error =
+					dataset_err && !is_table_not_found_error(dataset_err) && dataset_err.code !== '406'
 
 				if (is_dataset_error) {
 					set_error(dataset_err.message)
