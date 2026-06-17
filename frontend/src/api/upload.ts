@@ -34,6 +34,20 @@ export function cancel_all_uploads(file_ids: string[]): void {
 	}
 }
 
+async function make_file_public(file_id: string, access_token: string): Promise<void> {
+	await fetch(
+		`https://www.googleapis.com/drive/v3/files/${file_id}/permissions`,
+		{
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${access_token}`,
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ type: 'anyone', role: 'reader' })
+		}
+	)
+}
+
 async function save_image_metadata(
 	dataset_id: string,
 	file_name: string,
@@ -183,6 +197,8 @@ export async function upload_to_drive_and_save(
 
 	try {
 		const result = await upload_file_to_drive(file, access_token, controller, callbacks)
+
+		await make_file_public(result.drive_file_id, access_token)
 
 		if (dataset_id) {
 			await save_image_metadata(
