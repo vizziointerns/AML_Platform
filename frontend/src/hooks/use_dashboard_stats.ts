@@ -15,6 +15,34 @@ export interface UseDashboardStatsResult {
 	error: string | undefined
 }
 
+function is_table_not_found_error(err: { message?: string }): boolean {
+	return err.message?.includes('does not exist') || err.message?.includes('Could not find the table')
+}
+
+async function fetch_projects(user_id: string) {
+	return supabase
+		.from('projects')
+		.select('id, members', { count: 'exact' })
+		.eq('user_id', user_id)
+}
+
+async function fetch_datasets(project_ids: string[]) {
+	return supabase
+		.from('datasets')
+		.select('image_count, storage_bytes')
+		.in('project_id', project_ids)
+}
+
+function calculate_unique_members(project_rows: Array<{ members?: string[] }>): number {
+	const unique_members = new Set<string>()
+	for (const p of project_rows ?? []) {
+		for (const m of p.members ?? []) {
+			unique_members.add(m)
+		}
+	}
+	return unique_members.size
+}
+
 export function use_dashboard_stats(): UseDashboardStatsResult {
 	const { user } = use_auth()
 	const [stats, set_stats] = useState<DashboardStats | undefined>()
@@ -42,18 +70,12 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 				data: project_rows,
 				count,
 				error: err
-			} = await supabase
-				.from('projects')
-				.select('id, members', { count: 'exact' })
-				.eq('user_id', user.id)
+			} = await fetch_projects(user.id)
 
 			if (is_cancelled) return
 
 			if (err) {
-				if (
-					err.message?.includes('does not exist') ||
-					err.message?.includes('Could not find the table')
-				) {
+				if (is_table_not_found_error(err)) {
 					set_stats({ total_projects: 0, total_images: 0, team_members: 0, storage_used_bytes: 0 })
 				} else {
 					set_error(err.message)
@@ -67,24 +89,21 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 			let storage_used_bytes = 0
 
 			if (project_ids.length > 0) {
-				const { data: datasets, error: dataset_err } = await supabase
-					.from('datasets')
-					.select('image_count, storage_bytes')
-					.in('project_id', project_ids)
+				const { data: datasets, error: dataset_err } = await fetch_datasets(project_ids)
 
 				if (is_cancelled) return
 
-				if (dataset_err) {
-					if (
-						!dataset_err.message?.includes('does not exist') &&
-						!dataset_err.message?.includes('Could not find the table') &&
-						dataset_err.code !== '406'
-					) {
-						set_error(dataset_err.message)
-						set_is_loading(false)
-						return
-					}
-				} else {
+				const is_dataset_error = dataset_err &&
+					!is_table_not_found_error(dataset_err) &&
+					dataset_err.code !== '406'
+
+				if (is_dataset_error) {
+					set_error(dataset_err.message)
+					set_is_loading(false)
+					return
+				}
+
+				if (!dataset_err) {
 					total_images = (datasets ?? []).reduce(
 						(sum, dataset) => sum + (dataset.image_count ?? 0),
 						0
@@ -96,16 +115,10 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 				}
 			}
 
-			const unique_members = new Set<string>()
-			for (const p of project_rows ?? []) {
-				for (const m of p.members ?? []) {
-					unique_members.add(m)
-				}
-			}
 			set_stats({
 				total_projects: count ?? 0,
 				total_images,
-				team_members: unique_members.size,
+				team_members: calculate_unique_members(project_rows ?? []),
 				storage_used_bytes
 			})
 			set_is_loading(false)
