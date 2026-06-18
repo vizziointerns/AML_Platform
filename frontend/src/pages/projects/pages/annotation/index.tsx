@@ -74,15 +74,11 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	const [history_step, set_history_step] = useState(0)
 	const annotations = history[history_step] ?? []
 
-
-
 	const [predictions, set_predictions] = useState<Prediction[]>([])
 	const [is_showing_predictions, set_is_showing_predictions] = useState(false)
 	const [selected_prediction_id, set_selected_prediction_id] = useState<string | undefined>(
 		undefined
 	)
-
-
 
 	const set_annotations = useCallback(
 		(new_annotations_or_updater: Annotation[] | ((prev: Annotation[]) => Annotation[])) => {
@@ -299,7 +295,6 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
 				>
-
 					<AnnotationCanvas
 						imageUrl="https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&q=80&w=1600"
 						annotations={annotations}
