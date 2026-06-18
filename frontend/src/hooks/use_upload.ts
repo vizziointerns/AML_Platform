@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { UploadFile } from '../components/Uploader/types'
 import { upload_file, upload_to_drive_and_save, cancel_all_uploads } from '../api/upload'
 import { supabase } from '../utils/supabase'
@@ -10,10 +11,19 @@ export function use_upload(on_close: () => void) {
 	const [files, set_files] = useState<UploadFile[]>([])
 	const [is_drag_active, set_is_drag_active] = useState(false)
 
-	const project_id = (() => {
-		const match = window.location.pathname.match(/\/projects\/([^/]+)/)
+	const location = useLocation()
+	const project_id = useMemo(() => {
+		const match = location.pathname.match(/\/projects\/([^/]+)/)
 		return match ? match[1] : undefined
-	})()
+	}, [location.pathname])
+
+	const current_dataset_id = useMemo(() => {
+		const match = location.pathname.match(/\/projects\/[^/]+\/datasets\/([^/]+)/)
+		if (match && match[1] !== 'datasets') {
+			return match[1]
+		}
+		return undefined
+	}, [location.pathname])
 
 	const { datasets } = use_datasets(project_id)
 	const [target_dataset, set_target_dataset] = useState('')
@@ -22,11 +32,13 @@ export function use_upload(on_close: () => void) {
 	const resolved_dataset_id_ref = useRef<string | undefined>(undefined)
 
 	useEffect(() => {
-		if (!target_dataset && datasets.length > 0) {
+		if (current_dataset_id) {
+			set_target_dataset(current_dataset_id)
+		} else if (!target_dataset && datasets.length > 0) {
 			const first = datasets[0]
 			if (first) set_target_dataset(first.id)
 		}
-	}, [datasets, target_dataset])
+	}, [datasets, target_dataset, current_dataset_id])
 	const file_input_ref = useRef<HTMLInputElement>(undefined!)
 	const folder_input_ref = useRef<HTMLInputElement>(undefined!)
 	const google_auth = use_google_auth()
@@ -340,6 +352,7 @@ export function use_upload(on_close: () => void) {
 		set_new_dataset_name,
 		new_dataset_description,
 		set_new_dataset_description,
-		is_all_complete
+		is_all_complete,
+		current_dataset_id
 	}
 }

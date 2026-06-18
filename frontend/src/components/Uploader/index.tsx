@@ -80,6 +80,7 @@ export default function uploader({
 			new_dataset_description={upload.new_dataset_description}
 			on_new_dataset_description_change={upload.set_new_dataset_description}
 			is_all_complete={upload.is_all_complete}
+			is_dataset_context={!!upload.current_dataset_id}
 		/>
 	)
 }
