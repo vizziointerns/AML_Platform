@@ -1,5 +1,6 @@
 import type { UploadFile } from '../components/Uploader/types'
 import { supabase } from '../utils/supabase'
+import { ensure_dataset_drive_folder } from '../utils/google_drive'
 
 export type UploadProgressCallback = (progress: number, loaded: number, total: number) => void
 export type UploadCompleteCallback = () => void
@@ -68,10 +69,88 @@ async function save_image_metadata(
 	}
 }
 
+interface ProjectDriveInfo {
+	id: string
+	name: string
+	drive_folder_id?: string
+}
+
+interface DatasetDriveInfo {
+	id: string
+	project_id: string
+	name: string
+	drive_folder_id?: string
+}
+
+async function get_project_drive_info(project_id: string): Promise<ProjectDriveInfo> {
+	const { data, error } = await supabase
+		.from('projects')
+		.select('id, name, drive_folder_id')
+		.eq('id', project_id)
+		.single()
+
+	if (error || !data) {
+		throw new Error(error?.message ?? 'Failed to load project drive info')
+	}
+
+	return data as ProjectDriveInfo
+}
+
+async function get_dataset_drive_info(dataset_id: string): Promise<DatasetDriveInfo> {
+	const { data, error } = await supabase
+		.from('datasets')
+		.select('id, project_id, name, drive_folder_id')
+		.eq('id', dataset_id)
+		.single()
+
+	if (error || !data) {
+		throw new Error(error?.message ?? 'Failed to load dataset drive info')
+	}
+
+	return data as DatasetDriveInfo
+}
+
+async function ensure_upload_folder(
+	access_token: string,
+	dataset_id: string,
+	project_id: string | undefined
+): Promise<string> {
+	const dataset = await get_dataset_drive_info(dataset_id)
+	const resolved_project_id = project_id ?? dataset.project_id
+	const project = await get_project_drive_info(resolved_project_id)
+
+	const ensured = await ensure_dataset_drive_folder({
+		access_token,
+		project_id: resolved_project_id,
+		project_name: project.name,
+		dataset_id: dataset.id,
+		dataset_name: dataset.name,
+		existing_project_folder_id: project.drive_folder_id,
+		existing_dataset_folder_id: dataset.drive_folder_id
+	})
+
+	if (!project.drive_folder_id) {
+		await supabase
+			.from('projects')
+			.update({ drive_folder_id: ensured.project_folder_id })
+			.eq('id', resolved_project_id)
+	}
+
+	if (!dataset.drive_folder_id) {
+		await supabase
+			.from('datasets')
+			.update({ drive_folder_id: ensured.dataset_folder_id })
+			.eq('id', dataset.id)
+	}
+
+	return ensured.dataset_folder_id
+}
+
 async function start_resumable_session(
 	access_token: string,
 	file_name: string,
-	mime_type: string
+	mime_type: string,
+	parent_folder_id: string
 ): Promise<string> {
 	const resp = await fetch(
 		'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
@@ -82,7 +161,10 @@ async function start_resumable_session(
 				'Content-Type': 'application/json; charset=UTF-8',
 				'X-Upload-Content-Type': mime_type
 			},
-			body: JSON.stringify({ name: file_name })
+			body: JSON.stringify({
+				name: file_name,
+				parents: [parent_folder_id]
+			})
 		}
 	)
 
@@ -108,13 +190,15 @@ async function start_resumable_session(
 async function upload_file_to_drive(
 	file: UploadFile,
 	access_token: string,
+	parent_folder_id: string,
 	controller: AbortController,
 	callbacks: UploadCallbacks
 ): Promise<DriveUploadResult> {
 	const session_url = await start_resumable_session(
 		access_token,
 		file.name,
-		file.file.type || 'application/octet-stream'
+		file.file.type || 'application/octet-stream',
+		parent_folder_id
 	)
 
 	const xhr = new XMLHttpRequest()
@@ -182,7 +266,23 @@ export async function upload_to_drive_and_save(
 	active_uploads.set(file.id, controller)
 
 	try {
-		const result = await upload_file_to_drive(file, access_token, controller, callbacks)
+		let parent_folder_id: string | undefined
+
+		if (dataset_id) {
+			parent_folder_id = await ensure_upload_folder(access_token, dataset_id, _project_id)
+		}
+
+		if (!parent_folder_id) {
+			throw new Error('No dataset folder available for Google Drive upload')
+		}
+
+		const result = await upload_file_to_drive(
+			file,
+			access_token,
+			parent_folder_id,
+			controller,
+			callbacks
+		)
 
 		if (dataset_id) {
 			await save_image_metadata(

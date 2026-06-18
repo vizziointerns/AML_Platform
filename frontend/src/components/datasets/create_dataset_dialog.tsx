@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../utils/supabase'
 import { X } from 'lucide-react'
+import { use_google_auth } from '../../hooks/use_google_auth'
+import { ensure_dataset_drive_folder } from '../../utils/google_drive'
 
 export function create_dataset_dialog({
 	is_open,
@@ -20,8 +22,8 @@ export function create_dataset_dialog({
 	const [tags_input, set_tags_input] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
 	const [error, set_error] = useState<string | undefined>()
-
-	if (!is_open) return <></>
+	const [pending_save, set_pending_save] = useState(false)
+	const google_auth = use_google_auth()
 
 	const bg_overlay = is_dark_mode ? 'bg-black/60' : 'bg-black/40'
 	const bg_card = is_dark_mode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
@@ -42,15 +44,69 @@ export function create_dataset_dialog({
 			return
 		}
 
+		if (google_auth.is_configured && !google_auth.is_authenticated) {
+			if (google_auth.is_loading) return
+			set_pending_save(true)
+			google_auth.sign_in()
+			return
+		}
+
 		set_is_saving(true)
 		set_error(undefined)
+		set_pending_save(false)
 
 		const tags = tags_input
 			.split(',')
 			.map((t) => t.trim())
 			.filter(Boolean)
 
+		const dataset_id = crypto.randomUUID()
+		let drive_folder_id: string | undefined
+
+		if (google_auth.is_authenticated && google_auth.access_token) {
+			const { data: project_row, error: project_error } = await supabase
+				.from('projects')
+				.select('name, drive_folder_id')
+				.eq('id', project_id)
+				.single()
+
+			if (project_error || !project_row) {
+				set_is_saving(false)
+				set_error(project_error?.message ?? 'Failed to load project information')
+				return
+			}
+
+			try {
+				const ensured = await ensure_dataset_drive_folder({
+					access_token: google_auth.access_token,
+					project_id,
+					project_name: project_row.name ?? 'Project',
+					dataset_id,
+					dataset_name: name.trim(),
+					existing_project_folder_id: project_row.drive_folder_id ?? undefined
+				})
+
+				drive_folder_id = ensured.dataset_folder_id
+
+				if (!project_row.drive_folder_id) {
+					await supabase
+						.from('projects')
+						.update({ drive_folder_id: ensured.project_folder_id })
+						.eq('id', project_id)
+				}
+			} catch (drive_error) {
+				set_is_saving(false)
+				set_error(
+					drive_error instanceof Error
+						? drive_error.message
+						: 'Failed to create Google Drive folder'
+				)
+				return
+			}
+		}
+
 		const { error: err } = await supabase.from('datasets').insert({
+			id: dataset_id,
 			project_id,
 			name: name.trim(),
 			description: description.trim() || undefined,
@@ -58,7 +114,8 @@ export function create_dataset_dialog({
 			status: 'Processing',
 			image_count: 0,
 			class_count: 0,
-			storage_bytes: 0
+			storage_bytes: 0,
+			drive_folder_id
 		})
 
 		set_is_saving(false)
@@ -74,6 +131,14 @@ export function create_dataset_dialog({
 		on_created()
 		on_close()
 	}
+
+	useEffect(() => {
+		if (pending_save && google_auth.is_authenticated && !is_saving) {
+			void handle_save()
+		}
+	}, [pending_save, google_auth.is_authenticated, is_saving])
+
+	if (!is_open) return <></>
 
 	return (
 		<div

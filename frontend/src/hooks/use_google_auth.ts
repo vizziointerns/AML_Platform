@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.file'
+const GOOGLE_ACCESS_TOKEN_KEY = 'google_drive_access_token'
 
 function get_client_id(): string | undefined {
 	return import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -39,7 +40,13 @@ interface UseGoogleAuthResult {
 }
 
 export function use_google_auth(): UseGoogleAuthResult {
-	const [access_token, set_access_token] = useState<string | undefined>()
+	const [access_token, set_access_token] = useState<string | undefined>(() => {
+		try {
+			return window.sessionStorage.getItem(GOOGLE_ACCESS_TOKEN_KEY) ?? undefined
+		} catch {
+			return undefined
+		}
+	})
 	const [is_loading, set_is_loading] = useState(false)
 	const [error, set_error] = useState<string | undefined>()
 
@@ -51,10 +58,20 @@ export function use_google_auth(): UseGoogleAuthResult {
 		if ('error' in response) {
 			set_error(response.error_description ?? response.error)
 			set_access_token(undefined)
+			try {
+				window.sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY)
+			} catch {
+				/* ignore */
+			}
 			set_is_loading(false)
 			return
 		}
 		set_access_token(response.access_token)
+		try {
+			window.sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, response.access_token)
+		} catch {
+			/* ignore */
+		}
 		set_error(undefined)
 		set_is_loading(false)
 
@@ -104,6 +121,11 @@ export function use_google_auth(): UseGoogleAuthResult {
 	const sign_out = useCallback(() => {
 		set_access_token(undefined)
 		set_error(undefined)
+		try {
+			window.sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY)
+		} catch {
+			/* ignore */
+		}
 	}, [])
 
 	useEffect(() => {

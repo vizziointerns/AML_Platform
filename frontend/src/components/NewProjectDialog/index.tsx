@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Plus } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
 import { use_auth } from '../../contexts/auth_context'
 import { use_project_store } from '../../store/projectStore'
 import type { ProjectType } from '../../store/projectStore'
+import { use_google_auth } from '../../hooks/use_google_auth'
+import { ensure_project_drive_folder } from '../../utils/google_drive'
 
 const PROJECT_TYPES: ProjectType[] = [
 	'Object Detection',
@@ -22,7 +24,8 @@ async function save_to_supabase(
 	user_id: string,
 	name_val: string,
 	desc_val: string,
-	type_val: string
+	type_val: string,
+	drive_folder_id: string | undefined
 ): Promise<string | undefined> {
 	const { error: db_error } = await supabase.from('projects').insert({
 		id: project_id,
@@ -37,7 +40,8 @@ async function save_to_supabase(
 		last_updated: Date.now(),
 		is_pinned: false,
 		is_favorite: false,
-		thumbnail: ''
+		thumbnail: '',
+		drive_folder_id
 	})
 	if (!db_error) return undefined
 	if (
@@ -61,12 +65,14 @@ export default function new_project_dialog({
 	const navigate = useNavigate()
 	const { user } = use_auth()
 	const add_project = use_project_store((s) => s.addProject)
+	const google_auth = use_google_auth()
 	const [name, set_name] = useState('')
 	const [description, set_description] = useState('')
 	const [type, set_type] = useState<ProjectType>('Object Detection')
 	const [name_error, set_name_error] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
 	const [auth_error, set_auth_error] = useState('')
+	const [pending_submit, set_pending_submit] = useState(false)
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
@@ -74,8 +80,6 @@ export default function new_project_dialog({
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
-
-	if (!isOpen) return undefined
 
 	const auth_alert = auth_error ? (
 		<div className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
@@ -94,9 +98,36 @@ export default function new_project_dialog({
 			set_auth_error('You must be signed in to create a project.')
 			return
 		}
+
+		if (google_auth.is_configured && !google_auth.is_authenticated) {
+			if (google_auth.is_loading) return
+			set_pending_submit(true)
+			google_auth.sign_in()
+			return
+		}
+
 		set_is_saving(true)
+		set_pending_submit(false)
 
 		const id = crypto.randomUUID()
+		let drive_folder_id: string | undefined
+
+		if (google_auth.is_authenticated && google_auth.access_token) {
+			try {
+				drive_folder_id = await ensure_project_drive_folder({
+					access_token: google_auth.access_token,
+					project_id: id,
+					project_name: trimmed
+				})
+			} catch (error) {
+				set_is_saving(false)
+				set_name_error(
+					error instanceof Error ? error.message : 'Failed to create Google Drive folder'
+				)
+				return
+			}
+		}
+
 		const project = {
 			id,
 			name: trimmed,
@@ -112,7 +143,14 @@ export default function new_project_dialog({
 			thumbnail: ''
 		}
 
-		const db_error_msg = await save_to_supabase(id, user.id, trimmed, description.trim(), type)
+		const db_error_msg = await save_to_supabase(
+			id,
+			user.id,
+			trimmed,
+			description.trim(),
+			type,
+			drive_folder_id
+		)
 		if (db_error_msg) {
 			set_is_saving(false)
 			set_name_error(db_error_msg)
@@ -130,6 +168,14 @@ export default function new_project_dialog({
 		on_close()
 		navigate(`/projects/${id}/dashboard`)
 	}
+
+	useEffect(() => {
+		if (pending_submit && google_auth.is_authenticated && !is_saving) {
+			void handle_submit()
+		}
+	}, [pending_submit, google_auth.is_authenticated, is_saving])
+
+	if (!isOpen) return undefined
 
 	return (
 		<>

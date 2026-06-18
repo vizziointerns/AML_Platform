@@ -4,6 +4,7 @@ import { upload_file, upload_to_drive_and_save, cancel_all_uploads } from '../ap
 import { supabase } from '../utils/supabase'
 import { use_google_auth } from './use_google_auth'
 import { use_datasets } from './use_datasets'
+import { ensure_dataset_drive_folder } from '../utils/google_drive'
 
 export function use_upload(on_close: () => void) {
 	const [is_minimized, set_is_minimized] = useState(false)
@@ -160,9 +161,49 @@ export function use_upload(on_close: () => void) {
 			if (!new_dataset_name.trim()) {
 				return undefined
 			}
+			const dataset_id = crypto.randomUUID()
+			let drive_folder_id: string | undefined
+
+			if (google_auth.is_authenticated && google_auth.access_token && project_id) {
+				const { data: project_row, error: project_error } = await supabase
+					.from('projects')
+					.select('name, drive_folder_id')
+					.eq('id', project_id)
+					.single()
+
+				if (project_error || !project_row) {
+					console.error('Failed to load project drive info:', project_error)
+					return undefined
+				}
+
+				try {
+					const ensured = await ensure_dataset_drive_folder({
+						access_token: google_auth.access_token,
+						project_id,
+						project_name: project_row.name ?? 'Project',
+						dataset_id,
+						dataset_name: new_dataset_name.trim(),
+						existing_project_folder_id: project_row.drive_folder_id ?? undefined
+					})
+
+					drive_folder_id = ensured.dataset_folder_id
+
+					if (!project_row.drive_folder_id) {
+						await supabase
+							.from('projects')
+							.update({ drive_folder_id: ensured.project_folder_id })
+							.eq('id', project_id)
+					}
+				} catch (drive_error) {
+					console.error('Failed to ensure dataset drive folder:', drive_error)
+					return undefined
+				}
+			}
+
 			const { data, error: err } = await supabase
 				.from('datasets')
 				.insert({
+					id: dataset_id,
 					project_id,
 					name: new_dataset_name.trim(),
 					description: new_dataset_description.trim() || undefined,
@@ -170,7 +211,8 @@ export function use_upload(on_close: () => void) {
 					image_count: 0,
 					class_count: 0,
 					tags: [],
-					storage_bytes: 0
+					storage_bytes: 0,
+					drive_folder_id
 				})
 				.select('id')
 				.single()
