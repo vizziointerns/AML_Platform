@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useRef } from 'react'
 import {
 	Square,
 	Hexagon,
@@ -19,6 +19,7 @@ import {
 	Plus,
 	ChevronLeft,
 	ListTree,
+	Check,
 	type LucideProps
 } from 'lucide-react'
 import type { Annotation, Collaborator, Prediction, ClassInfo, LayerActionSet, Mode } from './types'
@@ -644,6 +645,155 @@ export function render_top_toolbar(
 	)
 }
 
+function item_bg(is_active: boolean, isDarkMode: boolean): string {
+	if (is_active) return isDarkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-blue-50 border-blue-200'
+	return `border-transparent hover:${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`
+}
+
+function render_class_item(
+	c: ClassInfo,
+	idx: number,
+	active_class: string,
+	set_active_class: (id: string) => void,
+	isDarkMode: boolean,
+	border_subtle: string,
+	text_heading: string,
+	text_muted: string,
+	delete_class_id: string | undefined,
+	handle_delete_class: (id: string) => void,
+	set_delete_class_id: (id: string | undefined) => void,
+	renaming_class_id: string | undefined,
+	handle_rename_class: (id: string, new_name: string) => void,
+	set_renaming_class_id: (id: string | undefined) => void,
+	theme_current_count_fn: (id: string, annotations: Annotation[]) => number,
+	annotations: Annotation[]
+) {
+	const is_renaming = renaming_class_id === c.id
+	const shortcut = idx < 9 ? idx + 1 : undefined
+	const is_active = active_class === c.id
+	const bg_cls = item_bg(is_active, isDarkMode)
+
+	if (delete_class_id === c.id) {
+		return (
+			<div key={c.id} className={`w-full rounded-md transition-all border ${bg_cls}`}>
+				<div className={`p-2 space-y-2 ${isDarkMode ? 'bg-red-950/30' : 'bg-red-50'} rounded-md`}>
+					<p className={`text-[11px] ${isDarkMode ? 'text-red-300' : 'text-red-600'}`}>
+						Delete "{c.name}"? Annotations will become unassigned.
+					</p>
+					<div className="flex gap-2">
+						<button
+							onClick={() => handle_delete_class(c.id)}
+							className="flex-1 px-2 py-1 text-[10px] rounded bg-red-600 text-white hover:bg-red-500 transition-colors font-medium"
+						>
+							Delete
+						</button>
+						<button
+							onClick={() => set_delete_class_id(undefined)}
+							className={`flex-1 px-2 py-1 text-[10px] rounded border ${border_subtle} ${text_muted} hover:${text_heading} transition-colors`}
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			</div>
+		)
+	}
+
+	if (is_renaming) {
+		return (
+			<div key={c.id} className={`w-full rounded-md transition-all border ${bg_cls}`}>
+				<div className="flex items-center gap-1 p-2">
+					<input
+						autoFocus
+						type="text"
+						defaultValue={c.name}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+								handle_rename_class(c.id, e.currentTarget.value.trim())
+							}
+							if (e.key === 'Escape') set_renaming_class_id(undefined)
+						}}
+						onBlur={(e) => {
+							if (e.currentTarget.value.trim()) {
+								handle_rename_class(c.id, e.currentTarget.value.trim())
+							} else {
+								set_renaming_class_id(undefined)
+							}
+						}}
+						className={`flex-1 bg-transparent border rounded px-2 py-1 text-xs outline-none ${isDarkMode ? 'border-zinc-700 text-zinc-100' : 'border-zinc-300 text-zinc-900'} ${text_heading}`}
+					/>
+					<button
+						onMouseDown={(e) => e.preventDefault()}
+						onClick={() => {
+							const el = document.activeElement as HTMLInputElement | null
+							if (el?.value?.trim()) handle_rename_class(c.id, el.value.trim())
+							else set_renaming_class_id(undefined)
+						}}
+						className="p-1 hover:text-blue-500 transition-colors"
+					>
+						<Check size={14} />
+					</button>
+				</div>
+			</div>
+		)
+	}
+
+	return (
+		<div key={c.id} className={`group w-full rounded-md transition-all border ${bg_cls}`}>
+			<div className="flex items-center justify-between p-2">
+				<button
+					onClick={() => set_active_class(c.id)}
+					className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+				>
+					{shortcut !== undefined && (
+						<kbd
+							className={`text-[10px] font-mono px-1 py-0.5 rounded ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-500'}`}
+						>
+							{shortcut}
+						</kbd>
+					)}
+					<div
+						className={`w-3 h-3 rounded-[3px] border ${isDarkMode ? 'border-white/20' : 'border-black/10'} shadow-sm flex items-center justify-center shrink-0`}
+						style={{ backgroundColor: c.color }}
+					>
+						{is_active && <div className="w-1 h-1 bg-white rounded-full"></div>}
+					</div>
+					<span className={`text-sm ${is_active ? text_heading : text_muted} font-medium truncate`}>
+						{c.name}
+					</span>
+				</button>
+				<div className="flex items-center gap-1 shrink-0">
+					<span
+						className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-zinc-900 text-zinc-500' : 'bg-white text-zinc-400'}`}
+					>
+						{theme_current_count_fn(c.id, annotations)}
+					</span>
+					<button
+						onClick={(e) => {
+							e.stopPropagation()
+							set_renaming_class_id(c.id)
+						}}
+						className={`p-1 rounded opacity-0 group-hover:opacity-100 hover:${text_heading} ${text_muted} transition-all`}
+						title="Rename"
+					>
+						<Pencil size={12} />
+					</button>
+					<button
+						onClick={(e) => {
+							e.stopPropagation()
+							set_delete_class_id(c.id)
+						}}
+						className={`p-1 rounded opacity-0 group-hover:opacity-100 hover:text-red-500 ${text_muted} transition-all`}
+						title="Delete"
+					>
+						<Trash2 size={12} />
+					</button>
+				</div>
+			</div>
+		</div>
+	)
+}
+
 export function render_left_panel(
 	left_width: number,
 	border_subtle: string,
@@ -666,8 +816,27 @@ export function render_left_panel(
 	set_active_class: (cls: string) => void,
 	annotations: Annotation[],
 	is_dragging_left: React.MutableRefObject<boolean>,
-	theme_current_count_fn: (id: string, annotations: Annotation[]) => number
+	theme_current_count_fn: (id: string, annotations: Annotation[]) => number,
+	handle_create_class: (name: string, color?: string) => void,
+	handle_rename_class: (id: string, new_name: string) => void,
+	handle_delete_class: (id: string) => void,
+	renaming_class_id: string | undefined,
+	set_renaming_class_id: (id: string | undefined) => void,
+	delete_class_id: string | undefined,
+	set_delete_class_id: (id: string | undefined) => void,
+	new_class_name: string,
+	set_new_class_name: (name: string) => void
 ) {
+	const input_ref = useRef<HTMLInputElement>(undefined!)
+
+	const on_create = () => {
+		const name = new_class_name.trim()
+		if (name) {
+			handle_create_class(name)
+			set_new_class_name('')
+		}
+	}
+
 	return (
 		<div
 			style={{ width: left_width }}
@@ -741,38 +910,46 @@ export function render_left_panel(
 							>
 								<Plus size={14} className={text_muted} />
 								<input
+									ref={input_ref}
 									type="text"
 									placeholder="Add class..."
+									value={new_class_name}
+									onChange={(e) => set_new_class_name(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') on_create()
+									}}
 									className={`bg-transparent outline-none text-xs ml-2 w-full ${text_heading}`}
 								/>
+								{new_class_name.trim() && (
+									<button
+										onClick={on_create}
+										className="p-0.5 hover:text-blue-500 transition-colors"
+									>
+										<Check size={14} />
+									</button>
+								)}
 							</div>
 						</div>
-						{classes.map((c) => (
-							<button
-								key={c.id}
-								onClick={() => set_active_class(c.id)}
-								className={`w-full flex items-center justify-between p-2 rounded-md transition-all border ${active_class === c.id ? (isDarkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-blue-50 border-blue-200') : `border-transparent hover:${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`}`}
-							>
-								<div className="flex items-center gap-2.5">
-									<div
-										className={`w-3 h-3 rounded-[3px] border ${isDarkMode ? 'border-white/20' : 'border-black/10'} shadow-sm flex items-center justify-center`}
-										style={{ backgroundColor: c.color }}
-									>
-										{active_class === c.id && <div className="w-1 h-1 bg-white rounded-full"></div>}
-									</div>
-									<span
-										className={`text-sm ${active_class === c.id ? text_heading : text_muted} font-medium`}
-									>
-										{c.name}
-									</span>
-								</div>
-								<span
-									className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-zinc-900 text-zinc-500' : 'bg-white text-zinc-400'}`}
-								>
-									{theme_current_count_fn(c.id, annotations)}
-								</span>
-							</button>
-						))}
+						{classes.map((c, idx) =>
+							render_class_item(
+								c,
+								idx,
+								active_class,
+								set_active_class,
+								isDarkMode,
+								border_subtle,
+								text_heading,
+								text_muted,
+								delete_class_id,
+								handle_delete_class,
+								set_delete_class_id,
+								renaming_class_id,
+								handle_rename_class,
+								set_renaming_class_id,
+								theme_current_count_fn,
+								annotations
+							)
+						)}
 					</div>
 				)}
 			</div>
