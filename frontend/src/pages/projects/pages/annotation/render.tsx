@@ -282,13 +282,16 @@ export function render_image_properties_panel(
 	is_showing_predictions: boolean,
 	set_is_showing_predictions: (v: boolean) => void,
 	text_muted: string,
-	text_heading: string
+	text_heading: string,
+	image_width?: number,
+	image_height?: number
 ) {
+	const resolution = image_width && image_height ? `${image_width} x ${image_height}` : 'Unknown'
 	return (
 		<div className="space-y-3 text-xs">
 			<div className="flex justify-between">
 				<span className={text_muted}>Resolution</span>
-				<span className={`font-medium ${text_heading}`}>1600 x 1200</span>
+				<span className={`font-medium ${text_heading}`}>{resolution}</span>
 			</div>
 			<div className="flex justify-between">
 				<span className={text_muted}>Annotations</span>
@@ -532,7 +535,12 @@ export function render_top_toolbar(
 	bg_panel: string,
 	bg_hover: string,
 	text_muted: string,
-	text_heading: string
+	text_heading: string,
+	file_name?: string,
+	on_prev_image?: () => void,
+	on_next_image?: () => void,
+	active_image_index?: number,
+	total_images?: number
 ) {
 	return (
 		<div
@@ -594,16 +602,26 @@ export function render_top_toolbar(
 				</div>
 				<div className="flex items-center gap-3 ml-4">
 					<button
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_prev_image}
+						disabled={total_images === undefined || (active_image_index ?? 0) <= 0}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading} disabled:opacity-30 disabled:cursor-not-allowed`}
 					>
 						<ChevronLeft size={16} />
 					</button>
 					<div className="flex flex-col">
-						<span className={`text-sm font-medium ${text_heading}`}>IMG_2023_09_14_421.png</span>
-						<span className={`text-[10px] ${text_muted}`}>1024 / 4500 (22% complete)</span>
+						<span className={`text-sm font-medium ${text_heading}`}>{file_name ?? 'No image'}</span>
+						{total_images !== undefined && total_images > 0 ? (
+							<span className={`text-[10px] ${text_muted}`}>
+								Image {(active_image_index ?? 0) + 1} of {total_images}
+							</span>
+						) : (
+							<span className={`text-[10px] ${text_muted}`}>No images available</span>
+						)}
 					</div>
 					<button
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_next_image}
+						disabled={total_images === undefined || (active_image_index ?? 0) >= total_images - 1}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading} disabled:opacity-30 disabled:cursor-not-allowed`}
 					>
 						<ChevronRight size={16} />
 					</button>
@@ -641,6 +659,41 @@ export function render_top_toolbar(
 					<CheckCircle2 size={16} /> Submit
 				</button>
 			</div>
+		</div>
+	)
+}
+
+export function render_thumbnail_strip(
+	thumbnails: { id: string; file_url: string; file_name: string }[],
+	active_index: number,
+	on_select: (index: number) => void,
+	border_subtle: string,
+	bg_panel: string
+) {
+	if (thumbnails.length === 0) return undefined
+
+	return (
+		<div
+			className={`h-20 border-t ${border_subtle} ${bg_panel} flex items-center gap-2 px-4 overflow-x-auto shrink-0`}
+		>
+			{thumbnails.map((img, idx) => (
+				<button
+					key={img.id}
+					onClick={() => on_select(idx)}
+					className={`shrink-0 w-16 h-14 rounded-md border-2 overflow-hidden transition-all ${
+						idx === active_index
+							? 'border-blue-500 ring-1 ring-blue-500'
+							: `${border_subtle} hover:border-zinc-400`
+					}`}
+				>
+					<img
+						src={img.file_url}
+						alt={img.file_name}
+						className="w-full h-full object-cover"
+						draggable={false}
+					/>
+				</button>
+			))}
 		</div>
 	)
 }

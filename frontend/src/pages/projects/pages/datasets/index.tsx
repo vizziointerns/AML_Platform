@@ -24,7 +24,8 @@ function dataset_explorer_view({
 	on_back,
 	on_add_data,
 	on_start_training,
-	images
+	images,
+	on_open_annotation
 }: {
 	dataset: DatasetInfo
 	is_dark_mode: boolean
@@ -32,6 +33,13 @@ function dataset_explorer_view({
 	on_add_data: () => void
 	on_start_training: () => void
 	images: DatasetImage[]
+	on_open_annotation?: (img: {
+		id: string
+		url: string
+		file_name: string
+		width: number
+		height: number
+	}) => void
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
@@ -90,7 +98,19 @@ function dataset_explorer_view({
 			</div>
 
 			<div className="flex-1 min-h-[500px]">
-				<VirtualGallery is_dark_mode={is_dark_mode} images={gallery_images} />
+				<VirtualGallery
+					is_dark_mode={is_dark_mode}
+					images={gallery_images}
+					on_open_annotation={(img) =>
+						on_open_annotation?.({
+							id: img.id as string,
+							url: img.url,
+							file_name: `Image ${img.id}`,
+							width: img.width,
+							height: img.height
+						})
+					}
+				/>
 			</div>
 		</div>
 	)
@@ -323,6 +343,22 @@ export default function datasets_view({
 		navigate(`/projects/${project_id}/datasets`)
 	}, [navigate, project_id])
 
+	const open_annotation = useCallback(
+		(img: { id: string; url: string; file_name: string; width: number; height: number }) => {
+			navigate(`/projects/${project_id}/annotation`, {
+				state: {
+					dataset_id: selected_dataset?.id,
+					image_id: img.id,
+					image_url: img.url,
+					file_name: img.file_name,
+					image_width: img.width,
+					image_height: img.height
+				}
+			})
+		},
+		[navigate, project_id, selected_dataset]
+	)
+
 	useEffect(() => {
 		const on_focus = () => refresh()
 		const on_datasets_changed = () => refresh()
@@ -420,7 +456,8 @@ export default function datasets_view({
 					on_back: deselect_dataset,
 					on_add_data: handle_import,
 					on_start_training: () => navigate(`/projects/${project_id}/training`),
-					images
+					images,
+					on_open_annotation: open_annotation
 				})}
 			</>
 		)

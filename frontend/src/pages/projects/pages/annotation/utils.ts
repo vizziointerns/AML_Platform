@@ -1,4 +1,8 @@
+import { useState, useEffect, useCallback } from 'react'
 import type { Annotation, ClassInfo, Mode, Prediction } from './types'
+import type { DatasetImage } from '../../../../hooks/use_dataset_images'
+import { use_datasets } from '../../../../hooks/use_datasets'
+import { use_dataset_images } from '../../../../hooks/use_dataset_images'
 
 const CLASSES_STORAGE_KEY = 'annotation_classes'
 
@@ -176,6 +180,185 @@ export function class_delete(
 		updated_classes: classes.filter((c) => c.id !== id),
 		affected_annotation_ids: affected
 	}
+}
+
+export interface UseAnnotationImageResult {
+	is_loading: boolean
+	has_no_data: boolean
+	image_url: string
+	file_name: string
+	image_width: number
+	image_height: number
+	dataset_images: DatasetImage[]
+	active_image_index: number
+	total_images: number
+	go_to_prev_image: () => void
+	go_to_next_image: () => void
+	go_to_image: (index: number) => void
+}
+
+function first_valid_str(...values: (string | undefined | null)[]): string {
+	for (const v of values) {
+		if (v) return v
+	}
+	return ''
+}
+
+function first_valid_num(...values: (number | undefined | null)[]): number {
+	for (const v of values) {
+		if (v) return v
+	}
+	return 0
+}
+
+export function use_annotation_image(
+	project_id: string | undefined,
+	prop_dataset_id: string | undefined,
+	prop_image_id: string | undefined,
+	prop_image_url: string | undefined,
+	prop_file_name: string | undefined,
+	prop_image_width: number | undefined,
+	prop_image_height: number | undefined,
+	location_state: Record<string, unknown> | undefined
+): UseAnnotationImageResult {
+	const { datasets, is_loading: is_datasets_loading } = use_datasets(project_id)
+
+	const from_state = location_state as Record<string, unknown> | undefined
+
+	const state_ds = from_state?.dataset_id
+	const resolved_dataset_id = first_valid_str(prop_dataset_id, state_ds as string | undefined)
+	const first_dataset = datasets[0]
+	const target_id = first_valid_str(resolved_dataset_id, first_dataset?.id)
+
+	const { images: dataset_images, is_loading: is_images_loading } = use_dataset_images(target_id)
+
+	const [active_image_index, set_active_image_index] = useState(0)
+
+	const state_image_id = from_state?.image_id
+	const target_image_id = first_valid_str(prop_image_id, state_image_id as string | undefined)
+
+	useEffect(() => {
+		if (!target_image_id || !dataset_images.length) {
+			set_active_image_index(0)
+			return
+		}
+		const idx = dataset_images.findIndex((img) => img.id === target_image_id)
+		if (idx >= 0) {
+			set_active_image_index(idx)
+		} else {
+			set_active_image_index(0)
+		}
+	}, [dataset_images, target_image_id])
+
+	const active_image = dataset_images[active_image_index]
+
+	const state_url = from_state?.image_url
+	const state_name = from_state?.file_name
+	const state_w = from_state?.image_width
+	const state_h = from_state?.image_height
+
+	const image_url = first_valid_str(
+		active_image?.file_url,
+		prop_image_url,
+		state_url as string | undefined
+	)
+	const file_name = first_valid_str(
+		active_image?.file_name,
+		prop_file_name,
+		state_name as string | undefined
+	)
+	const image_width = first_valid_num(
+		active_image?.width,
+		prop_image_width,
+		state_w as number | undefined
+	)
+	const image_height = first_valid_num(
+		active_image?.height,
+		prop_image_height,
+		state_h as number | undefined
+	)
+
+	const has_no_data = image_url === '' && !is_datasets_loading && !is_images_loading
+	const is_loading = image_url === '' && !has_no_data
+
+	const go_to_prev_image = useCallback(() => {
+		set_active_image_index((prev) => Math.max(0, prev - 1))
+	}, [])
+
+	const go_to_next_image = useCallback(() => {
+		set_active_image_index((prev) => Math.min(dataset_images.length - 1, prev + 1))
+	}, [dataset_images.length])
+
+	const go_to_image = useCallback((index: number) => {
+		set_active_image_index(index)
+	}, [])
+
+	return {
+		is_loading,
+		has_no_data,
+		image_url,
+		file_name,
+		image_width,
+		image_height,
+		dataset_images,
+		active_image_index,
+		total_images: dataset_images.length,
+		go_to_prev_image,
+		go_to_next_image,
+		go_to_image
+	}
+}
+
+export function use_keyboard_shortcuts(
+	set_active_tool: (t: Mode) => void,
+	set_brush_size: (fn: (s: number) => number) => void,
+	set_zoom_level: (fn: (z: number) => number) => void,
+	selected_ann_id: string | undefined,
+	selected_prediction_id: string | undefined,
+	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	set_predictions: (fn: (prev: Prediction[]) => Prediction[]) => void,
+	set_selected_ann_id: (id: string | undefined) => void,
+	set_selected_prediction_id: (id: string | undefined) => void,
+	classes: ClassInfo[],
+	set_active_class: (id: string) => void,
+	undo: () => void,
+	redo: () => void
+) {
+	useEffect(() => {
+		const handle_key_down = (e: KeyboardEvent) => {
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+			const key = e.key.toLowerCase()
+			if (handle_mode_shortcut(key, set_active_tool)) return
+			if (handle_brush_size_shortcut(key, set_brush_size)) return
+			if (handle_zoom_level_shortcut(key, set_zoom_level)) return
+			if (
+				handle_delete_shortcut(
+					key,
+					selected_ann_id,
+					selected_prediction_id,
+					set_annotations,
+					set_predictions,
+					set_selected_ann_id,
+					set_selected_prediction_id
+				)
+			)
+				return
+			if (handle_class_shortcut(key, classes, set_active_class)) return
+			handle_undo_redo_shortcut(key, e, undo, redo)
+		}
+		window.addEventListener('keydown', handle_key_down)
+		return () => window.removeEventListener('keydown', handle_key_down)
+	}, [
+		selected_ann_id,
+		selected_prediction_id,
+		undo,
+		redo,
+		set_annotations,
+		set_predictions,
+		set_selected_ann_id,
+		set_selected_prediction_id,
+		classes
+	])
 }
 
 export function handle_class_shortcut(
