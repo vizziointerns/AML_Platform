@@ -72,7 +72,7 @@ export default function new_project_dialog({
 	const [name_error, set_name_error] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
 	const [auth_error, set_auth_error] = useState('')
-	const [pending_submit, set_pending_submit] = useState(false)
+	const [should_submit_after_auth, set_should_submit_after_auth] = useState(false)
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
@@ -101,13 +101,13 @@ export default function new_project_dialog({
 
 		if (google_auth.is_configured && !google_auth.is_authenticated) {
 			if (google_auth.is_loading) return
-			set_pending_submit(true)
+			set_should_submit_after_auth(true)
 			google_auth.sign_in()
 			return
 		}
 
 		set_is_saving(true)
-		set_pending_submit(false)
+		set_should_submit_after_auth(false)
 
 		const id = crypto.randomUUID()
 		let drive_folder_id: string | undefined
@@ -170,10 +170,10 @@ export default function new_project_dialog({
 	}
 
 	useEffect(() => {
-		if (pending_submit && google_auth.is_authenticated && !is_saving) {
+		if (should_submit_after_auth && google_auth.is_authenticated && !is_saving) {
 			void handle_submit()
 		}
-	}, [pending_submit, google_auth.is_authenticated, is_saving])
+	}, [should_submit_after_auth, google_auth.is_authenticated, is_saving])
 
 	if (!isOpen) return undefined
 

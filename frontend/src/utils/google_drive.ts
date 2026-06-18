@@ -1,3 +1,5 @@
+import { supabase } from './supabase'
+
 const DRIVE_FILES_API = 'https://www.googleapis.com/drive/v3/files'
 const DRIVE_FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder'
 
@@ -29,6 +31,11 @@ interface EnsureDatasetFolderParams {
 	dataset_name: string
 	existing_project_folder_id?: string
 	existing_dataset_folder_id?: string
+}
+
+interface ProjectFolderRow {
+	name?: string
+	drive_folder_id?: string
 }
 
 function escape_drive_query_value(value: string): string {
@@ -194,4 +201,39 @@ export async function ensure_dataset_drive_folder({
 		project_folder_id,
 		dataset_folder_id
 	}
+}
+
+export async function ensure_new_dataset_drive_folder(
+	access_token: string,
+	project_id: string,
+	dataset_id: string,
+	dataset_name: string
+): Promise<string> {
+	const { data: project_row, error: project_error } = await supabase
+		.from('projects')
+		.select('name, drive_folder_id')
+		.eq('id', project_id)
+		.single()
+
+	if (project_error || !project_row) {
+		throw new Error(project_error?.message ?? 'Failed to load project information')
+	}
+
+	const ensured = await ensure_dataset_drive_folder({
+		access_token,
+		project_id,
+		project_name: (project_row as ProjectFolderRow).name ?? 'Project',
+		dataset_id,
+		dataset_name,
+		existing_project_folder_id: (project_row as ProjectFolderRow).drive_folder_id ?? undefined
+	})
+
+	if (!(project_row as ProjectFolderRow).drive_folder_id) {
+		await supabase
+			.from('projects')
+			.update({ drive_folder_id: ensured.project_folder_id })
+			.eq('id', project_id)
+	}
+
+	return ensured.dataset_folder_id
 }
