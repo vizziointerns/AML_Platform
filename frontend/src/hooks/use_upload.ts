@@ -18,12 +18,7 @@ async function resolve_new_dataset_drive_folder_id(params: {
 		return undefined
 	}
 
-	return ensure_new_dataset_drive_folder(
-		google_access_token,
-		project_id,
-		dataset_id,
-		dataset_name
-	)
+	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_id, dataset_name)
 }
 
 async function create_dataset_for_upload(params: {

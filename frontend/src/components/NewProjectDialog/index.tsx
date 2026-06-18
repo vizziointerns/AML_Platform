@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Plus } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
@@ -72,7 +72,7 @@ export default function new_project_dialog({
 	const [name_error, set_name_error] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
 	const [auth_error, set_auth_error] = useState('')
-	const [should_submit_after_auth, set_should_submit_after_auth] = useState(false)
+	const [is_pending_submit, set_is_pending_submit] = useState(false)
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
@@ -87,7 +87,7 @@ export default function new_project_dialog({
 		</div>
 	) : undefined
 
-	async function handle_submit() {
+	const handle_submit = useCallback(async () => {
 		const trimmed = name.trim()
 		if (!trimmed) {
 			set_name_error('Project name is required')
@@ -101,13 +101,13 @@ export default function new_project_dialog({
 
 		if (google_auth.is_configured && !google_auth.is_authenticated) {
 			if (google_auth.is_loading) return
-			set_should_submit_after_auth(true)
+			set_is_pending_submit(true)
 			google_auth.sign_in()
 			return
 		}
 
 		set_is_saving(true)
-		set_should_submit_after_auth(false)
+		set_is_pending_submit(false)
 
 		const id = crypto.randomUUID()
 		let drive_folder_id: string | undefined
@@ -167,13 +167,21 @@ export default function new_project_dialog({
 		set_is_saving(false)
 		on_close()
 		navigate(`/projects/${id}/dashboard`)
-	}
+	}, [name, description, type, user, google_auth, add_project, on_close, navigate, name_error])
 
 	useEffect(() => {
-		if (should_submit_after_auth && google_auth.is_authenticated && !is_saving) {
+		if (is_pending_submit && google_auth.is_authenticated && !is_saving) {
 			void handle_submit()
 		}
-	}, [should_submit_after_auth, google_auth.is_authenticated, is_saving])
+	}, [is_pending_submit, google_auth.is_authenticated, is_saving, handle_submit])
+
+	useEffect(() => {
+		if (!google_auth.error) return
+
+		set_is_pending_submit(false)
+		set_is_saving(false)
+		set_auth_error(google_auth.error)
+	}, [google_auth.error])
 
 	if (!isOpen) return undefined
 

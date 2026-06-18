@@ -63,18 +63,26 @@ async function list_drive_files(access_token: string, query: string): Promise<Dr
 	url.searchParams.set('fields', 'files(id,name)')
 	url.searchParams.set('pageSize', '10')
 
-	const response = await fetch(url.toString(), {
-		headers: {
-			Authorization: `Bearer ${access_token}`
+	const controller = new AbortController()
+	const timeout = setTimeout(() => controller.abort(), 30000)
+
+	try {
+		const response = await fetch(url.toString(), {
+			headers: {
+				Authorization: `Bearer ${access_token}`
+			},
+			signal: controller.signal
+		})
+
+		if (!response.ok) {
+			throw new Error(await parse_drive_error(response))
 		}
-	})
 
-	if (!response.ok) {
-		throw new Error(await parse_drive_error(response))
+		const payload = (await response.json()) as DriveListResponse
+		return payload.files ?? []
+	} finally {
+		clearTimeout(timeout)
 	}
-
-	const payload = (await response.json()) as DriveListResponse
-	return payload.files ?? []
 }
 
 async function create_drive_folder(
@@ -83,30 +91,38 @@ async function create_drive_folder(
 	parents: string[],
 	app_properties: Record<string, string>
 ): Promise<string> {
-	const response = await fetch(DRIVE_FILES_API, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${access_token}`,
-			'Content-Type': 'application/json; charset=UTF-8'
-		},
-		body: JSON.stringify({
-			name,
-			mimeType: DRIVE_FOLDER_MIME_TYPE,
-			parents: parents.length > 0 ? parents : undefined,
-			appProperties: app_properties
+	const controller = new AbortController()
+	const timeout = setTimeout(() => controller.abort(), 30000)
+
+	try {
+		const response = await fetch(DRIVE_FILES_API, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${access_token}`,
+				'Content-Type': 'application/json; charset=UTF-8'
+			},
+			body: JSON.stringify({
+				name,
+				mimeType: DRIVE_FOLDER_MIME_TYPE,
+				parents: parents.length > 0 ? parents : undefined,
+				appProperties: app_properties
+			}),
+			signal: controller.signal
 		})
-	})
 
-	if (!response.ok) {
-		throw new Error(await parse_drive_error(response))
+		if (!response.ok) {
+			throw new Error(await parse_drive_error(response))
+		}
+
+		const payload = (await response.json()) as DriveCreateResponse
+		if (!payload.id) {
+			throw new Error('Google Drive folder creation succeeded without returning an id')
+		}
+
+		return payload.id
+	} finally {
+		clearTimeout(timeout)
 	}
-
-	const payload = (await response.json()) as DriveCreateResponse
-	if (!payload.id) {
-		throw new Error('Google Drive folder creation succeeded without returning an id')
-	}
-
-	return payload.id
 }
 
 async function find_folder_by_property(

@@ -130,17 +130,25 @@ async function ensure_upload_folder(
 	})
 
 	if (!project.drive_folder_id) {
-		await supabase
+		const { error: project_err } = await supabase
 			.from('projects')
 			.update({ drive_folder_id: ensured.project_folder_id })
 			.eq('id', resolved_project_id)
+
+		if (project_err) {
+			console.error('Failed to update project drive folder ID:', project_err)
+		}
 	}
 
 	if (!dataset.drive_folder_id) {
-		await supabase
+		const { error: dataset_err } = await supabase
 			.from('datasets')
 			.update({ drive_folder_id: ensured.dataset_folder_id })
 			.eq('id', dataset.id)
+
+		if (dataset_err) {
+			console.error('Failed to update dataset drive folder ID:', dataset_err)
+		}
 	}
 
 	return ensured.dataset_folder_id

@@ -41,7 +41,7 @@ export function create_dataset_dialog({
 	const [tags_input, set_tags_input] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
 	const [error, set_error] = useState<string | undefined>()
-	const [should_save_after_auth, set_should_save_after_auth] = useState(false)
+	const [is_pending_save, set_is_pending_save] = useState(false)
 	const google_auth = use_google_auth()
 
 	const bg_overlay = is_dark_mode ? 'bg-black/60' : 'bg-black/40'
@@ -68,14 +68,14 @@ export function create_dataset_dialog({
 
 		if (google_auth.is_configured && !google_auth.is_authenticated) {
 			if (google_auth.is_loading) return
-			set_should_save_after_auth(true)
+			set_is_pending_save(true)
 			google_auth.sign_in()
 			return
 		}
 
 		set_is_saving(true)
 		set_error(undefined)
-		set_should_save_after_auth(false)
+		set_is_pending_save(false)
 
 		const dataset_id = crypto.randomUUID()
 		const tags = get_dataset_tags(tags_input)
@@ -124,10 +124,18 @@ export function create_dataset_dialog({
 	}
 
 	useEffect(() => {
-		if (should_save_after_auth && google_auth.is_authenticated && !is_saving) {
+		if (is_pending_save && google_auth.is_authenticated && !is_saving) {
 			void handle_save()
 		}
-	}, [should_save_after_auth, google_auth.is_authenticated, is_saving])
+	}, [is_pending_save, google_auth.is_authenticated, is_saving])
+
+	useEffect(() => {
+		if (!google_auth.error) return
+
+		set_is_pending_save(false)
+		set_is_saving(false)
+		set_error(google_auth.error)
+	}, [google_auth.error])
 
 	if (!is_open) return <></>
 
