@@ -208,17 +208,13 @@ async function simulate_chunk_upload(
 	file: UploadFile,
 	callbacks: UploadCallbacks
 ): Promise<void> {
-	const total_chunks = 20
+	const total_chunks = 50
 	for (let chunk = 0; chunk < total_chunks; chunk++) {
 		if (controller.signal.aborted) return
 
 		const progress = Math.min(100, ((chunk + 1) / total_chunks) * 100)
 
-		if (progress > 40 && progress < 60 && Math.random() < 0.05) {
-			throw new Error('Network timeout during chunk sequence.')
-		}
-
-		await new Promise<void>((resolve) => setTimeout(resolve, 500 + Math.random() * 300))
+		await new Promise<void>((resolve) => setTimeout(resolve, 50))
 
 		if (controller.signal.aborted) return
 

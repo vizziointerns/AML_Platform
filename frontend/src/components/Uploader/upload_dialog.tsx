@@ -1,4 +1,4 @@
-import { Minimize2, X, CheckCircle2, Cloud } from 'lucide-react'
+import { Minimize2, X, CheckCircle2 } from 'lucide-react'
 import type { UploadFile } from './types'
 import DragDropZone from './drag_drop_zone'
 import FileItem from './file_item'
@@ -89,39 +89,6 @@ export default function upload_dialog({
 }) {
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
-	const render_google_banner = () => {
-		if (!google_auth.is_configured) return undefined
-		if (google_auth.is_authenticated) {
-			return (
-				<div
-					className={`flex items-center gap-2 text-sm ${is_dark_mode ? 'text-emerald-400' : 'text-emerald-600'}`}
-				>
-					<Cloud size={16} />
-					<span>Google Drive connected</span>
-				</div>
-			)
-		}
-		return (
-			<div
-				className={`flex items-center justify-between p-3 rounded-lg border ${is_dark_mode ? 'border-blue-500/30 bg-blue-500/5' : 'border-blue-200 bg-blue-50'}`}
-			>
-				<div className="flex items-center gap-3">
-					<Cloud size={18} className="text-blue-500" />
-					<span className={`text-sm ${is_dark_mode ? 'text-blue-300' : 'text-blue-700'}`}>
-						Connect Google Drive to upload images
-					</span>
-				</div>
-				<button
-					onClick={google_auth.sign_in}
-					disabled={google_auth.is_loading}
-					className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-				>
-					{google_auth.is_loading ? 'Connecting...' : 'Connect'}
-				</button>
-			</div>
-		)
-	}
-
 	const render_complete_banner = () => {
 		if (!is_all_complete) return undefined
 		return (
@@ -175,8 +142,6 @@ export default function upload_dialog({
 					</div>
 
 					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
-						{render_google_banner()}
-
 						{render_complete_banner()}
 
 						<div className="flex items-center justify-between text-sm">
