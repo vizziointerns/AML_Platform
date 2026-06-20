@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search, Filter, ZoomIn, ZoomOut, Tag, Folder, Trash } from 'lucide-react'
+import { Search, Filter, Tag, Folder, Trash } from 'lucide-react'
 import type { MockImage } from './types'
 import { generate_mock_images, is_input_focused, navigate_gallery } from './utils'
 import { gallery_image as GalleryImage, render_preview_modal } from './render'
@@ -19,7 +19,6 @@ export default function virtual_gallery({
 	const [search_query, set_search_query] = useState('')
 	const [images, set_images] = useState<MockImage[]>([])
 	const [selected_images, set_selected_images] = useState<Set<MockImage['id']>>(new Set())
-	const [zoom_level, set_zoom_level] = useState(1)
 	const [focused_index, set_focused_index] = useState<number | undefined>(undefined)
 	const [preview_image, set_preview_image] = useState<MockImage | undefined>(undefined)
 	const [is_loading, set_is_loading] = useState(false)
@@ -52,7 +51,7 @@ export default function virtual_gallery({
 			if (entries[0]) {
 				container_width_ref.current = entries[0].contentRect.width
 				const base_cols = Math.max(1, Math.floor(entries[0].contentRect.width / 250))
-				set_column_count(Math.max(1, Math.floor(base_cols / zoom_level)))
+				set_column_count(Math.max(1, base_cols))
 			}
 		})
 
@@ -60,7 +59,7 @@ export default function virtual_gallery({
 			observer.observe(parent_ref.current)
 		}
 		return () => observer.disconnect()
-	}, [zoom_level])
+	}, [])
 
 	const row_count = Math.ceil(filtered_images.length / column_count)
 
@@ -223,21 +222,6 @@ export default function virtual_gallery({
 							className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border ${border_subtle} bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'}`}
 						>
 							<Filter size={16} /> Filters
-						</button>
-						<div className={`w-px h-6 mx-1 ${border_subtle}`}></div>
-						<button
-							onClick={() => set_zoom_level((prev) => Math.min(prev + 0.5, 3))}
-							className={`p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors`}
-							title="Zoom In"
-						>
-							<ZoomIn size={18} />
-						</button>
-						<button
-							onClick={() => set_zoom_level((prev) => Math.max(prev - 0.5, 0.5))}
-							className={`p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors`}
-							title="Zoom Out"
-						>
-							<ZoomOut size={18} />
 						</button>
 					</div>
 				</div>
