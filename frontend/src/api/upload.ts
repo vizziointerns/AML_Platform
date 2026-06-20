@@ -51,8 +51,11 @@ async function upload_to_supabase_storage(
 	file: File,
 	dataset_id: string,
 	file_name: string,
-	on_progress: UploadProgressCallback
+	on_progress: UploadProgressCallback,
+	signal?: AbortSignal
 ): Promise<string> {
+	if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
 	const unique_name = `${crypto.randomUUID()}-${file_name}`
 	const file_path = `${dataset_id}/${unique_name}`
 
@@ -61,6 +64,8 @@ async function upload_to_supabase_storage(
 		upsert: false,
 		contentType: file.type || 'application/octet-stream'
 	})
+
+	if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
 	if (error) {
 		throw new Error(`Supabase Storage upload failed: ${error.message}`)
@@ -91,20 +96,9 @@ async function save_image_metadata(
 		file_extension: file_name.split('.').pop() ?? ''
 	})
 	if (db_err) {
-		console.error('Failed to save image metadata:', db_err)
-		return
+		throw new Error(`Failed to save image metadata: ${db_err.message}`)
 	}
-	const { data: ds } = await supabase
-		.from('datasets')
-		.select('image_count')
-		.eq('id', dataset_id)
-		.single()
-	if (ds) {
-		await supabase
-			.from('datasets')
-			.update({ image_count: (ds.image_count ?? 0) + 1 })
-			.eq('id', dataset_id)
-	}
+	await supabase.rpc('increment_dataset_image_count', { p_dataset_id: dataset_id })
 }
 
 async function start_resumable_session(
@@ -221,16 +215,27 @@ export async function upload_to_drive_and_save(
 	active_uploads.set(file.id, controller)
 
 	try {
-		const result = await upload_file_to_drive(file, access_token, controller, callbacks)
+		const drive_callbacks: UploadCallbacks = {
+			...callbacks,
+			on_progress: (progress, loaded, total) =>
+				callbacks.on_progress(Math.round(progress * 0.8), loaded, total)
+		}
+		const result = await upload_file_to_drive(file, access_token, controller, drive_callbacks)
 
 		await make_file_public(result.drive_file_id, access_token)
 
 		if (dataset_id) {
+			const supabase_callbacks: UploadCallbacks = {
+				...callbacks,
+				on_progress: (progress, loaded, total) =>
+					callbacks.on_progress(80 + Math.round(progress * 0.2), loaded, total)
+			}
 			const supabase_url = await upload_to_supabase_storage(
 				file.file,
 				dataset_id,
 				result.file_name,
-				callbacks.on_progress
+				supabase_callbacks.on_progress,
+				controller.signal
 			)
 			await save_image_metadata(dataset_id, result.file_name, supabase_url, result.file_size)
 		}
@@ -258,7 +263,8 @@ export async function upload_file(
 			file.file,
 			dataset_id,
 			file.name,
-			callbacks.on_progress
+			callbacks.on_progress,
+			controller.signal
 		)
 		await save_image_metadata(dataset_id, file.name, file_url, file.size)
 		callbacks.on_complete()
