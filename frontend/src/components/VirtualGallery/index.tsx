@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search, Filter, Tag, Folder, Trash } from 'lucide-react'
+import { Search, Filter, Trash } from 'lucide-react'
 import type { MockImage } from './types'
 import { generate_mock_images, is_input_focused, navigate_gallery } from './utils'
 import { gallery_image as GalleryImage, render_preview_modal } from './render'
