@@ -37,17 +37,6 @@ export function cancel_all_uploads(file_ids: string[]): void {
 	}
 }
 
-async function make_file_public(file_id: string, access_token: string): Promise<void> {
-	await fetch(`https://www.googleapis.com/drive/v3/files/${file_id}/permissions`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${access_token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ type: 'anyone', role: 'reader' })
-	})
-}
-
 async function upload_to_supabase_storage(
 	file: File,
 	dataset_id: string,
