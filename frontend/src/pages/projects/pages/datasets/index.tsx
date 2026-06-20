@@ -384,6 +384,7 @@ export default function datasets_view({
 		set_is_deleting(false)
 		set_delete_target(undefined)
 		show_toast(`Dataset "${delete_target.name}" deleted`)
+		window.dispatchEvent(new CustomEvent('datasets-changed'))
 		refresh()
 	}
 
@@ -406,6 +407,7 @@ export default function datasets_view({
 		}
 		set_rename_target(undefined)
 		show_toast(`Dataset renamed to "${rename_name.trim()}"`)
+		window.dispatchEvent(new CustomEvent('datasets-changed'))
 		refresh()
 	}
 
@@ -436,6 +438,7 @@ export default function datasets_view({
 		project_id,
 		is_dark_mode,
 		on_created: () => {
+			window.dispatchEvent(new CustomEvent('datasets-changed'))
 			refresh()
 			show_toast('Dataset created')
 		}
