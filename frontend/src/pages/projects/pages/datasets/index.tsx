@@ -24,7 +24,9 @@ function dataset_explorer_view({
 	on_back,
 	on_add_data,
 	on_start_training,
-	images
+	images,
+	on_delete_images,
+	is_deleting_images
 }: {
 	dataset: DatasetInfo
 	is_dark_mode: boolean
@@ -32,6 +34,8 @@ function dataset_explorer_view({
 	on_add_data: () => void
 	on_start_training: () => void
 	images: DatasetImage[]
+	on_delete_images: (image_ids: string[]) => Promise<void>
+	is_deleting_images: boolean
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
@@ -50,7 +54,7 @@ function dataset_explorer_view({
 	}))
 
 	const info_parts = [
-		`${dataset.image_count.toLocaleString()} images`,
+		`${images.length.toLocaleString()} images`,
 		dataset.class_count > 0 ? `${dataset.class_count} classes` : ''
 	].filter(Boolean)
 
@@ -90,7 +94,12 @@ function dataset_explorer_view({
 			</div>
 
 			<div className="flex-1 min-h-[500px]">
-				<VirtualGallery is_dark_mode={is_dark_mode} images={gallery_images} />
+				<VirtualGallery
+					is_dark_mode={is_dark_mode}
+					images={gallery_images}
+					on_delete_selected={on_delete_images}
+					is_deleting_selected={is_deleting_images}
+				/>
 			</div>
 		</div>
 	)
@@ -283,7 +292,7 @@ export default function datasets_view({
 	const [selected_dataset, set_selected_dataset] = useState<DatasetInfo | undefined>(
 		dataset_from_url
 	)
-	const { images } = use_dataset_images(selected_dataset?.id)
+	const { images, delete_images } = use_dataset_images(selected_dataset?.id)
 	const [view_mode, set_view_mode] = useState<'grid' | 'list'>('grid')
 	const [is_create_dialog_open, set_is_create_dialog_open] = useState(false)
 	const [toasts, set_toasts] = useState<Toast[]>([])
@@ -354,6 +363,7 @@ export default function datasets_view({
 	const [rename_target, set_rename_target] = useState<DatasetInfo | undefined>(undefined)
 	const [rename_name, set_rename_name] = useState('')
 	const [is_renaming, set_is_renaming] = useState(false)
+	const [is_deleting_images, set_is_deleting_images] = useState(false)
 
 	useEffect(() => {
 		if (!open_menu_id) return
@@ -401,6 +411,27 @@ export default function datasets_view({
 		refresh()
 	}
 
+	const handle_delete_images = useCallback(
+		async (image_ids: string[]) => {
+			if (!selected_dataset || image_ids.length === 0 || is_deleting_images) return
+
+			set_is_deleting_images(true)
+			const result = await delete_images(image_ids)
+			set_is_deleting_images(false)
+
+			if (!result) {
+				show_toast('Failed to delete selected images', 'error')
+				return
+			}
+
+			show_toast(
+				result.deleted_count === 1 ? '1 image deleted' : `${result.deleted_count} images deleted`
+			)
+			refresh()
+		},
+		[delete_images, is_deleting_images, refresh, selected_dataset, show_toast]
+	)
+
 	const dialog_element = create_dataset_dialog({
 		is_open: is_create_dialog_open,
 		on_close: () => set_is_create_dialog_open(false),
@@ -423,7 +454,9 @@ export default function datasets_view({
 					on_back: deselect_dataset,
 					on_add_data: handle_import,
 					on_start_training: () => navigate(`/projects/${project_id}/training`),
-					images
+					images,
+					on_delete_images: handle_delete_images,
+					is_deleting_images
 				})}
 			</>
 		)

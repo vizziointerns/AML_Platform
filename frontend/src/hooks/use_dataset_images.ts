@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../utils/supabase'
 
 export interface DatasetImage {
@@ -18,12 +18,66 @@ export interface UseDatasetImagesResult {
 	images: DatasetImage[]
 	is_loading: boolean
 	error: string | undefined
+	delete_images: (image_ids: string[]) => Promise<{ deleted_count: number } | undefined>
 }
 
 export function use_dataset_images(dataset_id: string | undefined): UseDatasetImagesResult {
 	const [images, set_images] = useState<DatasetImage[]>([])
 	const [is_loading, set_is_loading] = useState(true)
 	const [error, set_error] = useState<string | undefined>()
+
+	const delete_images = useCallback(
+		async (image_ids: string[]) => {
+			if (!dataset_id || image_ids.length === 0) return undefined
+
+			const ids_to_delete = new Set(image_ids)
+			const previous_images = images
+			const removed_images = previous_images.filter((image) => ids_to_delete.has(image.id))
+			const deleted_count = removed_images.length
+			const deleted_bytes = removed_images.reduce(
+				(total, image) => total + (image.file_size_bytes ?? 0),
+				0
+			)
+
+			if (deleted_count === 0) {
+				return { deleted_count: 0 }
+			}
+
+			set_error(undefined)
+			set_images(previous_images.filter((image) => !ids_to_delete.has(image.id)))
+
+			const { error: delete_error } = await supabase
+				.from('dataset_images')
+				.delete()
+				.in('id', image_ids)
+
+			if (delete_error) {
+				set_images(previous_images)
+				set_error(delete_error.message)
+				return undefined
+			}
+
+			const { data: dataset_row, error: dataset_error } = await supabase
+				.from('datasets')
+				.select('image_count, storage_bytes')
+				.eq('id', dataset_id)
+				.single()
+
+			if (!dataset_error && dataset_row) {
+				await supabase
+					.from('datasets')
+					.update({
+						image_count: Math.max((dataset_row.image_count ?? 0) - deleted_count, 0),
+						storage_bytes: Math.max((dataset_row.storage_bytes ?? 0) - deleted_bytes, 0)
+					})
+					.eq('id', dataset_id)
+			}
+
+			window.dispatchEvent(new CustomEvent('datasets-changed'))
+			return { deleted_count }
+		},
+		[dataset_id, images]
+	)
 
 	useEffect(() => {
 		if (!dataset_id) {
@@ -84,7 +138,7 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 		}
 	}, [dataset_id])
 
-	return { images, is_loading, error }
+	return { images, is_loading, error, delete_images }
 }
 
 /*

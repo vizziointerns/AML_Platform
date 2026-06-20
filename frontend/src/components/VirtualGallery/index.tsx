@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search, Filter, Tag, Folder, Trash } from 'lucide-react'
+import { Search, Filter, Trash } from 'lucide-react'
 import type { MockImage } from './types'
 import { generate_mock_images, is_input_focused, navigate_gallery } from './utils'
 import { gallery_image as GalleryImage, render_preview_modal } from './render'
@@ -9,12 +9,16 @@ interface VirtualGalleryProps {
 	is_dark_mode: boolean
 	images?: MockImage[]
 	on_open_annotation?: (img: MockImage) => void
+	on_delete_selected?: (image_ids: string[]) => Promise<void>
+	is_deleting_selected?: boolean
 }
 
 export default function virtual_gallery({
 	is_dark_mode,
 	images: external_images,
-	on_open_annotation
+	on_open_annotation,
+	on_delete_selected,
+	is_deleting_selected = false
 }: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
 	const [images, set_images] = useState<MockImage[]>([])
@@ -45,6 +49,22 @@ export default function virtual_gallery({
 				img.status.includes(lower_q)
 		)
 	}, [images, search_query])
+
+	useEffect(() => {
+		const valid_ids = new Set(images.map((image) => image.id))
+
+		set_selected_images((prev) => {
+			const next = new Set([...prev].filter((id) => valid_ids.has(id)))
+			return next.size === prev.size ? prev : next
+		})
+		set_last_selected((prev) => (prev !== undefined && valid_ids.has(prev) ? prev : undefined))
+		set_preview_image((prev) => (prev && valid_ids.has(prev.id) ? prev : undefined))
+		set_focused_index((prev) => {
+			if (prev === undefined) return prev
+			if (filtered_images.length === 0) return undefined
+			return Math.min(prev, filtered_images.length - 1)
+		})
+	}, [filtered_images.length, images])
 
 	useEffect(() => {
 		const observer = new ResizeObserver((entries) => {
@@ -159,6 +179,13 @@ export default function virtual_gallery({
 		})
 	}
 
+	const handle_delete_selected = async () => {
+		if (!on_delete_selected || selected_images.size === 0 || is_deleting_selected) return
+		await on_delete_selected(Array.from(selected_images).map((id) => String(id)))
+		set_selected_images(new Set())
+		set_last_selected(undefined)
+	}
+
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 
@@ -183,19 +210,11 @@ export default function virtual_gallery({
 								<div className={`w-px h-4 mx-2 ${border_subtle}`}></div>
 								<div className="flex gap-1">
 									<button
-										className={`p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors`}
-										title="Tag"
-									>
-										<Tag size={16} />
-									</button>
-									<button
-										className={`p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors`}
-										title="Move to Folder"
-									>
-										<Folder size={16} />
-									</button>
-									<button
-										className={`p-1.5 rounded hover:bg-red-500/10 text-red-500 transition-colors`}
+										onClick={() => {
+											void handle_delete_selected()
+										}}
+										disabled={is_deleting_selected}
+										className={`p-1.5 rounded hover:bg-red-500/10 text-red-500 transition-colors disabled:opacity-50`}
 										title="Delete"
 									>
 										<Trash size={16} />
