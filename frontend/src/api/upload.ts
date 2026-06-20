@@ -1,5 +1,6 @@
 import type { UploadFile } from '../components/Uploader/types'
 import { supabase } from '../utils/supabase'
+import { ensure_dataset_drive_folder } from '../utils/google_drive'
 
 export type UploadProgressCallback = (progress: number, loaded: number, total: number) => void
 export type UploadCompleteCallback = () => void
@@ -18,6 +19,8 @@ export interface DriveUploadResult {
 	mime_type: string
 }
 
+const STORAGE_BUCKET = 'dataset-images'
+
 const active_uploads = new Map<string, AbortController>()
 
 export function cancel_upload(file_id: string): void {
@@ -34,17 +37,48 @@ export function cancel_all_uploads(file_ids: string[]): void {
 	}
 }
 
+async function upload_to_supabase_storage(
+	file: File,
+	dataset_id: string,
+	file_name: string,
+	on_progress: UploadProgressCallback,
+	signal?: AbortSignal
+): Promise<string> {
+	if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
+	const unique_name = `${crypto.randomUUID()}-${file_name}`
+	const file_path = `${dataset_id}/${unique_name}`
+
+	const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(file_path, file, {
+		cacheControl: '3600',
+		upsert: false,
+		contentType: file.type || 'application/octet-stream'
+	})
+
+	if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
+	if (error) {
+		throw new Error(`Supabase Storage upload failed: ${error.message}`)
+	}
+
+	const {
+		data: { publicUrl: public_url }
+	} = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path)
+
+	on_progress(100, file.size, file.size)
+	return public_url
+}
+
 async function save_image_metadata(
 	dataset_id: string,
 	file_name: string,
-	drive_file_id: string,
+	file_url: string,
 	file_size: number
 ): Promise<void> {
-	const drive_url = `https://lh3.googleusercontent.com/d/${drive_file_id}`
 	const { error: db_err } = await supabase.from('dataset_images').insert({
 		dataset_id,
 		file_name,
-		file_url: drive_url,
+		file_url,
 		width: 0,
 		height: 0,
 		file_size_bytes: file_size,
@@ -52,26 +86,101 @@ async function save_image_metadata(
 		file_extension: file_name.split('.').pop() ?? ''
 	})
 	if (db_err) {
-		console.error('Failed to save image metadata:', db_err)
-		return
+		throw new Error(`Failed to save image metadata: ${db_err.message}`)
 	}
-	const { data: ds } = await supabase
+	await supabase.rpc('increment_dataset_image_count', { p_dataset_id: dataset_id })
+}
+
+interface ProjectDriveInfo {
+	id: string
+	name: string
+	drive_folder_id?: string
+}
+
+interface DatasetDriveInfo {
+	id: string
+	project_id: string
+	name: string
+	drive_folder_id?: string
+}
+
+async function get_project_drive_info(project_id: string): Promise<ProjectDriveInfo> {
+	const { data, error } = await supabase
+		.from('projects')
+		.select('id, name, drive_folder_id')
+		.eq('id', project_id)
+		.single()
+
+	if (error || !data) {
+		throw new Error(error?.message ?? 'Failed to load project drive info')
+	}
+
+	return data as ProjectDriveInfo
+}
+
+async function get_dataset_drive_info(dataset_id: string): Promise<DatasetDriveInfo> {
+	const { data, error } = await supabase
 		.from('datasets')
-		.select('image_count')
+		.select('id, project_id, name, drive_folder_id')
 		.eq('id', dataset_id)
 		.single()
-	if (ds) {
-		await supabase
-			.from('datasets')
-			.update({ image_count: (ds.image_count ?? 0) + 1 })
-			.eq('id', dataset_id)
+
+	if (error || !data) {
+		throw new Error(error?.message ?? 'Failed to load dataset drive info')
 	}
+
+	return data as DatasetDriveInfo
+}
+
+async function ensure_upload_folder(
+	access_token: string,
+	dataset_id: string,
+	project_id: string | undefined
+): Promise<string> {
+	const dataset = await get_dataset_drive_info(dataset_id)
+	const resolved_project_id = project_id ?? dataset.project_id
+	const project = await get_project_drive_info(resolved_project_id)
+
+	const ensured = await ensure_dataset_drive_folder({
+		access_token,
+		project_id: resolved_project_id,
+		project_name: project.name,
+		dataset_id: dataset.id,
+		dataset_name: dataset.name,
+		existing_project_folder_id: project.drive_folder_id,
+		existing_dataset_folder_id: dataset.drive_folder_id
+	})
+
+	if (!project.drive_folder_id) {
+		const { error: project_err } = await supabase
+			.from('projects')
+			.update({ drive_folder_id: ensured.project_folder_id })
+			.eq('id', resolved_project_id)
+
+		if (project_err) {
+			console.error('Failed to update project drive folder ID:', project_err)
+		}
+	}
+
+	if (!dataset.drive_folder_id) {
+		const { error: dataset_err } = await supabase
+			.from('datasets')
+			.update({ drive_folder_id: ensured.dataset_folder_id })
+			.eq('id', dataset.id)
+
+		if (dataset_err) {
+			console.error('Failed to update dataset drive folder ID:', dataset_err)
+		}
+	}
+
+	return ensured.dataset_folder_id
 }
 
 async function start_resumable_session(
 	access_token: string,
 	file_name: string,
-	mime_type: string
+	mime_type: string,
+	parent_folder_id: string
 ): Promise<string> {
 	const resp = await fetch(
 		'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
@@ -82,7 +191,10 @@ async function start_resumable_session(
 				'Content-Type': 'application/json; charset=UTF-8',
 				'X-Upload-Content-Type': mime_type
 			},
-			body: JSON.stringify({ name: file_name })
+			body: JSON.stringify({
+				name: file_name,
+				parents: [parent_folder_id]
+			})
 		}
 	)
 
@@ -108,13 +220,15 @@ async function start_resumable_session(
 async function upload_file_to_drive(
 	file: UploadFile,
 	access_token: string,
+	parent_folder_id: string,
 	controller: AbortController,
 	callbacks: UploadCallbacks
 ): Promise<DriveUploadResult> {
 	const session_url = await start_resumable_session(
 		access_token,
 		file.name,
-		file.file.type || 'application/octet-stream'
+		file.file.type || 'application/octet-stream',
+		parent_folder_id
 	)
 
 	const xhr = new XMLHttpRequest()
@@ -182,15 +296,38 @@ export async function upload_to_drive_and_save(
 	active_uploads.set(file.id, controller)
 
 	try {
-		const result = await upload_file_to_drive(file, access_token, controller, callbacks)
+		let parent_folder_id: string | undefined
 
 		if (dataset_id) {
-			await save_image_metadata(
+			parent_folder_id = await ensure_upload_folder(access_token, dataset_id, _project_id)
+		}
+
+		if (!parent_folder_id) {
+			throw new Error('No dataset folder available for Google Drive upload')
+		}
+
+		const result = await upload_file_to_drive(
+			file,
+			access_token,
+			parent_folder_id,
+			controller,
+			callbacks
+		)
+
+		if (dataset_id) {
+			const supabase_callbacks: UploadCallbacks = {
+				...callbacks,
+				on_progress: (progress, loaded, total) =>
+					callbacks.on_progress(80 + Math.round(progress * 0.2), loaded, total)
+			}
+			const supabase_url = await upload_to_supabase_storage(
+				file.file,
 				dataset_id,
 				result.file_name,
-				result.drive_file_id,
-				result.file_size
+				supabase_callbacks.on_progress,
+				controller.signal
 			)
+			await save_image_metadata(dataset_id, result.file_name, supabase_url, result.file_size)
 		}
 
 		callbacks.on_complete()
@@ -203,41 +340,24 @@ export async function upload_to_drive_and_save(
 	}
 }
 
-async function simulate_chunk_upload(
-	controller: AbortController,
-	file: UploadFile,
-	callbacks: UploadCallbacks
-): Promise<void> {
-	const total_chunks = 20
-	for (let chunk = 0; chunk < total_chunks; chunk++) {
-		if (controller.signal.aborted) return
-
-		const progress = Math.min(100, ((chunk + 1) / total_chunks) * 100)
-
-		if (progress > 40 && progress < 60 && Math.random() < 0.05) {
-			throw new Error('Network timeout during chunk sequence.')
-		}
-
-		await new Promise<void>((resolve) => setTimeout(resolve, 500 + Math.random() * 300))
-
-		if (controller.signal.aborted) return
-
-		const loaded = Math.floor((progress / 100) * file.size)
-		callbacks.on_progress(progress, loaded, file.size)
-	}
-	callbacks.on_complete()
-}
-
 export async function upload_file(
 	file: UploadFile,
-	_dataset_id: string,
+	dataset_id: string,
 	callbacks: UploadCallbacks
 ): Promise<void> {
 	const controller = new AbortController()
 	active_uploads.set(file.id, controller)
 
 	try {
-		await simulate_chunk_upload(controller, file, callbacks)
+		const file_url = await upload_to_supabase_storage(
+			file.file,
+			dataset_id,
+			file.name,
+			callbacks.on_progress,
+			controller.signal
+		)
+		await save_image_metadata(dataset_id, file.name, file_url, file.size)
+		callbacks.on_complete()
 	} catch (err) {
 		if (err instanceof DOMException && err.name === 'AbortError') return
 		const message = err instanceof Error ? err.message : 'Upload failed unexpectedly'

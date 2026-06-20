@@ -67,7 +67,7 @@ export default function auth_flow() {
 				<div className="h-12 w-12 rounded-xl border border-zinc-800 bg-zinc-950/50 shadow-xl flex items-center justify-center mb-4">
 					<Box className="w-6 h-6 text-blue-500" />
 				</div>
-				<h1 className="text-2xl font-semibold tracking-tight text-white mb-1">VisionCore</h1>
+				<h1 className="text-2xl font-semibold tracking-tight text-white mb-1">AML Platform</h1>
 				<p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold flex items-center gap-2">
 					<span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
 					System Auth
@@ -264,13 +264,13 @@ function onboarding_view() {
 					<div className="space-y-4">
 						<div className="space-y-2">
 							<label className="text-sm font-medium text-zinc-300">Workspace Name</label>
-							<Input placeholder="Acme Corp" autoFocus />
+							<Input placeholder="AML Platform" autoFocus />
 						</div>
 						<div className="space-y-2">
 							<label className="text-sm font-medium text-zinc-300">Workspace Slug</label>
 							<div className="flex items-center">
 								<span className="pl-3 pr-1 py-2.5 bg-zinc-900/80 border border-r-0 border-zinc-800 rounded-l-lg text-zinc-500 text-sm h-[42px] leading-relaxed">
-									visioncore.ai/
+									amlplatform.ai/
 								</span>
 								<input
 									type="text"
@@ -345,7 +345,7 @@ function invite_view({ set_view }: { set_view: (view: AuthView) => void }) {
 				</div>
 			</div>
 			<div>
-				<h2 className="text-xl font-semibold text-white mb-1">Join Acme Corp</h2>
+				<h2 className="text-xl font-semibold text-white mb-1">Join AML Platform</h2>
 				<p className="text-sm text-zinc-400 max-w-[260px] mx-auto">
 					Sarah has invited you to join their workspace as an{' '}
 					<span className="text-zinc-200 font-medium">Annotator</span>.

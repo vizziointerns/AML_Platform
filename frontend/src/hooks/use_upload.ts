@@ -5,6 +5,62 @@ import { upload_file, upload_to_drive_and_save, cancel_all_uploads } from '../ap
 import { supabase } from '../utils/supabase'
 import { use_google_auth } from './use_google_auth'
 import { use_datasets } from './use_datasets'
+import { ensure_new_dataset_drive_folder } from '../utils/google_drive'
+
+async function resolve_new_dataset_drive_folder_id(params: {
+	project_id: string | undefined
+	dataset_id: string
+	dataset_name: string
+	google_access_token: string | undefined
+}): Promise<string | undefined> {
+	const { project_id, dataset_id, dataset_name, google_access_token } = params
+
+	if (!project_id || !google_access_token) {
+		return undefined
+	}
+
+	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_id, dataset_name)
+}
+
+async function create_dataset_for_upload(params: {
+	project_id: string | undefined
+	dataset_id: string
+	dataset_name: string
+	dataset_description: string
+	google_access_token: string | undefined
+}): Promise<string | undefined> {
+	const { project_id, dataset_id, dataset_name, dataset_description, google_access_token } = params
+	const drive_folder_id = await resolve_new_dataset_drive_folder_id({
+		project_id,
+		dataset_id,
+		dataset_name,
+		google_access_token
+	})
+
+	const { data, error: err } = await supabase
+		.from('datasets')
+		.insert({
+			id: dataset_id,
+			project_id,
+			name: dataset_name,
+			description: dataset_description || undefined,
+			status: 'Processing',
+			image_count: 0,
+			class_count: 0,
+			tags: [],
+			storage_bytes: 0,
+			drive_folder_id
+		})
+		.select('id')
+		.single()
+
+	if (err || !data) {
+		console.error('Failed to create dataset:', err)
+		return undefined
+	}
+
+	return data.id
+}
 
 export function use_upload(on_close: () => void) {
 	const [is_minimized, set_is_minimized] = useState(false)
@@ -55,7 +111,7 @@ export function use_upload(on_close: () => void) {
 			auto_connect_ref.current = true
 			google_auth.sign_in()
 		}
-	}, [])
+	}, [google_auth])
 
 	const total_files = files.length
 	const completed_files = files.filter((f) => f.status === 'success').length
@@ -168,34 +224,31 @@ export function use_upload(on_close: () => void) {
 	)
 
 	const resolve_dataset_id = useCallback(async (): Promise<string | undefined> => {
-		if (target_dataset === '__new__') {
-			if (!new_dataset_name.trim()) {
-				return undefined
-			}
-			const { data, error: err } = await supabase
-				.from('datasets')
-				.insert({
-					project_id,
-					name: new_dataset_name.trim(),
-					description: new_dataset_description.trim() || undefined,
-					status: 'Processing',
-					image_count: 0,
-					class_count: 0,
-					tags: [],
-					storage_bytes: 0
-				})
-				.select('id')
-				.single()
-			if (err || !data) {
-				console.error('Failed to create dataset:', err)
-				return undefined
-			}
-			resolved_dataset_id_ref.current = data.id
-			return data.id
+		if (target_dataset !== '__new__') {
+			resolved_dataset_id_ref.current = target_dataset || undefined
+			return target_dataset || undefined
 		}
-		resolved_dataset_id_ref.current = target_dataset || undefined
-		return target_dataset || undefined
-	}, [target_dataset, new_dataset_name, new_dataset_description, project_id])
+
+		const trimmed_dataset_name = new_dataset_name.trim()
+		if (!trimmed_dataset_name) {
+			return undefined
+		}
+
+		const created_dataset_id = await create_dataset_for_upload({
+			project_id,
+			dataset_id: crypto.randomUUID(),
+			dataset_name: trimmed_dataset_name,
+			dataset_description: new_dataset_description.trim(),
+			google_access_token: google_auth.is_authenticated ? google_auth.access_token : undefined
+		})
+
+		if (!created_dataset_id) {
+			return undefined
+		}
+
+		resolved_dataset_id_ref.current = created_dataset_id
+		return created_dataset_id
+	}, [target_dataset, new_dataset_name, new_dataset_description, project_id, google_auth])
 
 	const start_upload = useCallback(async () => {
 		const pending_files = files.filter((f) => f.status === 'pending')
