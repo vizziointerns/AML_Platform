@@ -215,6 +215,7 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	}
 
 	const show_prediction_btn = () => {
+		if (classes.length === 0) return
 		set_predictions((prev) => [
 			...prev,
 			{

@@ -647,7 +647,8 @@ export function render_top_toolbar(
 
 function item_bg(is_active: boolean, isDarkMode: boolean): string {
 	if (is_active) return isDarkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-blue-50 border-blue-200'
-	return `border-transparent hover:${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`
+	if (isDarkMode) return 'border-transparent hover:bg-zinc-900 hover:border-zinc-800'
+	return 'border-transparent hover:bg-zinc-100 hover:border-zinc-200'
 }
 
 function render_class_item(
@@ -689,7 +690,7 @@ function render_class_item(
 						</button>
 						<button
 							onClick={() => set_delete_class_id(undefined)}
-							className={`flex-1 px-2 py-1 text-[10px] rounded border ${border_subtle} ${text_muted} hover:${text_heading} transition-colors`}
+							className={`flex-1 px-2 py-1 text-[10px] rounded border ${border_subtle} ${text_muted} ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'} transition-colors`}
 						>
 							Cancel
 						</button>
@@ -773,7 +774,7 @@ function render_class_item(
 							e.stopPropagation()
 							set_renaming_class_id(c.id)
 						}}
-						className={`p-1 rounded opacity-0 group-hover:opacity-100 hover:${text_heading} ${text_muted} transition-all`}
+						className={`p-1 rounded opacity-0 group-hover:opacity-100 ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'} ${text_muted} transition-all`}
 						title="Rename"
 					>
 						<Pencil size={12} />
@@ -848,7 +849,7 @@ export function render_left_panel(
 						key={tool.id}
 						onClick={() => set_active_tool(tool.id)}
 						title={tool.label}
-						className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active_tool === tool.id ? 'bg-blue-600 text-white shadow-sm' : `${bg_hover} ${text_muted} hover:${text_heading}`}`}
+						className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active_tool === tool.id ? 'bg-blue-600 text-white shadow-sm' : `${bg_hover} ${text_muted} ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'}`}`}
 					>
 						<tool.icon size={18} />
 					</button>
@@ -889,7 +890,7 @@ export function render_left_panel(
 			<div className="flex-1 flex flex-col min-h-0">
 				<button
 					onClick={() => set_is_classes_open(!is_classes_open)}
-					className={`flex items-center justify-between p-3 border-b ${border_subtle} hover:${isDarkMode ? 'bg-zinc-900' : 'bg-zinc-100'} transition-colors w-full text-left`}
+					className={`flex items-center justify-between p-3 border-b ${border_subtle} ${isDarkMode ? 'hover:bg-zinc-900' : 'hover:bg-zinc-100'} transition-colors w-full text-left`}
 				>
 					<div
 						className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${text_heading}`}

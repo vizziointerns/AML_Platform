@@ -5,7 +5,17 @@ const CLASSES_STORAGE_KEY = 'annotation_classes'
 export function load_classes(): ClassInfo[] {
 	try {
 		const raw = localStorage.getItem(CLASSES_STORAGE_KEY)
-		if (raw) return JSON.parse(raw) as ClassInfo[]
+		if (!raw) return []
+		const parsed = JSON.parse(raw)
+		if (!Array.isArray(parsed)) return []
+		return parsed.filter(
+			(item): item is ClassInfo =>
+				item &&
+				typeof item === 'object' &&
+				typeof item.id === 'string' &&
+				typeof item.name === 'string' &&
+				typeof item.color === 'string'
+		)
 	} catch {
 		/* ignore */
 	}
