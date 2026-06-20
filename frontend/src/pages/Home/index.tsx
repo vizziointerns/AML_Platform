@@ -129,6 +129,12 @@ export default function home({
 		is_loading: is_projects_loading,
 		error: projects_error
 	} = use_recent_projects()
+	const resolved_stats = stats ?? {
+		total_projects: 0,
+		total_images: 0,
+		team_members: 0,
+		storage_used_bytes: 0
+	}
 
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const card_classes = is_dark_mode
@@ -145,32 +151,32 @@ export default function home({
 						{stat_skeleton({ is_dark_mode })}
 						{stat_skeleton({ is_dark_mode })}
 					</>
-				) : stats_error ? undefined : (
+				) : (
 					<>
 						{stat_card({
 							title: 'Total Projects',
-							value: format_count(stats!.total_projects),
+							value: format_count(resolved_stats.total_projects),
 							icon: Layers,
 							is_dark_mode,
 							text_muted
 						})}
 						{stat_card({
 							title: 'Total Images',
-							value: format_count(stats!.total_images),
+							value: format_count(resolved_stats.total_images),
 							icon: ImageIcon,
 							is_dark_mode,
 							text_muted
 						})}
 						{stat_card({
 							title: 'Team Members',
-							value: format_count(stats!.team_members),
+							value: format_count(resolved_stats.team_members),
 							icon: Users,
 							is_dark_mode,
 							text_muted
 						})}
 						{stat_card({
 							title: 'Storage Used',
-							value: format_bytes(stats!.storage_used_bytes),
+							value: format_bytes(resolved_stats.storage_used_bytes),
 							icon: HardDrive,
 							is_dark_mode,
 							text_muted
