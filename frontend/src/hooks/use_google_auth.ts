@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.file'
+const GOOGLE_ACCESS_TOKEN_KEY = 'google_drive_access_token'
+const GOOGLE_ACCESS_TOKEN_EXPIRES_AT_KEY = 'google_drive_access_token_expires_at'
 
 function get_client_id(): string | undefined {
 	return import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -38,8 +40,53 @@ interface UseGoogleAuthResult {
 	error: string | undefined
 }
 
+function clear_google_access_token_storage_internal(): void {
+	try {
+		window.sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY)
+		window.sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_EXPIRES_AT_KEY)
+	} catch {
+		/* ignore */
+	}
+}
+
+function read_stored_google_access_token(): string | undefined {
+	try {
+		const access_token = window.sessionStorage.getItem(GOOGLE_ACCESS_TOKEN_KEY) ?? undefined
+		const expires_at_raw =
+			window.sessionStorage.getItem(GOOGLE_ACCESS_TOKEN_EXPIRES_AT_KEY) ?? undefined
+		const expires_at = expires_at_raw ? Number(expires_at_raw) : Number.NaN
+
+		if (!access_token || !Number.isFinite(expires_at) || Date.now() >= expires_at) {
+			clear_google_access_token_storage_internal()
+			return undefined
+		}
+
+		return access_token
+	} catch {
+		return undefined
+	}
+}
+
+function persist_google_access_token(access_token: string, expires_in: number): void {
+	try {
+		window.sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, access_token)
+		window.sessionStorage.setItem(
+			GOOGLE_ACCESS_TOKEN_EXPIRES_AT_KEY,
+			String(Date.now() + expires_in * 1000)
+		)
+	} catch {
+		/* ignore */
+	}
+}
+
+export function clear_google_access_token_storage(): void {
+	clear_google_access_token_storage_internal()
+}
+
 export function use_google_auth(): UseGoogleAuthResult {
-	const [access_token, set_access_token] = useState<string | undefined>()
+	const [access_token, set_access_token] = useState<string | undefined>(() =>
+		read_stored_google_access_token()
+	)
 	const [is_loading, set_is_loading] = useState(false)
 	const [error, set_error] = useState<string | undefined>()
 
@@ -51,10 +98,12 @@ export function use_google_auth(): UseGoogleAuthResult {
 		if ('error' in response) {
 			set_error(response.error_description ?? response.error)
 			set_access_token(undefined)
+			clear_google_access_token_storage_internal()
 			set_is_loading(false)
 			return
 		}
 		set_access_token(response.access_token)
+		persist_google_access_token(response.access_token, response.expires_in)
 		set_error(undefined)
 		set_is_loading(false)
 
@@ -104,6 +153,7 @@ export function use_google_auth(): UseGoogleAuthResult {
 	const sign_out = useCallback(() => {
 		set_access_token(undefined)
 		set_error(undefined)
+		clear_google_access_token_storage_internal()
 	}, [])
 
 	useEffect(() => {
