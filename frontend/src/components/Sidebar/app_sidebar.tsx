@@ -45,7 +45,7 @@ export function app_sidebar({
 					</div>
 					{is_now_expanded && (
 						<div className="flex flex-col items-start overflow-hidden">
-							<span className="text-sm font-semibold truncate w-32 text-left">Acme Corp</span>
+							<span className="text-sm font-semibold truncate w-32 text-left">AML Platform</span>
 							<span className="text-[10px] text-zinc-500 truncate w-32 text-left">
 								Production Workspace
 							</span>
