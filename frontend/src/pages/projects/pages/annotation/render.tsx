@@ -12,8 +12,6 @@ import {
 	Undo,
 	Redo,
 	Hash,
-	MessageSquare,
-	Lock,
 	CheckCircle2,
 	ChevronRight,
 	ChevronDown,
@@ -24,97 +22,13 @@ import {
 	Check,
 	type LucideProps
 } from 'lucide-react'
-import type { Annotation, Collaborator, Prediction, ClassInfo, LayerActionSet, Mode } from './types'
-
-export function render_comments_section(
-	ann: Annotation,
-	selected_ann_id: string | undefined,
-	collaborators: Collaborator[],
-	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
-	isDarkMode: boolean,
-	text_heading: string
-) {
-	const input_cls = `flex-1 min-w-0 bg-transparent border rounded px-2 py-1.5 text-[11px] ${isDarkMode ? 'border-zinc-700 text-zinc-100 focus:border-zinc-500' : 'border-zinc-300 text-zinc-900 focus:border-zinc-400'} outline-none`
-
-	return (
-		<div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
-			<div className={`font-semibold mb-2 flex justify-between items-center ${text_heading}`}>
-				<span>Comments</span>
-				<span
-					className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
-				>
-					{ann.comments?.length || 0}
-				</span>
-			</div>
-			<div className="space-y-2 mb-2 max-h-32 overflow-y-auto pr-1">
-				{ann.comments?.map((comment) => {
-					const author = collaborators.find((c) => c.id === comment.userId) || {
-						name: 'You',
-						color: '#6366f1'
-					}
-					return (
-						<div key={comment.id} className="bg-zinc-100 dark:bg-zinc-800 rounded p-2 text-[11px]">
-							<div className="flex items-center justify-between mb-1">
-								<span className="font-semibold" style={{ color: author.color }}>
-									{author.name}
-								</span>
-								<span className="text-zinc-400 text-[9px]">
-									{new Date(comment.timestamp).toLocaleTimeString([], {
-										hour: '2-digit',
-										minute: '2-digit'
-									})}
-								</span>
-							</div>
-							<div className="text-zinc-600 dark:text-zinc-300 leading-tight">{comment.text}</div>
-						</div>
-					)
-				})}
-				{(!ann.comments || ann.comments.length === 0) && (
-					<div className="text-zinc-400 text-[10px] text-center py-2">No comments yet.</div>
-				)}
-			</div>
-			<div className="flex gap-2">
-				<input
-					type="text"
-					placeholder="Add a comment..."
-					className={input_cls}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-							const val = e.currentTarget.value.trim()
-							e.currentTarget.value = ''
-							set_annotations((prev) =>
-								prev.map((a) => {
-									if (a.id === selected_ann_id) {
-										return {
-											...a,
-											comments: [
-												...(a.comments || []),
-												{
-													id: Math.random().toString(),
-													userId: 'local',
-													text: val,
-													timestamp: Date.now()
-												}
-											]
-										}
-									}
-									return a
-								})
-							)
-						}
-					}}
-				/>
-			</div>
-		</div>
-	)
-}
+import type { Annotation, Prediction, ClassInfo, LayerActionSet, Mode } from './types'
 
 export function render_annotation_properties_panel(
 	selected_ann_id: string | undefined,
 	annotations: Annotation[],
 	classes: ClassInfo[],
-	collaborators: Collaborator[],
-	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	_set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
 	isDarkMode: boolean,
 	text_muted: string,
 	text_heading: string,
@@ -123,29 +37,17 @@ export function render_annotation_properties_panel(
 	const ann = annotations.find((a) => a.id === selected_ann_id)
 	if (!ann) return undefined
 
-	const locked_user = collaborators.find((c) => c.id === ann.lockedBy)
 	const select_cls = `bg-transparent border rounded p-1 ${isDarkMode ? 'border-zinc-700 text-zinc-100 bg-zinc-900' : 'border-zinc-300 text-zinc-900 bg-white'} disabled:opacity-50`
 	const dim_box_cls = `p-2 rounded border ${border_subtle} ${isDarkMode ? 'bg-zinc-900/50' : 'bg-white'}`
 
 	return (
 		<div className="space-y-3 text-xs">
-			{locked_user && (
-				<div
-					className={`p-2 rounded-md ${isDarkMode ? 'bg-amber-900/20 text-amber-400 border border-amber-900/30' : 'bg-amber-50 text-amber-600 border border-amber-100'} flex items-start gap-2`}
-				>
-					<Lock size={14} className="mt-0.5 shrink-0" />
-					<div>
-						<span className="font-semibold">{locked_user.name}</span> is currently editing.
-					</div>
-				</div>
-			)}
 			<div className="flex items-center justify-between">
 				<span className={text_muted}>Class</span>
 				<select
 					value={ann.classId}
-					disabled={!!locked_user}
 					onChange={(e) =>
-						set_annotations((prev) =>
+						_set_annotations((prev) =>
 							prev.map((a) => (a.id === selected_ann_id ? { ...a, classId: e.target.value } : a))
 						)
 					}
@@ -162,9 +64,8 @@ export function render_annotation_properties_panel(
 				<span className={text_muted}>Status</span>
 				<select
 					value={ann.status || 'pending'}
-					disabled={!!locked_user}
 					onChange={(e) =>
-						set_annotations((prev) =>
+						_set_annotations((prev) =>
 							prev.map((a) =>
 								a.id === selected_ann_id
 									? { ...a, status: e.target.value as 'pending' | 'approved' | 'needs_review' }
@@ -197,14 +98,6 @@ export function render_annotation_properties_panel(
 					<div className={`font-mono ${text_heading}`}>{Math.round((ann.h / 100) * 600)}</div>
 				</div>
 			</div>
-			{render_comments_section(
-				ann,
-				selected_ann_id,
-				collaborators,
-				set_annotations,
-				isDarkMode,
-				text_heading
-			)}
 		</div>
 	)
 }
@@ -323,14 +216,11 @@ export function render_annotation_layer_item(
 	selected_ann_id: string | undefined,
 	get_class_color: (id: string) => string,
 	get_class_name: (id: string) => string,
-	collaborators: Collaborator[],
 	actions: LayerActionSet,
 	isDarkMode: boolean,
 	text_heading: string
 ) {
 	const layer_color = get_class_color(layer.classId)
-	const locked_user = collaborators.find((c) => c.id === layer.lockedBy)
-	const has_comments = layer.comments && layer.comments.length > 0
 	const status_color =
 		layer.status === 'approved'
 			? 'text-emerald-500'
@@ -355,24 +245,10 @@ export function render_annotation_layer_item(
 				</div>
 			</div>
 			<div className="flex items-center gap-2">
-				{has_comments && (
-					<span title={`${layer.comments?.length} comments`}>
-						<MessageSquare size={12} className="text-blue-500" />
-					</span>
-				)}
 				{layer.status && (
 					<span title={`Status: ${layer.status}`}>
 						<CheckCircle2 size={12} className={status_color} />
 					</span>
-				)}
-				{locked_user && (
-					<div
-						className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0"
-						style={{ backgroundColor: locked_user.color }}
-						title={`Locked by ${locked_user.name}`}
-					>
-						{locked_user.name.charAt(0)}
-					</div>
 				)}
 				<div
 					className={`flex items-center gap-1 transition-opacity ${selected_ann_id === layer.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
@@ -443,7 +319,6 @@ export function render_layers_panel(
 	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
 	get_class_color: (id: string) => string,
 	get_class_name: (id: string) => string,
-	collaborators: Collaborator[],
 	isDarkMode: boolean,
 	text_muted: string,
 	text_heading: string,
@@ -483,7 +358,6 @@ export function render_layers_panel(
 							selected_ann_id,
 							get_class_color,
 							get_class_name,
-							collaborators,
 							actions,
 							isDarkMode,
 							text_heading
@@ -525,8 +399,6 @@ export function render_top_toolbar(
 	history_step: number,
 	history_length: number,
 	show_prediction_btn: () => void,
-	collaborators: Collaborator[],
-	isDarkMode: boolean,
 	set_zoom_level: (fn: (prev: number) => number) => void,
 	zoom_level: number,
 	center_image: () => void,
@@ -538,7 +410,14 @@ export function render_top_toolbar(
 	on_save?: () => void,
 	is_saving?: boolean,
 	save_message?: string,
-	on_back?: () => void
+	on_back?: () => void,
+	on_prev?: () => void,
+	on_next?: () => void,
+	has_prev?: boolean,
+	has_next?: boolean,
+	file_name?: string,
+	current_index?: number,
+	total_images?: number
 ) {
 	return (
 		<div
@@ -595,39 +474,29 @@ export function render_top_toolbar(
 					>
 						Auto-Detect
 					</button>
-					<div className={`w-px h-5 mx-2 ${border_subtle}`}></div>
-					<div className="flex -space-x-2">
-						{collaborators.map((c) => (
-							<div
-								key={c.id}
-								className="w-7 h-7 rounded-full border-2 bg-zinc-200 flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-2 ring-transparent hover:z-10 transition-transform cursor-pointer"
-								style={{ backgroundColor: c.color, borderColor: isDarkMode ? '#18181b' : '#fff' }}
-								title={`${c.name} (Online)`}
-							>
-								{c.name.charAt(0)}
-							</div>
-						))}
-						<div
-							className="w-7 h-7 rounded-full border-2 border-dashed border-zinc-400 bg-transparent flex items-center justify-center text-zinc-400 cursor-pointer hover:text-zinc-500 hover:border-zinc-500 transition-colors"
-							title="Invite Collaborators"
-							style={{ borderColor: isDarkMode ? '#3f3f46' : '#d4d4d8' }}
-						>
-							<Plus size={14} />
-						</div>
-					</div>
 				</div>
 				<div className="flex items-center gap-3 ml-4">
 					<button
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_prev}
+						disabled={!has_prev}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_prev ? `${text_muted} hover:${text_heading}` : text_muted}`}
 					>
 						<ChevronLeft size={16} />
 					</button>
-					<div className="flex flex-col">
-						<span className={`text-sm font-medium ${text_heading}`}>IMG_2023_09_14_421.png</span>
-						<span className={`text-[10px] ${text_muted}`}>1024 / 4500 (22% complete)</span>
+					<div className="flex flex-col min-w-0">
+						<span className={`text-sm font-medium ${text_heading} truncate max-w-48`}>
+							{file_name ?? 'No image selected'}
+						</span>
+						{total_images !== undefined && current_index !== undefined && (
+							<span className={`text-[10px] ${text_muted}`}>
+								Image {current_index + 1} of {total_images}
+							</span>
+						)}
 					</div>
 					<button
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_next}
+						disabled={!has_next}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_next ? `${text_muted} hover:${text_heading}` : text_muted}`}
 					>
 						<ChevronRight size={16} />
 					</button>

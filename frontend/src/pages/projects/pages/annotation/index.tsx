@@ -2,13 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
 	MousePointer2,
-	MousePointerClick,
 	Hand,
 	Square,
 	Hexagon,
 	Pencil,
 	Eraser,
-	Loader2
+	Loader2,
+	ImageIcon
 } from 'lucide-react'
 import AnnotationCanvas from '../../../../components/AnnotationCanvas'
 import type { Annotation, Prediction, Mode, ClassInfo } from './types'
@@ -38,7 +38,7 @@ import {
 	render_left_panel
 } from './render'
 import { fetch_annotations, save_annotations } from '../../../../api/annotations'
-import { supabase } from '../../../../utils/supabase'
+import { use_annotation_image } from '../../../../hooks/use_annotation_image'
 
 interface AnnotationStudioProps {
 	isDarkMode: boolean
@@ -55,6 +55,117 @@ const tools = [
 	{ id: 'eraser' as Mode, icon: Eraser, label: 'Eraser (E)' }
 ]
 
+function render_canvas_content(
+	is_loading_image: boolean,
+	image_error: string | undefined | null,
+	is_empty: boolean,
+	image_url: string | undefined,
+	annotations: Annotation[],
+	predictions: Prediction[],
+	is_showing_predictions: boolean,
+	set_predictions: React.Dispatch<React.SetStateAction<Prediction[]>>,
+	selected_prediction_id: string | undefined,
+	set_selected_prediction_id: (id: string | undefined) => void,
+	active_tool: Mode,
+	active_class: string,
+	get_class_color: (id: string) => string,
+	get_class_name: (id: string) => string,
+	selected_ann_id: string | undefined,
+	set_selected_ann_id: (id: string | undefined) => void,
+	set_annotations: (anns: Annotation[] | ((prev: Annotation[]) => Annotation[])) => void,
+	set_offset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>,
+	set_zoom_level: React.Dispatch<React.SetStateAction<number>>,
+	zoom_level: number,
+	offset: { x: number; y: number },
+	brush_size: number,
+	brush_opacity: number,
+	all_images: Array<{ id: string; file_url: string; file_name: string }>,
+	project_id: string | undefined,
+	current_index: number,
+	text_muted: string,
+	text_heading: string,
+	border_subtle: string,
+	bg_panel: string,
+	navigate: ReturnType<typeof useNavigate>
+) {
+	if (is_loading_image) {
+		return (
+			<div className="flex items-center justify-center h-full">
+				<Loader2 size={32} className="animate-spin text-zinc-400" />
+			</div>
+		)
+	}
+	if (image_error) {
+		return (
+			<div className="flex flex-col items-center justify-center h-full gap-3 px-8">
+				<ImageIcon size={48} className="text-red-400" />
+				<p className="text-sm text-red-500 text-center">{image_error}</p>
+			</div>
+		)
+	}
+	if (is_empty) {
+		return (
+			<div className="flex flex-col items-center justify-center h-full gap-3 px-8">
+				<ImageIcon size={48} className={text_muted} />
+				<p className={`text-lg font-medium ${text_heading}`}>No images in dataset</p>
+				<p className={`text-sm ${text_muted} text-center max-w-md`}>
+					Upload images to this dataset to start annotating.
+				</p>
+			</div>
+		)
+	}
+	return (
+		<>
+			{image_url && (
+				<AnnotationCanvas
+					imageUrl={image_url}
+					annotations={annotations}
+					predictions={predictions}
+					showPredictions={is_showing_predictions}
+					onPredictionsChange={(preds) => set_predictions(preds as Prediction[])}
+					collaborators={[]}
+					selectedPredictionId={selected_prediction_id}
+					setSelectedPredictionId={set_selected_prediction_id}
+					activeTool={active_tool}
+					activeClass={active_class}
+					getClassColor={get_class_color}
+					getClassName={get_class_name}
+					selectedAnnId={selected_ann_id}
+					setSelectedAnnId={set_selected_ann_id}
+					onAnnotationsChange={set_annotations}
+					onOffsetChange={set_offset}
+					onZoomChange={set_zoom_level}
+					zoomLevel={zoom_level}
+					offset={offset}
+					brushSize={brush_size}
+					brushOpacity={brush_opacity}
+				/>
+			)}
+			{all_images.length > 1 && (
+				<div
+					className={`h-16 border-t ${border_subtle} ${bg_panel} flex items-center gap-2 px-4 overflow-x-auto shrink-0 w-full`}
+				>
+					{all_images.map((img, idx) => (
+						<button
+							key={img.id}
+							onClick={() =>
+								navigate(`/projects/${project_id}/annotation/${img.id}`, { replace: true })
+							}
+							className={`shrink-0 w-14 h-12 rounded-md border-2 overflow-hidden transition-all ${
+								idx === current_index
+									? 'border-blue-500 ring-1 ring-blue-500/30'
+									: `${border_subtle} hover:border-blue-400/50`
+							}`}
+						>
+							<img src={img.file_url} alt={img.file_name} className="w-full h-full object-cover" />
+						</button>
+					))}
+				</div>
+			)}
+		</>
+	)
+}
+
 export default function annotation_studio({ isDarkMode, imageId }: AnnotationStudioProps) {
 	const navigate = useNavigate()
 	const params = useParams()
@@ -64,43 +175,24 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		navigate(`/projects/${project_id}/datasets`)
 	}, [navigate, project_id])
 
-	const [image_url, set_image_url] = useState<string | undefined>(undefined)
-	const [is_loading_image, set_is_loading_image] = useState(true)
+	const {
+		current_image,
+		is_loading: is_loading_images,
+		is_empty,
+		error: image_error,
+		images: all_images,
+		current_index,
+		go_next,
+		go_prev,
+		has_next,
+		has_prev
+	} = use_annotation_image(project_id, imageId)
+
+	const image_url = current_image?.file_url
+	const is_loading_image = is_loading_images
+
 	const [is_saving, set_is_saving] = useState(false)
 	const [save_message, set_save_message] = useState<string | undefined>(undefined)
-
-	useEffect(() => {
-		if (!imageId) {
-			set_image_url(
-				'https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&q=80&w=1600'
-			)
-			set_is_loading_image(false)
-			return
-		}
-
-		let is_cancelled = false
-		set_is_loading_image(true)
-
-		supabase
-			.from('dataset_images')
-			.select('file_url')
-			.eq('id', imageId)
-			.single()
-			.then(({ data, error }) => {
-				if (is_cancelled) return
-				if (error || !data) {
-					console.error('Failed to load image:', error)
-					set_image_url(undefined)
-				} else {
-					set_image_url(data.file_url)
-				}
-				set_is_loading_image(false)
-			})
-
-		return () => {
-			is_cancelled = true
-		}
-	}, [imageId])
 
 	useEffect(() => {
 		if (!imageId || !image_url) return
@@ -266,36 +358,36 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		}
 	}, [handle_mouse_move_global, handle_mouse_up_global])
 
-	useEffect(() => {
-		const handle_key_down = (e: KeyboardEvent) => {
-			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-			const key = e.key.toLowerCase()
-			if (handle_mode_shortcut(key, set_active_tool)) return
-			if (handle_brush_size_shortcut(key, set_brush_size)) return
-			if (handle_zoom_level_shortcut(key, set_zoom_level)) return
-			if (
-				handle_delete_shortcut(
-					key,
-					selected_ann_id,
-					selected_prediction_id,
-					set_annotations,
-					set_predictions,
-					set_selected_ann_id,
-					set_selected_prediction_id
-				)
+	function on_key_down(e: KeyboardEvent) {
+		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+		const key = e.key.toLowerCase()
+		if (handle_mode_shortcut(key, set_active_tool)) return
+		if (handle_brush_size_shortcut(key, set_brush_size)) return
+		if (handle_zoom_level_shortcut(key, set_zoom_level)) return
+		if (
+			handle_delete_shortcut(
+				key,
+				selected_ann_id,
+				selected_prediction_id,
+				set_annotations,
+				set_predictions,
+				set_selected_ann_id,
+				set_selected_prediction_id
 			)
-				return
-			if (handle_class_shortcut(key, classes, set_active_class)) return
-			if ((e.ctrlKey || e.metaKey) && key === 's') {
-				e.preventDefault()
-				void handle_save()
-				return
-			}
-			handle_undo_redo_shortcut(key, e, undo, redo)
+		)
+			return
+		if (handle_class_shortcut(key, classes, set_active_class)) return
+		if ((e.ctrlKey || e.metaKey) && key === 's') {
+			e.preventDefault()
+			void handle_save()
+			return
 		}
+		handle_undo_redo_shortcut(key, e, undo, redo)
+	}
 
-		window.addEventListener('keydown', handle_key_down)
-		return () => window.removeEventListener('keydown', handle_key_down)
+	useEffect(() => {
+		window.addEventListener('keydown', on_key_down)
+		return () => window.removeEventListener('keydown', on_key_down)
 	}, [
 		selected_ann_id,
 		selected_prediction_id,
@@ -335,6 +427,40 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	const get_class_name = (id: string) => theme_get_class_name(classes, id)
 	const get_current_count = (id: string) => theme_current_count(id, annotations)
 
+	const canvas = render_canvas_content(
+		is_loading_image,
+		image_error,
+		is_empty,
+		image_url,
+		annotations,
+		predictions,
+		is_showing_predictions,
+		set_predictions,
+		selected_prediction_id,
+		set_selected_prediction_id,
+		active_tool,
+		active_class,
+		get_class_color,
+		get_class_name,
+		selected_ann_id,
+		set_selected_ann_id,
+		set_annotations,
+		set_offset,
+		set_zoom_level,
+		zoom_level,
+		offset,
+		brush_size,
+		brush_opacity,
+		all_images,
+		project_id,
+		current_index,
+		text_muted,
+		text_heading,
+		border_subtle,
+		bg_panel,
+		navigate
+	)
+
 	return (
 		<div
 			className={`flex flex-col h-full w-full overflow-hidden ${bg_main} animate-in fade-in duration-300 font-sans`}
@@ -345,8 +471,6 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				history_step,
 				history.length,
 				show_prediction_btn,
-				[],
-				isDarkMode,
 				set_zoom_level,
 				zoom_level,
 				center_image,
@@ -358,7 +482,14 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				handle_save,
 				is_saving,
 				save_message,
-				handle_back
+				handle_back,
+				go_prev,
+				go_next,
+				has_prev,
+				has_next,
+				current_image?.file_name,
+				current_index,
+				all_images.length
 			)}
 
 			<div className="flex flex-1 overflow-hidden relative">
@@ -399,50 +530,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
 				>
-					{is_loading_image && (
-						<div className="flex items-center justify-center h-full">
-							<Loader2 size={32} className="animate-spin text-zinc-400" />
-						</div>
-					)}
-					{!is_loading_image && image_url && (
-						<AnnotationCanvas
-							imageUrl={image_url}
-							annotations={annotations}
-							predictions={predictions}
-							showPredictions={is_showing_predictions}
-							onPredictionsChange={(preds) => set_predictions(preds as Prediction[])}
-							collaborators={[]}
-							selectedPredictionId={selected_prediction_id}
-							setSelectedPredictionId={set_selected_prediction_id}
-							activeTool={active_tool}
-							activeClass={active_class}
-							getClassColor={get_class_color}
-							getClassName={get_class_name}
-							selectedAnnId={selected_ann_id}
-							setSelectedAnnId={set_selected_ann_id}
-							onAnnotationsChange={set_annotations}
-							onOffsetChange={set_offset}
-							onZoomChange={set_zoom_level}
-							zoomLevel={zoom_level}
-							offset={offset}
-							brushSize={brush_size}
-							brushOpacity={brush_opacity}
-						/>
-					)}
-
-					<div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-						<div
-							className={`p-2 rounded-lg border ${border_subtle} ${bg_panel} shadow-lg backdrop-blur flex items-center gap-2 text-xs font-medium pointer-events-auto`}
-						>
-							<MousePointerClick size={14} className={text_muted} />
-							<span className={text_heading}>Auto-Segment</span>
-							<kbd
-								className={`px-1 py-0.5 rounded ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'} ml-1`}
-							>
-								Shift+A
-							</kbd>
-						</div>
-					</div>
+					{canvas}
 				</div>
 
 				<div
@@ -471,7 +559,6 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 									selected_ann_id,
 									annotations,
 									classes,
-									[],
 									set_annotations,
 									isDarkMode,
 									text_muted,
@@ -513,7 +600,6 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 						set_annotations,
 						get_class_color,
 						get_class_name,
-						[],
 						isDarkMode,
 						text_muted,
 						text_heading,
