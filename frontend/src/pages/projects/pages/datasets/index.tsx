@@ -24,18 +24,22 @@ function dataset_explorer_view({
 	on_back,
 	on_add_data,
 	on_start_training,
+	on_start_annotating,
 	images,
 	on_delete_images,
-	is_deleting_images
+	is_deleting_images,
+	on_open_annotation
 }: {
 	dataset: DatasetInfo
 	is_dark_mode: boolean
 	on_back: () => void
 	on_add_data: () => void
 	on_start_training: () => void
+	on_start_annotating: () => void
 	images: DatasetImage[]
 	on_delete_images: (image_ids: string[]) => Promise<void>
 	is_deleting_images: boolean
+	on_open_annotation: (image_id: string) => void
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
@@ -50,8 +54,12 @@ function dataset_explorer_view({
 		width: img.width,
 		height: img.height,
 		classes: img.class_labels,
-		status: 'unannotated'
+		status: 'unannotated' as const
 	}))
+
+	const handle_open_annotation = (img: { id: string | number }) => {
+		on_open_annotation(String(img.id))
+	}
 
 	const info_parts = [
 		`${images.length.toLocaleString()} images`,
@@ -85,6 +93,13 @@ function dataset_explorer_view({
 						<Plus size={16} /> Add Data
 					</button>
 					<button
+						onClick={on_start_annotating}
+						disabled={images.length === 0}
+						className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						Start Annotating
+					</button>
+					<button
 						onClick={on_start_training}
 						className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors"
 					>
@@ -99,6 +114,7 @@ function dataset_explorer_view({
 					images={gallery_images}
 					on_delete_selected={on_delete_images}
 					is_deleting_selected={is_deleting_images}
+					on_open_annotation={handle_open_annotation}
 				/>
 			</div>
 		</div>
@@ -274,7 +290,7 @@ export default function datasets_view({
 	on_upload
 }: {
 	is_dark_mode: boolean
-	on_upload: () => void
+	on_upload: (datasetId?: string) => void
 }) {
 	const { projectId: project_id } = useParams()
 	const navigate = useNavigate()
@@ -350,7 +366,7 @@ export default function datasets_view({
 	}, [refresh, show_toast])
 
 	const handle_import = () => {
-		on_upload()
+		on_upload(selected_dataset?.id)
 	}
 
 	const [search_query, set_search_query] = useState('')
@@ -453,10 +469,18 @@ export default function datasets_view({
 					is_dark_mode,
 					on_back: deselect_dataset,
 					on_add_data: handle_import,
+					on_start_annotating: () => {
+						const first_image = images[0]
+						if (first_image) {
+							navigate(`/projects/${project_id}/annotation/${first_image.id}`)
+						}
+					},
 					on_start_training: () => navigate(`/projects/${project_id}/training`),
 					images,
 					on_delete_images: handle_delete_images,
-					is_deleting_images
+					is_deleting_images,
+					on_open_annotation: (image_id: string) =>
+						navigate(`/projects/${project_id}/annotation/${image_id}`)
 				})}
 			</>
 		)

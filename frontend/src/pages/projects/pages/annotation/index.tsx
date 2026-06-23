@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
 	MousePointer2,
 	MousePointerClick,
@@ -6,7 +7,8 @@ import {
 	Square,
 	Hexagon,
 	Pencil,
-	Eraser
+	Eraser,
+	Loader2
 } from 'lucide-react'
 import AnnotationCanvas from '../../../../components/AnnotationCanvas'
 import type { Annotation, Prediction, Mode, ClassInfo } from './types'
@@ -35,9 +37,13 @@ import {
 	render_top_toolbar,
 	render_left_panel
 } from './render'
+import { fetch_annotations, save_annotations } from '../../../../api/annotations'
+import { supabase } from '../../../../utils/supabase'
 
 interface AnnotationStudioProps {
 	isDarkMode: boolean
+	imageId?: string
+	projectId?: string
 }
 
 const tools = [
@@ -49,7 +55,78 @@ const tools = [
 	{ id: 'eraser' as Mode, icon: Eraser, label: 'Eraser (E)' }
 ]
 
-export default function annotation_studio({ isDarkMode }: AnnotationStudioProps) {
+export default function annotation_studio({ isDarkMode, imageId }: AnnotationStudioProps) {
+	const navigate = useNavigate()
+	const params = useParams()
+	const project_id = params.projectId
+
+	const handle_back = useCallback(() => {
+		navigate(`/projects/${project_id}/datasets`)
+	}, [navigate, project_id])
+
+	const [image_url, set_image_url] = useState<string | undefined>(undefined)
+	const [is_loading_image, set_is_loading_image] = useState(true)
+	const [is_saving, set_is_saving] = useState(false)
+	const [save_message, set_save_message] = useState<string | undefined>(undefined)
+
+	useEffect(() => {
+		if (!imageId) {
+			set_image_url(
+				'https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&q=80&w=1600'
+			)
+			set_is_loading_image(false)
+			return
+		}
+
+		let is_cancelled = false
+		set_is_loading_image(true)
+
+		supabase
+			.from('dataset_images')
+			.select('file_url')
+			.eq('id', imageId)
+			.single()
+			.then(({ data, error }) => {
+				if (is_cancelled) return
+				if (error || !data) {
+					console.error('Failed to load image:', error)
+					set_image_url(undefined)
+				} else {
+					set_image_url(data.file_url)
+				}
+				set_is_loading_image(false)
+			})
+
+		return () => {
+			is_cancelled = true
+		}
+	}, [imageId])
+
+	useEffect(() => {
+		if (!imageId || !image_url) return
+
+		let is_cancelled = false
+
+		fetch_annotations(imageId)
+			.then((loaded) => {
+				if (is_cancelled) return
+				if (loaded.length > 0) {
+					set_history([loaded])
+					set_history_step(0)
+					if (loaded[0]) {
+						set_selected_ann_id(loaded[0].id)
+					}
+				}
+			})
+			.catch((err) => {
+				if (!is_cancelled) console.error('Failed to load annotations:', err)
+			})
+
+		return () => {
+			is_cancelled = true
+		}
+	}, [imageId, image_url])
+
 	const [left_width, set_left_width] = useState(240)
 	const [right_width, set_right_width] = useState(280)
 	const [active_tool, set_active_tool] = useState<Mode>('select')
@@ -73,6 +150,23 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	const [history, set_history] = useState<Annotation[][]>([[]])
 	const [history_step, set_history_step] = useState(0)
 	const annotations = history[history_step] ?? []
+
+	const handle_save = useCallback(async () => {
+		if (!imageId || is_saving) return
+		set_is_saving(true)
+		set_save_message(undefined)
+		try {
+			await save_annotations(imageId, annotations)
+			set_save_message('Saved')
+			setTimeout(() => set_save_message(undefined), 2000)
+		} catch (err) {
+			console.error('Failed to save annotations:', err)
+			set_save_message('Save failed')
+			setTimeout(() => set_save_message(undefined), 3000)
+		} finally {
+			set_is_saving(false)
+		}
+	}, [imageId, annotations, is_saving])
 
 	const [predictions, set_predictions] = useState<Prediction[]>([])
 	const [is_showing_predictions, set_is_showing_predictions] = useState(false)
@@ -192,6 +286,11 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 			)
 				return
 			if (handle_class_shortcut(key, classes, set_active_class)) return
+			if ((e.ctrlKey || e.metaKey) && key === 's') {
+				e.preventDefault()
+				void handle_save()
+				return
+			}
 			handle_undo_redo_shortcut(key, e, undo, redo)
 		}
 
@@ -255,7 +354,11 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 				bg_panel,
 				bg_hover,
 				text_muted,
-				text_heading
+				text_heading,
+				handle_save,
+				is_saving,
+				save_message,
+				handle_back
 			)}
 
 			<div className="flex flex-1 overflow-hidden relative">
@@ -296,29 +399,36 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
 				>
-					<AnnotationCanvas
-						imageUrl="https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&q=80&w=1600"
-						annotations={annotations}
-						predictions={predictions}
-						showPredictions={is_showing_predictions}
-						onPredictionsChange={(preds) => set_predictions(preds as Prediction[])}
-						collaborators={[]}
-						selectedPredictionId={selected_prediction_id}
-						setSelectedPredictionId={set_selected_prediction_id}
-						activeTool={active_tool}
-						activeClass={active_class}
-						getClassColor={get_class_color}
-						getClassName={get_class_name}
-						selectedAnnId={selected_ann_id}
-						setSelectedAnnId={set_selected_ann_id}
-						onAnnotationsChange={set_annotations}
-						onOffsetChange={set_offset}
-						onZoomChange={set_zoom_level}
-						zoomLevel={zoom_level}
-						offset={offset}
-						brushSize={brush_size}
-						brushOpacity={brush_opacity}
-					/>
+					{is_loading_image && (
+						<div className="flex items-center justify-center h-full">
+							<Loader2 size={32} className="animate-spin text-zinc-400" />
+						</div>
+					)}
+					{!is_loading_image && image_url && (
+						<AnnotationCanvas
+							imageUrl={image_url}
+							annotations={annotations}
+							predictions={predictions}
+							showPredictions={is_showing_predictions}
+							onPredictionsChange={(preds) => set_predictions(preds as Prediction[])}
+							collaborators={[]}
+							selectedPredictionId={selected_prediction_id}
+							setSelectedPredictionId={set_selected_prediction_id}
+							activeTool={active_tool}
+							activeClass={active_class}
+							getClassColor={get_class_color}
+							getClassName={get_class_name}
+							selectedAnnId={selected_ann_id}
+							setSelectedAnnId={set_selected_ann_id}
+							onAnnotationsChange={set_annotations}
+							onOffsetChange={set_offset}
+							onZoomChange={set_zoom_level}
+							zoomLevel={zoom_level}
+							offset={offset}
+							brushSize={brush_size}
+							brushOpacity={brush_opacity}
+						/>
+					)}
 
 					<div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
 						<div

@@ -2,7 +2,6 @@ import type { ElementType } from 'react'
 import {
 	LayoutDashboard,
 	Database,
-	PenTool,
 	Box,
 	Cpu,
 	Rocket,
@@ -27,8 +26,7 @@ export const APP_BOTTOM_ITEMS: NavItem[] = [{ id: 'settings', label: 'Settings',
 
 export const PROJECT_NAV_ITEMS: NavItem[] = [
 	{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-	{ id: 'datasets', label: 'Datasets', icon: Database },
-	{ id: 'annotation', label: 'Annotation', icon: PenTool }
+	{ id: 'datasets', label: 'Datasets', icon: Database }
 ]
 
 export const PROJECT_ML_ITEMS: NavItem[] = [

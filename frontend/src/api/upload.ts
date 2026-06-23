@@ -1,6 +1,6 @@
 import type { UploadFile } from '../components/Uploader/types'
 import { supabase } from '../utils/supabase'
-import { ensure_dataset_drive_folder } from '../utils/google_drive'
+import { ensure_dataset_drive_folder, get_user_folder_id } from '../utils/google_drive'
 
 export type UploadProgressCallback = (progress: number, loaded: number, total: number) => void
 export type UploadCompleteCallback = () => void
@@ -137,6 +137,7 @@ async function ensure_upload_folder(
 	dataset_id: string,
 	project_id: string | undefined
 ): Promise<string> {
+	const user_folder_id = await get_user_folder_id(access_token)
 	const dataset = await get_dataset_drive_info(dataset_id)
 	const resolved_project_id = project_id ?? dataset.project_id
 	const project = await get_project_drive_info(resolved_project_id)
@@ -148,7 +149,8 @@ async function ensure_upload_folder(
 		dataset_id: dataset.id,
 		dataset_name: dataset.name,
 		existing_project_folder_id: project.drive_folder_id,
-		existing_dataset_folder_id: dataset.drive_folder_id
+		existing_dataset_folder_id: dataset.drive_folder_id,
+		user_folder_id
 	})
 
 	if (!project.drive_folder_id) {

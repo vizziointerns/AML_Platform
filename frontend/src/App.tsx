@@ -23,6 +23,9 @@ function app_content() {
 	const [is_dark_mode, set_is_dark_mode] = useState(true)
 	const [is_mobile_menu_open, set_is_mobile_menu_open] = useState(false)
 	const [is_uploader_open, set_is_uploader_open] = useState(false)
+	const [upload_initial_dataset_id, set_upload_initial_dataset_id] = useState<string | undefined>(
+		undefined
+	)
 	const [is_new_project_open, set_is_new_project_open] = useState(false)
 	const [toasts, set_toasts] = useState<Toast[]>([])
 
@@ -52,7 +55,10 @@ function app_content() {
 	const context_value: AppContextValue = {
 		is_dark_mode,
 		toggle_theme: () => set_is_dark_mode((prev) => !prev),
-		open_uploader: () => set_is_uploader_open(true),
+		open_uploader: (datasetId?: string) => {
+			set_upload_initial_dataset_id(datasetId)
+			set_is_uploader_open(true)
+		},
 		open_new_project: () => set_is_new_project_open(true),
 		is_mobile_menu_open,
 		open_mobile_menu: () => set_is_mobile_menu_open(true),
@@ -100,8 +106,12 @@ function app_content() {
 
 							<Uploader
 								isOpen={is_uploader_open}
-								on_close={() => set_is_uploader_open(false)}
+								on_close={() => {
+									set_is_uploader_open(false)
+									set_upload_initial_dataset_id(undefined)
+								}}
 								is_dark_mode={is_dark_mode}
+								initial_dataset_id={upload_initial_dataset_id}
 							/>
 
 							{toasts.length > 0 && (

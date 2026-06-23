@@ -8,6 +8,7 @@ import {
 	Maximize,
 	Trash2,
 	Save,
+	Loader2,
 	Undo,
 	Redo,
 	Hash,
@@ -18,6 +19,7 @@ import {
 	ChevronDown,
 	Plus,
 	ChevronLeft,
+	ArrowLeft,
 	ListTree,
 	Check,
 	type LucideProps
@@ -532,7 +534,11 @@ export function render_top_toolbar(
 	bg_panel: string,
 	bg_hover: string,
 	text_muted: string,
-	text_heading: string
+	text_heading: string,
+	on_save?: () => void,
+	is_saving?: boolean,
+	save_message?: string,
+	on_back?: () => void
 ) {
 	return (
 		<div
@@ -540,6 +546,15 @@ export function render_top_toolbar(
 		>
 			<div className="flex items-center gap-4">
 				<div className="flex items-center gap-2">
+					{on_back && (
+						<button
+							onClick={on_back}
+							className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+							title="Back to Datasets"
+						>
+							<ArrowLeft size={18} />
+						</button>
+					)}
 					<button
 						onClick={undo}
 						disabled={history_step === 0}
@@ -558,11 +573,20 @@ export function render_top_toolbar(
 					</button>
 					<div className={`w-px h-5 mx-1 ${border_subtle}`}></div>
 					<button
-						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_save}
+						disabled={is_saving}
+						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading} disabled:opacity-50`}
 						title="Save (Ctrl+S)"
 					>
-						<Save size={18} />
+						{is_saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
 					</button>
+					{save_message && (
+						<span
+							className={`text-xs font-medium ${save_message === 'Saved' ? 'text-emerald-500' : 'text-red-500'}`}
+						>
+							{save_message}
+						</span>
+					)}
 					<div className={`w-px h-5 mx-1 ${border_subtle}`}></div>
 					<button
 						onClick={show_prediction_btn}

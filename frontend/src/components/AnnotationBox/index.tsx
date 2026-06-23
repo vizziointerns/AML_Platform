@@ -155,8 +155,10 @@ function render_transformer_component(
 			borderStroke={color}
 			anchorStroke={color}
 			anchorFill="white"
-			borderStrokeWidth={1.5 / zoomLevel}
-			anchorStrokeWidth={1.5 / zoomLevel}
+			borderStrokeWidth={2 / zoomLevel}
+			anchorStrokeWidth={2 / zoomLevel}
+			enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+			shouldOverdrawWholeArea
 		/>
 	)
 }

@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 
 const DRIVE_FILES_API = 'https://www.googleapis.com/drive/v3/files'
 const DRIVE_FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder'
+const ROOT_FOLDER_NAME = 'test_folder'
 
 interface DriveFileRecord {
 	id: string
@@ -21,6 +22,7 @@ interface EnsureProjectFolderParams {
 	project_id: string
 	project_name: string
 	existing_folder_id?: string
+	user_folder_id: string
 }
 
 interface EnsureDatasetFolderParams {
@@ -31,6 +33,7 @@ interface EnsureDatasetFolderParams {
 	dataset_name: string
 	existing_project_folder_id?: string
 	existing_dataset_folder_id?: string
+	user_folder_id: string
 }
 
 interface ProjectFolderRow {
@@ -145,18 +148,59 @@ async function find_folder_by_property(
 	return folder?.id
 }
 
+async function get_current_user_id(): Promise<string> {
+	const { data: user_data } = await supabase.auth.getUser()
+	const user_id = user_data?.user?.id
+	if (!user_id) {
+		throw new Error('User not authenticated')
+	}
+	return user_id
+}
+
+export async function get_user_folder_id(access_token: string): Promise<string> {
+	const user_id = await get_current_user_id()
+	return ensure_user_folder(access_token, user_id)
+}
+
+async function ensure_root_folder(access_token: string): Promise<string> {
+	const existing = await find_folder_by_property(access_token, 'entity_type', 'root')
+	if (existing) return existing
+
+	return create_drive_folder(access_token, ROOT_FOLDER_NAME, [], {
+		entity_type: 'root'
+	})
+}
+
+async function ensure_user_folder(access_token: string, user_id: string): Promise<string> {
+	const root_folder_id = await ensure_root_folder(access_token)
+
+	const existing = await find_folder_by_property(access_token, 'user_id', user_id, root_folder_id)
+	if (existing) return existing
+
+	return create_drive_folder(access_token, user_id, [root_folder_id], {
+		entity_type: 'user',
+		user_id
+	})
+}
+
 export async function ensure_project_drive_folder({
 	access_token,
 	project_id,
 	project_name,
-	existing_folder_id
+	existing_folder_id,
+	user_folder_id
 }: EnsureProjectFolderParams): Promise<string> {
 	if (existing_folder_id) return existing_folder_id
 
-	const existing = await find_folder_by_property(access_token, 'project_id', project_id)
+	const existing = await find_folder_by_property(
+		access_token,
+		'project_id',
+		project_id,
+		user_folder_id
+	)
 	if (existing) return existing
 
-	return create_drive_folder(access_token, project_name, [], {
+	return create_drive_folder(access_token, project_name, [user_folder_id], {
 		entity_type: 'project',
 		project_id
 	})
@@ -169,7 +213,8 @@ export async function ensure_dataset_drive_folder({
 	dataset_id,
 	dataset_name,
 	existing_project_folder_id,
-	existing_dataset_folder_id
+	existing_dataset_folder_id,
+	user_folder_id
 }: EnsureDatasetFolderParams): Promise<{
 	project_folder_id: string
 	dataset_folder_id: string
@@ -178,7 +223,8 @@ export async function ensure_dataset_drive_folder({
 		access_token,
 		project_id,
 		project_name,
-		existing_folder_id: existing_project_folder_id
+		existing_folder_id: existing_project_folder_id,
+		user_folder_id
 	})
 
 	if (existing_dataset_folder_id) {
@@ -225,6 +271,8 @@ export async function ensure_new_dataset_drive_folder(
 	dataset_id: string,
 	dataset_name: string
 ): Promise<string> {
+	const user_folder_id = await get_user_folder_id(access_token)
+
 	const { data: project_row, error: project_error } = await supabase
 		.from('projects')
 		.select('name, drive_folder_id')
@@ -241,7 +289,8 @@ export async function ensure_new_dataset_drive_folder(
 		project_name: (project_row as ProjectFolderRow).name ?? 'Project',
 		dataset_id,
 		dataset_name,
-		existing_project_folder_id: (project_row as ProjectFolderRow).drive_folder_id ?? undefined
+		existing_project_folder_id: (project_row as ProjectFolderRow).drive_folder_id ?? undefined,
+		user_folder_id
 	})
 
 	if (!(project_row as ProjectFolderRow).drive_folder_id) {
