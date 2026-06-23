@@ -87,6 +87,8 @@ pnpm run dev
 
 Opens at `http://localhost:5173`.
 
+> **Note:** The annotation studio, training runs, and other data-persisting features require the backend server to be running (`uvicorn main:app --reload --host 127.0.0.1 --port 8000`). Without it, drawn annotations and training operations will not be saved to the database.
+
 ## Environment Variables
 
 Copy `backend/.env.example` to `backend/.env`:
@@ -116,6 +118,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 - Resizable left/right panels with class list and properties
 - Hover highlighting, drag/resize existing annotations
 - Locked annotation support
+- **Backend required** — annotations are persisted to a local SQLite database via the FastAPI server at `http://localhost:8000/api/annotations`
 
 ### Dataset Management
 - Create, rename, delete datasets
@@ -152,7 +155,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 
 | Command                          | Description            |
 | -------------------------------- | ---------------------- |
-| `uvicorn main:app --reload`      | Dev server             |
+| `uvicorn main:app --reload --host 127.0.0.1 --port 8000` | Dev server (required for annotation & training) |
 | `mypy .`                         | Type check             |
 | `alembic upgrade head`           | Run migrations         |
 | `alembic revision --autogenerate -m "message"` | New migration |
