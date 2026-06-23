@@ -1,9 +1,10 @@
 import json
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import inspect
+from sqlalchemy import inspect, Table
 from sqlalchemy.orm import Session
 
+from app.db.base import Base
 from app.db.session import get_db
 from app.models.annotation import Annotation
 from app.schemas.annotation import (
@@ -18,7 +19,9 @@ router = APIRouter()
 
 def _ensure_table(db: Session) -> None:
     if not inspect(db.get_bind()).has_table("annotations"):
-        Annotation.__table__.create(db.get_bind())
+        table = Annotation.__table__
+        assert isinstance(table, Table)
+        Base.metadata.create_all(bind=db.get_bind(), tables=[table])
 
 
 def _row_to_out(row: Annotation) -> AnnotationOut:
