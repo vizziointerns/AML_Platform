@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useRef } from 'react'
 import {
 	Square,
 	Hexagon,
@@ -8,110 +8,27 @@ import {
 	Maximize,
 	Trash2,
 	Save,
+	Loader2,
 	Undo,
 	Redo,
 	Hash,
-	MessageSquare,
-	Lock,
 	CheckCircle2,
 	ChevronRight,
 	ChevronDown,
 	Plus,
 	ChevronLeft,
+	ArrowLeft,
 	ListTree,
+	Check,
 	type LucideProps
 } from 'lucide-react'
-import type { Annotation, Collaborator, Prediction, ClassInfo, LayerActionSet, Mode } from './types'
-
-export function render_comments_section(
-	ann: Annotation,
-	selected_ann_id: string | undefined,
-	collaborators: Collaborator[],
-	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
-	isDarkMode: boolean,
-	text_heading: string
-) {
-	const input_cls = `flex-1 min-w-0 bg-transparent border rounded px-2 py-1.5 text-[11px] ${isDarkMode ? 'border-zinc-700 text-zinc-100 focus:border-zinc-500' : 'border-zinc-300 text-zinc-900 focus:border-zinc-400'} outline-none`
-
-	return (
-		<div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
-			<div className={`font-semibold mb-2 flex justify-between items-center ${text_heading}`}>
-				<span>Comments</span>
-				<span
-					className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
-				>
-					{ann.comments?.length || 0}
-				</span>
-			</div>
-			<div className="space-y-2 mb-2 max-h-32 overflow-y-auto pr-1">
-				{ann.comments?.map((comment) => {
-					const author = collaborators.find((c) => c.id === comment.userId) || {
-						name: 'You',
-						color: '#6366f1'
-					}
-					return (
-						<div key={comment.id} className="bg-zinc-100 dark:bg-zinc-800 rounded p-2 text-[11px]">
-							<div className="flex items-center justify-between mb-1">
-								<span className="font-semibold" style={{ color: author.color }}>
-									{author.name}
-								</span>
-								<span className="text-zinc-400 text-[9px]">
-									{new Date(comment.timestamp).toLocaleTimeString([], {
-										hour: '2-digit',
-										minute: '2-digit'
-									})}
-								</span>
-							</div>
-							<div className="text-zinc-600 dark:text-zinc-300 leading-tight">{comment.text}</div>
-						</div>
-					)
-				})}
-				{(!ann.comments || ann.comments.length === 0) && (
-					<div className="text-zinc-400 text-[10px] text-center py-2">No comments yet.</div>
-				)}
-			</div>
-			<div className="flex gap-2">
-				<input
-					type="text"
-					placeholder="Add a comment..."
-					className={input_cls}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-							const val = e.currentTarget.value.trim()
-							e.currentTarget.value = ''
-							set_annotations((prev) =>
-								prev.map((a) => {
-									if (a.id === selected_ann_id) {
-										return {
-											...a,
-											comments: [
-												...(a.comments || []),
-												{
-													id: Math.random().toString(),
-													userId: 'local',
-													text: val,
-													timestamp: Date.now()
-												}
-											]
-										}
-									}
-									return a
-								})
-							)
-						}
-					}}
-				/>
-			</div>
-		</div>
-	)
-}
+import type { Annotation, Prediction, ClassInfo, LayerActionSet, Mode } from './types'
 
 export function render_annotation_properties_panel(
 	selected_ann_id: string | undefined,
 	annotations: Annotation[],
 	classes: ClassInfo[],
-	collaborators: Collaborator[],
-	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	_set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
 	isDarkMode: boolean,
 	text_muted: string,
 	text_heading: string,
@@ -120,29 +37,17 @@ export function render_annotation_properties_panel(
 	const ann = annotations.find((a) => a.id === selected_ann_id)
 	if (!ann) return undefined
 
-	const locked_user = collaborators.find((c) => c.id === ann.lockedBy)
 	const select_cls = `bg-transparent border rounded p-1 ${isDarkMode ? 'border-zinc-700 text-zinc-100 bg-zinc-900' : 'border-zinc-300 text-zinc-900 bg-white'} disabled:opacity-50`
 	const dim_box_cls = `p-2 rounded border ${border_subtle} ${isDarkMode ? 'bg-zinc-900/50' : 'bg-white'}`
 
 	return (
 		<div className="space-y-3 text-xs">
-			{locked_user && (
-				<div
-					className={`p-2 rounded-md ${isDarkMode ? 'bg-amber-900/20 text-amber-400 border border-amber-900/30' : 'bg-amber-50 text-amber-600 border border-amber-100'} flex items-start gap-2`}
-				>
-					<Lock size={14} className="mt-0.5 shrink-0" />
-					<div>
-						<span className="font-semibold">{locked_user.name}</span> is currently editing.
-					</div>
-				</div>
-			)}
 			<div className="flex items-center justify-between">
 				<span className={text_muted}>Class</span>
 				<select
 					value={ann.classId}
-					disabled={!!locked_user}
 					onChange={(e) =>
-						set_annotations((prev) =>
+						_set_annotations((prev) =>
 							prev.map((a) => (a.id === selected_ann_id ? { ...a, classId: e.target.value } : a))
 						)
 					}
@@ -159,9 +64,8 @@ export function render_annotation_properties_panel(
 				<span className={text_muted}>Status</span>
 				<select
 					value={ann.status || 'pending'}
-					disabled={!!locked_user}
 					onChange={(e) =>
-						set_annotations((prev) =>
+						_set_annotations((prev) =>
 							prev.map((a) =>
 								a.id === selected_ann_id
 									? { ...a, status: e.target.value as 'pending' | 'approved' | 'needs_review' }
@@ -194,14 +98,6 @@ export function render_annotation_properties_panel(
 					<div className={`font-mono ${text_heading}`}>{Math.round((ann.h / 100) * 600)}</div>
 				</div>
 			</div>
-			{render_comments_section(
-				ann,
-				selected_ann_id,
-				collaborators,
-				set_annotations,
-				isDarkMode,
-				text_heading
-			)}
 		</div>
 	)
 }
@@ -320,14 +216,11 @@ export function render_annotation_layer_item(
 	selected_ann_id: string | undefined,
 	get_class_color: (id: string) => string,
 	get_class_name: (id: string) => string,
-	collaborators: Collaborator[],
 	actions: LayerActionSet,
 	isDarkMode: boolean,
 	text_heading: string
 ) {
 	const layer_color = get_class_color(layer.classId)
-	const locked_user = collaborators.find((c) => c.id === layer.lockedBy)
-	const has_comments = layer.comments && layer.comments.length > 0
 	const status_color =
 		layer.status === 'approved'
 			? 'text-emerald-500'
@@ -352,24 +245,10 @@ export function render_annotation_layer_item(
 				</div>
 			</div>
 			<div className="flex items-center gap-2">
-				{has_comments && (
-					<span title={`${layer.comments?.length} comments`}>
-						<MessageSquare size={12} className="text-blue-500" />
-					</span>
-				)}
 				{layer.status && (
 					<span title={`Status: ${layer.status}`}>
 						<CheckCircle2 size={12} className={status_color} />
 					</span>
-				)}
-				{locked_user && (
-					<div
-						className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0"
-						style={{ backgroundColor: locked_user.color }}
-						title={`Locked by ${locked_user.name}`}
-					>
-						{locked_user.name.charAt(0)}
-					</div>
 				)}
 				<div
 					className={`flex items-center gap-1 transition-opacity ${selected_ann_id === layer.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
@@ -440,7 +319,6 @@ export function render_layers_panel(
 	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
 	get_class_color: (id: string) => string,
 	get_class_name: (id: string) => string,
-	collaborators: Collaborator[],
 	isDarkMode: boolean,
 	text_muted: string,
 	text_heading: string,
@@ -480,7 +358,6 @@ export function render_layers_panel(
 							selected_ann_id,
 							get_class_color,
 							get_class_name,
-							collaborators,
 							actions,
 							isDarkMode,
 							text_heading
@@ -522,8 +399,6 @@ export function render_top_toolbar(
 	history_step: number,
 	history_length: number,
 	show_prediction_btn: () => void,
-	collaborators: Collaborator[],
-	isDarkMode: boolean,
 	set_zoom_level: (fn: (prev: number) => number) => void,
 	zoom_level: number,
 	center_image: () => void,
@@ -531,7 +406,18 @@ export function render_top_toolbar(
 	bg_panel: string,
 	bg_hover: string,
 	text_muted: string,
-	text_heading: string
+	text_heading: string,
+	on_save?: () => void,
+	is_saving?: boolean,
+	save_message?: string,
+	on_back?: () => void,
+	on_prev?: () => void,
+	on_next?: () => void,
+	has_prev?: boolean,
+	has_next?: boolean,
+	file_name?: string,
+	current_index?: number,
+	total_images?: number
 ) {
 	return (
 		<div
@@ -539,6 +425,15 @@ export function render_top_toolbar(
 		>
 			<div className="flex items-center gap-4">
 				<div className="flex items-center gap-2">
+					{on_back && (
+						<button
+							onClick={on_back}
+							className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+							title="Back to Datasets"
+						>
+							<ArrowLeft size={18} />
+						</button>
+					)}
 					<button
 						onClick={undo}
 						disabled={history_step === 0}
@@ -557,11 +452,20 @@ export function render_top_toolbar(
 					</button>
 					<div className={`w-px h-5 mx-1 ${border_subtle}`}></div>
 					<button
-						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_save}
+						disabled={is_saving}
+						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading} disabled:opacity-50`}
 						title="Save (Ctrl+S)"
 					>
-						<Save size={18} />
+						{is_saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
 					</button>
+					{save_message && (
+						<span
+							className={`text-xs font-medium ${save_message === 'Saved' ? 'text-emerald-500' : 'text-red-500'}`}
+						>
+							{save_message}
+						</span>
+					)}
 					<div className={`w-px h-5 mx-1 ${border_subtle}`}></div>
 					<button
 						onClick={show_prediction_btn}
@@ -570,39 +474,29 @@ export function render_top_toolbar(
 					>
 						Auto-Detect
 					</button>
-					<div className={`w-px h-5 mx-2 ${border_subtle}`}></div>
-					<div className="flex -space-x-2">
-						{collaborators.map((c) => (
-							<div
-								key={c.id}
-								className="w-7 h-7 rounded-full border-2 bg-zinc-200 flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-2 ring-transparent hover:z-10 transition-transform cursor-pointer"
-								style={{ backgroundColor: c.color, borderColor: isDarkMode ? '#18181b' : '#fff' }}
-								title={`${c.name} (Online)`}
-							>
-								{c.name.charAt(0)}
-							</div>
-						))}
-						<div
-							className="w-7 h-7 rounded-full border-2 border-dashed border-zinc-400 bg-transparent flex items-center justify-center text-zinc-400 cursor-pointer hover:text-zinc-500 hover:border-zinc-500 transition-colors"
-							title="Invite Collaborators"
-							style={{ borderColor: isDarkMode ? '#3f3f46' : '#d4d4d8' }}
-						>
-							<Plus size={14} />
-						</div>
-					</div>
 				</div>
 				<div className="flex items-center gap-3 ml-4">
 					<button
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_prev}
+						disabled={!has_prev}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_prev ? `${text_muted} hover:${text_heading}` : text_muted}`}
 					>
 						<ChevronLeft size={16} />
 					</button>
-					<div className="flex flex-col">
-						<span className={`text-sm font-medium ${text_heading}`}>IMG_2023_09_14_421.png</span>
-						<span className={`text-[10px] ${text_muted}`}>1024 / 4500 (22% complete)</span>
+					<div className="flex flex-col min-w-0">
+						<span className={`text-sm font-medium ${text_heading} truncate max-w-48`}>
+							{file_name ?? 'No image selected'}
+						</span>
+						{total_images !== undefined && current_index !== undefined && (
+							<span className={`text-[10px] ${text_muted}`}>
+								Image {current_index + 1} of {total_images}
+							</span>
+						)}
 					</div>
 					<button
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						onClick={on_next}
+						disabled={!has_next}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_next ? `${text_muted} hover:${text_heading}` : text_muted}`}
 					>
 						<ChevronRight size={16} />
 					</button>
@@ -644,6 +538,156 @@ export function render_top_toolbar(
 	)
 }
 
+function item_bg(is_active: boolean, isDarkMode: boolean): string {
+	if (is_active) return isDarkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-blue-50 border-blue-200'
+	if (isDarkMode) return 'border-transparent hover:bg-zinc-900 hover:border-zinc-800'
+	return 'border-transparent hover:bg-zinc-100 hover:border-zinc-200'
+}
+
+function render_class_item(
+	c: ClassInfo,
+	idx: number,
+	active_class: string,
+	set_active_class: (id: string) => void,
+	isDarkMode: boolean,
+	border_subtle: string,
+	text_heading: string,
+	text_muted: string,
+	delete_class_id: string | undefined,
+	handle_delete_class: (id: string) => void,
+	set_delete_class_id: (id: string | undefined) => void,
+	renaming_class_id: string | undefined,
+	handle_rename_class: (id: string, new_name: string) => void,
+	set_renaming_class_id: (id: string | undefined) => void,
+	theme_current_count_fn: (id: string, annotations: Annotation[]) => number,
+	annotations: Annotation[]
+) {
+	const is_renaming = renaming_class_id === c.id
+	const shortcut = idx < 9 ? idx + 1 : undefined
+	const is_active = active_class === c.id
+	const bg_cls = item_bg(is_active, isDarkMode)
+
+	if (delete_class_id === c.id) {
+		return (
+			<div key={c.id} className={`w-full rounded-md transition-all border ${bg_cls}`}>
+				<div className={`p-2 space-y-2 ${isDarkMode ? 'bg-red-950/30' : 'bg-red-50'} rounded-md`}>
+					<p className={`text-[11px] ${isDarkMode ? 'text-red-300' : 'text-red-600'}`}>
+						Delete "{c.name}"? Annotations will become unassigned.
+					</p>
+					<div className="flex gap-2">
+						<button
+							onClick={() => handle_delete_class(c.id)}
+							className="flex-1 px-2 py-1 text-[10px] rounded bg-red-600 text-white hover:bg-red-500 transition-colors font-medium"
+						>
+							Delete
+						</button>
+						<button
+							onClick={() => set_delete_class_id(undefined)}
+							className={`flex-1 px-2 py-1 text-[10px] rounded border ${border_subtle} ${text_muted} ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'} transition-colors`}
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			</div>
+		)
+	}
+
+	if (is_renaming) {
+		return (
+			<div key={c.id} className={`w-full rounded-md transition-all border ${bg_cls}`}>
+				<div className="flex items-center gap-1 p-2">
+					<input
+						autoFocus
+						type="text"
+						defaultValue={c.name}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+								handle_rename_class(c.id, e.currentTarget.value.trim())
+							}
+							if (e.key === 'Escape') set_renaming_class_id(undefined)
+						}}
+						onBlur={(e) => {
+							if (e.currentTarget.value.trim()) {
+								handle_rename_class(c.id, e.currentTarget.value.trim())
+							} else {
+								set_renaming_class_id(undefined)
+							}
+						}}
+						className={`flex-1 bg-transparent border rounded px-2 py-1 text-xs outline-none ${isDarkMode ? 'border-zinc-700 text-zinc-100' : 'border-zinc-300 text-zinc-900'} ${text_heading}`}
+					/>
+					<button
+						onMouseDown={(e) => e.preventDefault()}
+						onClick={() => {
+							const el = document.activeElement as HTMLInputElement | null
+							if (el?.value?.trim()) handle_rename_class(c.id, el.value.trim())
+							else set_renaming_class_id(undefined)
+						}}
+						className="p-1 hover:text-blue-500 transition-colors"
+					>
+						<Check size={14} />
+					</button>
+				</div>
+			</div>
+		)
+	}
+
+	return (
+		<div key={c.id} className={`group w-full rounded-md transition-all border ${bg_cls}`}>
+			<div className="flex items-center justify-between p-2">
+				<button
+					onClick={() => set_active_class(c.id)}
+					className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+				>
+					{shortcut !== undefined && (
+						<kbd
+							className={`text-[10px] font-mono px-1 py-0.5 rounded ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-500'}`}
+						>
+							{shortcut}
+						</kbd>
+					)}
+					<div
+						className={`w-3 h-3 rounded-[3px] border ${isDarkMode ? 'border-white/20' : 'border-black/10'} shadow-sm flex items-center justify-center shrink-0`}
+						style={{ backgroundColor: c.color }}
+					>
+						{is_active && <div className="w-1 h-1 bg-white rounded-full"></div>}
+					</div>
+					<span className={`text-sm ${is_active ? text_heading : text_muted} font-medium truncate`}>
+						{c.name}
+					</span>
+				</button>
+				<div className="flex items-center gap-1 shrink-0">
+					<span
+						className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-zinc-900 text-zinc-500' : 'bg-white text-zinc-400'}`}
+					>
+						{theme_current_count_fn(c.id, annotations)}
+					</span>
+					<button
+						onClick={(e) => {
+							e.stopPropagation()
+							set_renaming_class_id(c.id)
+						}}
+						className={`p-1 rounded opacity-0 group-hover:opacity-100 ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'} ${text_muted} transition-all`}
+						title="Rename"
+					>
+						<Pencil size={12} />
+					</button>
+					<button
+						onClick={(e) => {
+							e.stopPropagation()
+							set_delete_class_id(c.id)
+						}}
+						className={`p-1 rounded opacity-0 group-hover:opacity-100 hover:text-red-500 ${text_muted} transition-all`}
+						title="Delete"
+					>
+						<Trash2 size={12} />
+					</button>
+				</div>
+			</div>
+		</div>
+	)
+}
+
 export function render_left_panel(
 	left_width: number,
 	border_subtle: string,
@@ -666,8 +710,27 @@ export function render_left_panel(
 	set_active_class: (cls: string) => void,
 	annotations: Annotation[],
 	is_dragging_left: React.MutableRefObject<boolean>,
-	theme_current_count_fn: (id: string, annotations: Annotation[]) => number
+	theme_current_count_fn: (id: string, annotations: Annotation[]) => number,
+	handle_create_class: (name: string, color?: string) => void,
+	handle_rename_class: (id: string, new_name: string) => void,
+	handle_delete_class: (id: string) => void,
+	renaming_class_id: string | undefined,
+	set_renaming_class_id: (id: string | undefined) => void,
+	delete_class_id: string | undefined,
+	set_delete_class_id: (id: string | undefined) => void,
+	new_class_name: string,
+	set_new_class_name: (name: string) => void
 ) {
+	const input_ref = useRef<HTMLInputElement>(undefined!)
+
+	const on_create = () => {
+		const name = new_class_name.trim()
+		if (name) {
+			handle_create_class(name)
+			set_new_class_name('')
+		}
+	}
+
 	return (
 		<div
 			style={{ width: left_width }}
@@ -679,7 +742,7 @@ export function render_left_panel(
 						key={tool.id}
 						onClick={() => set_active_tool(tool.id)}
 						title={tool.label}
-						className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active_tool === tool.id ? 'bg-blue-600 text-white shadow-sm' : `${bg_hover} ${text_muted} hover:${text_heading}`}`}
+						className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active_tool === tool.id ? 'bg-blue-600 text-white shadow-sm' : `${bg_hover} ${text_muted} ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'}`}`}
 					>
 						<tool.icon size={18} />
 					</button>
@@ -720,7 +783,7 @@ export function render_left_panel(
 			<div className="flex-1 flex flex-col min-h-0">
 				<button
 					onClick={() => set_is_classes_open(!is_classes_open)}
-					className={`flex items-center justify-between p-3 border-b ${border_subtle} hover:${isDarkMode ? 'bg-zinc-900' : 'bg-zinc-100'} transition-colors w-full text-left`}
+					className={`flex items-center justify-between p-3 border-b ${border_subtle} ${isDarkMode ? 'hover:bg-zinc-900' : 'hover:bg-zinc-100'} transition-colors w-full text-left`}
 				>
 					<div
 						className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${text_heading}`}
@@ -741,38 +804,46 @@ export function render_left_panel(
 							>
 								<Plus size={14} className={text_muted} />
 								<input
+									ref={input_ref}
 									type="text"
 									placeholder="Add class..."
+									value={new_class_name}
+									onChange={(e) => set_new_class_name(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') on_create()
+									}}
 									className={`bg-transparent outline-none text-xs ml-2 w-full ${text_heading}`}
 								/>
+								{new_class_name.trim() && (
+									<button
+										onClick={on_create}
+										className="p-0.5 hover:text-blue-500 transition-colors"
+									>
+										<Check size={14} />
+									</button>
+								)}
 							</div>
 						</div>
-						{classes.map((c) => (
-							<button
-								key={c.id}
-								onClick={() => set_active_class(c.id)}
-								className={`w-full flex items-center justify-between p-2 rounded-md transition-all border ${active_class === c.id ? (isDarkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-blue-50 border-blue-200') : `border-transparent hover:${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`}`}
-							>
-								<div className="flex items-center gap-2.5">
-									<div
-										className={`w-3 h-3 rounded-[3px] border ${isDarkMode ? 'border-white/20' : 'border-black/10'} shadow-sm flex items-center justify-center`}
-										style={{ backgroundColor: c.color }}
-									>
-										{active_class === c.id && <div className="w-1 h-1 bg-white rounded-full"></div>}
-									</div>
-									<span
-										className={`text-sm ${active_class === c.id ? text_heading : text_muted} font-medium`}
-									>
-										{c.name}
-									</span>
-								</div>
-								<span
-									className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-zinc-900 text-zinc-500' : 'bg-white text-zinc-400'}`}
-								>
-									{theme_current_count_fn(c.id, annotations)}
-								</span>
-							</button>
-						))}
+						{classes.map((c, idx) =>
+							render_class_item(
+								c,
+								idx,
+								active_class,
+								set_active_class,
+								isDarkMode,
+								border_subtle,
+								text_heading,
+								text_muted,
+								delete_class_id,
+								handle_delete_class,
+								set_delete_class_id,
+								renaming_class_id,
+								handle_rename_class,
+								set_renaming_class_id,
+								theme_current_count_fn,
+								annotations
+							)
+						)}
 					</div>
 				)}
 			</div>

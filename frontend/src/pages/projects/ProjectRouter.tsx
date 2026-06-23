@@ -70,55 +70,77 @@ export default function project_router() {
 	const path_segments = location.pathname.split('/').filter(Boolean)
 	const last_segment = path_segments[path_segments.length - 1] ?? ''
 	const second_last = path_segments[path_segments.length - 2] ?? ''
-	const sub_route = second_last === 'datasets' ? 'datasets' : last_segment || 'dashboard'
+	const has_annotation = path_segments.includes('annotation')
+	const image_id = has_annotation && path_segments.length >= 4 ? last_segment : undefined
+	const sub_route = has_annotation
+		? 'annotation'
+		: second_last === 'datasets'
+			? 'datasets'
+			: last_segment || 'dashboard'
 	const is_annotation = sub_route === 'annotation'
+
+	const render_page = () => {
+		if (project_error) {
+			return (
+				<div className="flex items-center justify-center h-full">
+					<p className="text-sm text-red-500">{project_error}</p>
+				</div>
+			)
+		}
+		if (is_annotation) {
+			return <AnnotationStudio isDarkMode={is_dark_mode} imageId={image_id} />
+		}
+		if (sub_route === 'dashboard') {
+			return project ? (
+				<ProjectDashboard
+					project={project}
+					is_dark_mode={is_dark_mode}
+					on_open_uploader={open_uploader}
+				/>
+			) : (
+				<div className="flex items-center justify-center h-full">
+					<div className="loading-spinner" />
+				</div>
+			)
+		}
+		if (sub_route === 'datasets') {
+			return (
+				<div className="p-4 lg:p-8">
+					<div className="max-w-7xl mx-auto">
+						<DatasetsView is_dark_mode={is_dark_mode} on_upload={open_uploader} />
+					</div>
+				</div>
+			)
+		}
+		if (sub_route === 'workflow') {
+			return (
+				<div className="h-full">
+					<WorkflowBuilder is_dark_mode={is_dark_mode} />
+				</div>
+			)
+		}
+		if (sub_route === 'models') {
+			return <ModelsPage is_dark_mode={is_dark_mode} />
+		}
+		if (sub_route === 'training') {
+			return <TrainingPage is_dark_mode={is_dark_mode} />
+		}
+		if (sub_route === 'deployment') {
+			return <DeploymentPage is_dark_mode={is_dark_mode} />
+		}
+		return (
+			<div className="h-full">
+				<PlaceholderPage />
+			</div>
+		)
+	}
 
 	return (
 		<div className="flex flex-1 min-w-0 overflow-hidden">
-			<ProjectSidebar />
+			{!is_annotation && <ProjectSidebar />}
 
 			<main className="flex flex-col flex-1 min-w-0">
-				<div className={is_annotation ? 'flex-1' : 'flex-1 overflow-y-auto'}>
-					{project_error ? (
-						<div className="flex items-center justify-center h-full">
-							<p className="text-sm text-red-500">{project_error}</p>
-						</div>
-					) : is_annotation ? (
-						<AnnotationStudio isDarkMode={is_dark_mode} />
-					) : sub_route === 'dashboard' ? (
-						project ? (
-							<ProjectDashboard
-								project={project}
-								is_dark_mode={is_dark_mode}
-								on_open_uploader={open_uploader}
-							/>
-						) : (
-							<div className="flex items-center justify-center h-full">
-								<div className="loading-spinner" />
-							</div>
-						)
-					) : sub_route === 'datasets' ? (
-						<div className="p-4 lg:p-8">
-							<div className="max-w-7xl mx-auto">
-								<DatasetsView is_dark_mode={is_dark_mode} on_upload={open_uploader} />
-							</div>
-						</div>
-					) : sub_route === 'workflow' ? (
-						<div className="h-full">
-							<WorkflowBuilder is_dark_mode={is_dark_mode} />
-						</div>
-					) : sub_route === 'models' ? (
-						<ModelsPage is_dark_mode={is_dark_mode} />
-					) : sub_route === 'training' ? (
-						<TrainingPage is_dark_mode={is_dark_mode} />
-					) : sub_route === 'deployment' ? (
-						<DeploymentPage is_dark_mode={is_dark_mode} />
-					) : (
-						<div className="h-full">
-							<PlaceholderPage />
-						</div>
-					)}
-				</div>
+				<div className={is_annotation ? 'flex-1' : 'flex-1 overflow-y-auto'}>{render_page()}</div>
 			</main>
 		</div>
 	)

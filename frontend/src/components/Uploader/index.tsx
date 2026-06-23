@@ -5,13 +5,15 @@ import UploadQueue from './upload_queue'
 export default function uploader({
 	isOpen,
 	on_close,
-	is_dark_mode
+	is_dark_mode,
+	initial_dataset_id
 }: {
 	isOpen: boolean
 	on_close: () => void
 	is_dark_mode: boolean
+	initial_dataset_id?: string
 }) {
-	const upload = use_upload(on_close)
+	const upload = use_upload(on_close, initial_dataset_id)
 
 	if (!isOpen) return undefined
 
@@ -80,6 +82,7 @@ export default function uploader({
 			new_dataset_description={upload.new_dataset_description}
 			on_new_dataset_description_change={upload.set_new_dataset_description}
 			is_all_complete={upload.is_all_complete}
+			hide_dataset_selector={!!initial_dataset_id}
 		/>
 	)
 }

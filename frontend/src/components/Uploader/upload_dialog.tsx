@@ -41,7 +41,8 @@ export default function upload_dialog({
 	on_new_dataset_name_change,
 	new_dataset_description,
 	on_new_dataset_description_change,
-	is_all_complete
+	is_all_complete,
+	hide_dataset_selector
 }: {
 	on_close: () => void
 	on_minimize: () => void
@@ -86,6 +87,7 @@ export default function upload_dialog({
 	new_dataset_description: string
 	on_new_dataset_description_change: (v: string) => void
 	is_all_complete: boolean
+	hide_dataset_selector?: boolean
 }) {
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
@@ -144,25 +146,27 @@ export default function upload_dialog({
 					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
 						{render_complete_banner()}
 
-						<div className="flex items-center justify-between text-sm">
-							<span className={`font-medium ${text_heading}`}>Target Dataset</span>
-							<select
-								value={target_dataset}
-								onChange={(e) => on_target_dataset_change(e.target.value)}
-								className={`px-3 py-1.5 rounded-lg border ${border_subtle} ${is_dark_mode ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-900'} outline-none focus:border-blue-500`}
-								disabled={is_all_complete}
-							>
-								{datasets.length === 0 && <option value="">No datasets</option>}
-								{datasets.map((ds) => (
-									<option key={ds.id} value={ds.id}>
-										{ds.name}
-									</option>
-								))}
-								<option value="__new__">➕ Create New Dataset</option>
-							</select>
-						</div>
+						{!hide_dataset_selector && (
+							<div className="flex items-center justify-between text-sm">
+								<span className={`font-medium ${text_heading}`}>Target Dataset</span>
+								<select
+									value={target_dataset}
+									onChange={(e) => on_target_dataset_change(e.target.value)}
+									className={`px-3 py-1.5 rounded-lg border ${border_subtle} ${is_dark_mode ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-900'} outline-none focus:border-blue-500`}
+									disabled={is_all_complete}
+								>
+									{datasets.length === 0 && <option value="">No datasets</option>}
+									{datasets.map((ds) => (
+										<option key={ds.id} value={ds.id}>
+											{ds.name}
+										</option>
+									))}
+									<option value="__new__">➕ Create New Dataset</option>
+								</select>
+							</div>
+						)}
 
-						{target_dataset === '__new__' && (
+						{!hide_dataset_selector && target_dataset === '__new__' && (
 							<div className="space-y-3 p-4 rounded-lg border border-dashed border-blue-500/40">
 								<span
 									className={`text-sm font-medium ${is_dark_mode ? 'text-blue-300' : 'text-blue-700'}`}

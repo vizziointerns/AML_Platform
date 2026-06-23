@@ -135,32 +135,6 @@ function render_label_overlay(
 	)
 }
 
-function render_transformer_component(
-	show: boolean,
-	trRef: React.RefObject<Konva.Transformer | undefined>,
-	color: string,
-	zoomLevel: number
-) {
-	if (!show) return undefined
-	return (
-		<Transformer
-			ref={trRef as React.Ref<Konva.Transformer>}
-			boundBoxFunc={(oldBox, newBox) => {
-				if (newBox.width < 5 || newBox.height < 5) return oldBox
-				return newBox
-			}}
-			rotateEnabled={false}
-			ignoreStroke
-			anchorSize={10 / zoomLevel}
-			borderStroke={color}
-			anchorStroke={color}
-			anchorFill="white"
-			borderStrokeWidth={1.5 / zoomLevel}
-			anchorStrokeWidth={1.5 / zoomLevel}
-		/>
-	)
-}
-
 export default function annotation_box({
 	ann,
 	isSelected,
@@ -183,20 +157,24 @@ export default function annotation_box({
 	const tr_ref = useRef<Konva.Transformer>(undefined!)
 
 	const is_locked = !!lockedByName
+	const should_show_transformer = activeTool === 'select' && isSelected && !is_locked
 
 	useEffect(() => {
-		if (isSelected && !is_locked && tr_ref.current && group_ref.current) {
+		if (!tr_ref.current || !group_ref.current) return
+		if (should_show_transformer) {
 			tr_ref.current.nodes([group_ref.current])
-			tr_ref.current.getLayer()?.batchDraw()
+		} else {
+			tr_ref.current.nodes([])
 		}
-	}, [isSelected, is_locked])
+		tr_ref.current.getLayer()?.batchDraw()
+	}, [should_show_transformer])
 
 	const x = (ann.x / 100) * imageWidth
 	const y = (ann.y / 100) * imageHeight
 	const width = Math.max(1, (ann.w / 100) * imageWidth)
 	const height = Math.max(1, (ann.h / 100) * imageHeight)
 
-	const can_drag = activeTool === 'select' && isSelected && !is_locked
+	const can_drag = should_show_transformer
 	const fill_color = isSelected
 		? `${color}33`
 		: isHovered
@@ -261,7 +239,24 @@ export default function annotation_box({
 					color
 				)}
 			</Group>
-			{render_transformer_component(can_drag, tr_ref, color, zoomLevel)}
+			<Transformer
+				ref={tr_ref as React.Ref<Konva.Transformer>}
+				visible={should_show_transformer}
+				boundBoxFunc={(oldBox, newBox) => {
+					if (newBox.width < 5 || newBox.height < 5) return oldBox
+					return newBox
+				}}
+				rotateEnabled={false}
+				ignoreStroke
+				anchorSize={10 / zoomLevel}
+				borderStroke={color}
+				anchorStroke={color}
+				anchorFill="white"
+				borderStrokeWidth={2 / zoomLevel}
+				anchorStrokeWidth={2 / zoomLevel}
+				enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+				overdrawWholeArea
+			/>
 		</>
 	)
 }

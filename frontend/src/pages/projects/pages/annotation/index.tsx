@@ -1,22 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
 	MousePointer2,
-	MousePointerClick,
-	ShieldAlert,
 	Hand,
 	Square,
 	Hexagon,
 	Pencil,
-	Eraser
+	Eraser,
+	Loader2,
+	ImageIcon
 } from 'lucide-react'
 import AnnotationCanvas from '../../../../components/AnnotationCanvas'
-import type { Annotation, Collaborator, Prediction, Mode, ClassInfo } from './types'
+import type { Annotation, Prediction, Mode, ClassInfo } from './types'
 import {
 	handle_mode_shortcut,
 	handle_brush_size_shortcut,
 	handle_zoom_level_shortcut,
 	handle_delete_shortcut,
 	handle_undo_redo_shortcut,
+	handle_class_shortcut,
+	class_create,
+	class_rename,
+	class_delete,
+	load_classes,
+	save_classes,
 	compute_theme_classes,
 	theme_get_class_color,
 	theme_get_class_name,
@@ -30,9 +37,13 @@ import {
 	render_top_toolbar,
 	render_left_panel
 } from './render'
+import { fetch_annotations, save_annotations } from '../../../../api/annotations'
+import { use_annotation_image } from '../../../../hooks/use_annotation_image'
 
 interface AnnotationStudioProps {
 	isDarkMode: boolean
+	imageId?: string
+	projectId?: string
 }
 
 const tools = [
@@ -44,14 +55,174 @@ const tools = [
 	{ id: 'eraser' as Mode, icon: Eraser, label: 'Eraser (E)' }
 ]
 
-const classes: ClassInfo[] = [
-	{ id: 'vehicle', name: 'vehicle', color: '#3b82f6' },
-	{ id: 'pedestrian', name: 'pedestrian', color: '#10b981' },
-	{ id: 'traffic_light', name: 'traffic_light', color: '#f59e0b' },
-	{ id: 'cyclist', name: 'cyclist', color: '#8b5cf6' }
-]
+function render_canvas_content(
+	is_loading_image: boolean,
+	image_error: string | undefined | null,
+	is_empty: boolean,
+	image_url: string | undefined,
+	annotations: Annotation[],
+	predictions: Prediction[],
+	is_showing_predictions: boolean,
+	set_predictions: React.Dispatch<React.SetStateAction<Prediction[]>>,
+	selected_prediction_id: string | undefined,
+	set_selected_prediction_id: (id: string | undefined) => void,
+	active_tool: Mode,
+	active_class: string,
+	get_class_color: (id: string) => string,
+	get_class_name: (id: string) => string,
+	selected_ann_id: string | undefined,
+	set_selected_ann_id: (id: string | undefined) => void,
+	set_annotations: (anns: Annotation[] | ((prev: Annotation[]) => Annotation[])) => void,
+	set_offset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>,
+	set_zoom_level: React.Dispatch<React.SetStateAction<number>>,
+	zoom_level: number,
+	offset: { x: number; y: number },
+	brush_size: number,
+	brush_opacity: number,
+	all_images: Array<{ id: string; file_url: string; file_name: string }>,
+	project_id: string | undefined,
+	current_index: number,
+	text_muted: string,
+	text_heading: string,
+	border_subtle: string,
+	bg_panel: string,
+	navigate: ReturnType<typeof useNavigate>
+) {
+	if (is_loading_image) {
+		return (
+			<div className="flex items-center justify-center h-full">
+				<Loader2 size={32} className="animate-spin text-zinc-400" />
+			</div>
+		)
+	}
+	if (image_error) {
+		return (
+			<div className="flex flex-col items-center justify-center h-full gap-3 px-8">
+				<ImageIcon size={48} className="text-red-400" />
+				<p className="text-sm text-red-500 text-center">{image_error}</p>
+			</div>
+		)
+	}
+	if (is_empty) {
+		return (
+			<div className="flex flex-col items-center justify-center h-full gap-3 px-8">
+				<ImageIcon size={48} className={text_muted} />
+				<p className={`text-lg font-medium ${text_heading}`}>No images in dataset</p>
+				<p className={`text-sm ${text_muted} text-center max-w-md`}>
+					Upload images to this dataset to start annotating.
+				</p>
+			</div>
+		)
+	}
+	return (
+		<>
+			{image_url && (
+				<AnnotationCanvas
+					imageUrl={image_url}
+					annotations={annotations}
+					predictions={predictions}
+					showPredictions={is_showing_predictions}
+					onPredictionsChange={(preds) => set_predictions(preds as Prediction[])}
+					collaborators={[]}
+					selectedPredictionId={selected_prediction_id}
+					setSelectedPredictionId={set_selected_prediction_id}
+					activeTool={active_tool}
+					activeClass={active_class}
+					getClassColor={get_class_color}
+					getClassName={get_class_name}
+					selectedAnnId={selected_ann_id}
+					setSelectedAnnId={set_selected_ann_id}
+					onAnnotationsChange={set_annotations}
+					onOffsetChange={set_offset}
+					onZoomChange={set_zoom_level}
+					zoomLevel={zoom_level}
+					offset={offset}
+					brushSize={brush_size}
+					brushOpacity={brush_opacity}
+				/>
+			)}
+			{all_images.length > 1 && (
+				<div
+					className={`h-16 border-t ${border_subtle} ${bg_panel} flex items-center gap-2 px-4 overflow-x-auto shrink-0 w-full`}
+				>
+					{all_images.map((img, idx) => (
+						<button
+							key={img.id}
+							onClick={() =>
+								navigate(`/projects/${project_id}/annotation/${img.id}`, { replace: true })
+							}
+							className={`shrink-0 w-14 h-12 rounded-md border-2 overflow-hidden transition-all ${
+								idx === current_index
+									? 'border-blue-500 ring-1 ring-blue-500/30'
+									: `${border_subtle} hover:border-blue-400/50`
+							}`}
+						>
+							<img src={img.file_url} alt={img.file_name} className="w-full h-full object-cover" />
+						</button>
+					))}
+				</div>
+			)}
+		</>
+	)
+}
 
-export default function annotation_studio({ isDarkMode }: AnnotationStudioProps) {
+export default function annotation_studio({ isDarkMode, imageId }: AnnotationStudioProps) {
+	const navigate = useNavigate()
+	const params = useParams()
+	const project_id = params.projectId
+
+	const handle_back = useCallback(() => {
+		navigate(`/projects/${project_id}/datasets`)
+	}, [navigate, project_id])
+
+	const {
+		current_image,
+		is_loading: is_loading_images,
+		is_empty,
+		error: image_error,
+		images: all_images,
+		current_index,
+		go_next,
+		go_prev,
+		has_next,
+		has_prev
+	} = use_annotation_image(project_id, imageId)
+
+	const image_url = current_image?.file_url
+	const is_loading_image = is_loading_images
+
+	const [is_saving, set_is_saving] = useState(false)
+	const [save_message, set_save_message] = useState<string | undefined>(undefined)
+
+	useEffect(() => {
+		if (!imageId || !image_url) return
+
+		let is_cancelled = false
+
+		fetch_annotations(imageId)
+			.then((loaded) => {
+				if (is_cancelled) return
+				if (loaded.length > 0) {
+					set_history([loaded])
+					set_history_step(0)
+					if (loaded[0]) {
+						set_selected_ann_id(loaded[0].id)
+					}
+				} else {
+					set_history([[]])
+					set_history_step(0)
+					set_selected_ann_id(undefined)
+				}
+			})
+			.catch((err) => {
+				if (!is_cancelled) console.error('Failed to load annotations:', err)
+			})
+
+		return () => {
+			is_cancelled = true
+		}
+	}, [imageId, image_url])
+
 	const [left_width, set_left_width] = useState(240)
 	const [right_width, set_right_width] = useState(280)
 	const [active_tool, set_active_tool] = useState<Mode>('select')
@@ -64,102 +235,40 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	const [brush_size, set_brush_size] = useState(20)
 	const [brush_opacity, set_brush_opacity] = useState(100)
 
-	const [active_class, set_active_class] = useState('vehicle')
+	const saved = useRef(load_classes())
+	const [classes, set_classes] = useState<ClassInfo[]>(saved.current)
+	const [active_class, set_active_class] = useState(saved.current[0]?.id ?? '')
 
-	const [history, set_history] = useState<Annotation[][]>([
-		[
-			{ id: '1', type: 'bbox', classId: 'vehicle', x: 15, y: 20, w: 15, h: 12, status: 'approved' },
-			{
-				id: '2',
-				type: 'bbox',
-				classId: 'pedestrian',
-				x: 60,
-				y: 55,
-				w: 5,
-				h: 18,
-				lockedBy: 'u2',
-				status: 'pending'
-			},
-			{
-				id: '3',
-				type: 'polygon',
-				classId: 'cyclist',
-				x: 30,
-				y: 30,
-				w: 15,
-				h: 20,
-				points: [
-					{ x: 30, y: 30 },
-					{ x: 45, y: 35 },
-					{ x: 40, y: 50 },
-					{ x: 32, y: 45 }
-				],
-				status: 'needs_review',
-				comments: [
-					{
-						id: 'c1',
-						userId: 'u1',
-						text: 'Check the wheels, they seem cut off.',
-						timestamp: Date.now() - 3600000
-					}
-				]
-			}
-		]
-	])
+	useEffect(() => {
+		save_classes(classes)
+	}, [classes])
+
+	const [history, set_history] = useState<Annotation[][]>([[]])
 	const [history_step, set_history_step] = useState(0)
 	const annotations = history[history_step] ?? []
 
-	const [collaborators, set_collaborators] = useState<Collaborator[]>([
-		{ id: 'u1', name: 'Alex H.', color: '#ec4899', cursor: { x: 45, y: 30 } },
-		{
-			id: 'u2',
-			name: 'Sam J.',
-			color: '#14b8a6',
-			cursor: { x: 70, y: 60 },
-			activeAnnotationId: '2'
+	const handle_save = useCallback(async () => {
+		if (!imageId || is_saving) return
+		set_is_saving(true)
+		set_save_message(undefined)
+		try {
+			await save_annotations(imageId, annotations)
+			set_save_message('Saved')
+			setTimeout(() => set_save_message(undefined), 2000)
+		} catch (err) {
+			console.error('Failed to save annotations:', err)
+			set_save_message('Save failed')
+			setTimeout(() => set_save_message(undefined), 3000)
+		} finally {
+			set_is_saving(false)
 		}
-	])
+	}, [imageId, annotations, is_saving])
 
-	useEffect(() => {
-		const interval = setInterval(() => {
-			set_collaborators((prev) =>
-				prev.map((u) => {
-					if (!u.cursor) return u
-					const dx = (Math.random() - 0.5) * 4
-					const dy = (Math.random() - 0.5) * 4
-					return {
-						...u,
-						cursor: {
-							x: Math.max(0, Math.min(100, u.cursor.x + dx)),
-							y: Math.max(0, Math.min(100, u.cursor.y + dy))
-						}
-					}
-				})
-			)
-		}, 1000)
-		return () => clearInterval(interval)
-	}, [])
-
-	const [predictions, set_predictions] = useState<Prediction[]>([
-		{ id: 'p1', type: 'bbox', classId: 'vehicle', x: 20, y: 70, w: 10, h: 8, confidence: 0.92 },
-		{ id: 'p2', type: 'bbox', classId: 'pedestrian', x: 80, y: 30, w: 6, h: 18, confidence: 0.85 }
-	])
-	const [is_showing_predictions, set_is_showing_predictions] = useState(true)
+	const [predictions, set_predictions] = useState<Prediction[]>([])
+	const [is_showing_predictions, set_is_showing_predictions] = useState(false)
 	const [selected_prediction_id, set_selected_prediction_id] = useState<string | undefined>(
 		undefined
 	)
-
-	const [conflict_data, set_conflict_data] = useState<
-		{ annId: string; userName: string } | undefined
-	>({
-		annId: 'a1',
-		userName: 'Alex V.'
-	})
-
-	useEffect(() => {
-		const timer = setTimeout(() => set_conflict_data(undefined), 8000)
-		return () => clearTimeout(timer)
-	}, [])
 
 	const set_annotations = useCallback(
 		(new_annotations_or_updater: Annotation[] | ((prev: Annotation[]) => Annotation[])) => {
@@ -191,6 +300,38 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	}, [history.length])
 
 	const [selected_ann_id, set_selected_ann_id] = useState<string | undefined>(undefined)
+	const [new_class_name, set_new_class_name] = useState('')
+	const [delete_class_id, set_delete_class_id] = useState<string | undefined>(undefined)
+	const [renaming_class_id, set_renaming_class_id] = useState<string | undefined>(undefined)
+
+	const handle_create_class = useCallback(
+		(name: string, color?: string) => {
+			const new_class = class_create(name, classes, color)
+			set_classes((prev) => [...prev, new_class])
+		},
+		[classes]
+	)
+
+	const handle_rename_class = useCallback((id: string, new_name: string) => {
+		set_classes((prev) => class_rename(prev, id, new_name))
+		set_renaming_class_id(undefined)
+	}, [])
+
+	const handle_delete_class = useCallback(
+		(id: string) => {
+			const { updated_classes, affected_annotation_ids } = class_delete(id, classes, annotations)
+			set_classes(updated_classes)
+			if (affected_annotation_ids.length > 0) {
+				set_annotations((prev) => prev.map((a) => (a.classId === id ? { ...a, classId: '' } : a)))
+			}
+			if (active_class === id) {
+				const remaining = updated_classes
+				set_active_class(remaining.length > 0 ? remaining[0]!.id : '')
+			}
+			set_delete_class_id(undefined)
+		},
+		[classes, annotations, active_class, set_annotations]
+	)
 
 	const { text_muted, text_heading, border_subtle, bg_main, bg_panel, bg_hover, bg_workspace } =
 		compute_theme_classes(isDarkMode)
@@ -221,30 +362,36 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 		}
 	}, [handle_mouse_move_global, handle_mouse_up_global])
 
-	useEffect(() => {
-		const handle_key_down = (e: KeyboardEvent) => {
-			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-			const key = e.key.toLowerCase()
-			if (handle_mode_shortcut(key, set_active_tool)) return
-			if (handle_brush_size_shortcut(key, set_brush_size)) return
-			if (handle_zoom_level_shortcut(key, set_zoom_level)) return
-			if (
-				handle_delete_shortcut(
-					key,
-					selected_ann_id,
-					selected_prediction_id,
-					set_annotations,
-					set_predictions,
-					set_selected_ann_id,
-					set_selected_prediction_id
-				)
+	function on_key_down(e: KeyboardEvent) {
+		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+		const key = e.key.toLowerCase()
+		if (handle_mode_shortcut(key, set_active_tool)) return
+		if (handle_brush_size_shortcut(key, set_brush_size)) return
+		if (handle_zoom_level_shortcut(key, set_zoom_level)) return
+		if (
+			handle_delete_shortcut(
+				key,
+				selected_ann_id,
+				selected_prediction_id,
+				set_annotations,
+				set_predictions,
+				set_selected_ann_id,
+				set_selected_prediction_id
 			)
-				return
-			handle_undo_redo_shortcut(key, e, undo, redo)
+		)
+			return
+		if (handle_class_shortcut(key, classes, set_active_class)) return
+		if ((e.ctrlKey || e.metaKey) && key === 's') {
+			e.preventDefault()
+			void handle_save()
+			return
 		}
+		handle_undo_redo_shortcut(key, e, undo, redo)
+	}
 
-		window.addEventListener('keydown', handle_key_down)
-		return () => window.removeEventListener('keydown', handle_key_down)
+	useEffect(() => {
+		window.addEventListener('keydown', on_key_down)
+		return () => window.removeEventListener('keydown', on_key_down)
 	}, [
 		selected_ann_id,
 		selected_prediction_id,
@@ -253,7 +400,9 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 		set_annotations,
 		set_predictions,
 		set_selected_ann_id,
-		set_selected_prediction_id
+		set_selected_prediction_id,
+		classes,
+		handle_save
 	])
 
 	const center_image = () => {
@@ -262,6 +411,7 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	}
 
 	const show_prediction_btn = () => {
+		if (classes.length === 0) return
 		set_predictions((prev) => [
 			...prev,
 			{
@@ -282,6 +432,40 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 	const get_class_name = (id: string) => theme_get_class_name(classes, id)
 	const get_current_count = (id: string) => theme_current_count(id, annotations)
 
+	const canvas = render_canvas_content(
+		is_loading_image,
+		image_error,
+		is_empty,
+		image_url,
+		annotations,
+		predictions,
+		is_showing_predictions,
+		set_predictions,
+		selected_prediction_id,
+		set_selected_prediction_id,
+		active_tool,
+		active_class,
+		get_class_color,
+		get_class_name,
+		selected_ann_id,
+		set_selected_ann_id,
+		set_annotations,
+		set_offset,
+		set_zoom_level,
+		zoom_level,
+		offset,
+		brush_size,
+		brush_opacity,
+		all_images,
+		project_id,
+		current_index,
+		text_muted,
+		text_heading,
+		border_subtle,
+		bg_panel,
+		navigate
+	)
+
 	return (
 		<div
 			className={`flex flex-col h-full w-full overflow-hidden ${bg_main} animate-in fade-in duration-300 font-sans`}
@@ -292,8 +476,6 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 				history_step,
 				history.length,
 				show_prediction_btn,
-				collaborators,
-				isDarkMode,
 				set_zoom_level,
 				zoom_level,
 				center_image,
@@ -301,7 +483,18 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 				bg_panel,
 				bg_hover,
 				text_muted,
-				text_heading
+				text_heading,
+				handle_save,
+				is_saving,
+				save_message,
+				handle_back,
+				go_prev,
+				go_next,
+				has_prev,
+				has_next,
+				current_image?.file_name,
+				current_index,
+				all_images.length
 			)}
 
 			<div className="flex flex-1 overflow-hidden relative">
@@ -327,78 +520,22 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 					set_active_class,
 					annotations,
 					is_dragging_left,
-					get_current_count
+					get_current_count,
+					handle_create_class,
+					handle_rename_class,
+					handle_delete_class,
+					renaming_class_id,
+					set_renaming_class_id,
+					delete_class_id,
+					set_delete_class_id,
+					new_class_name,
+					set_new_class_name
 				)}
 
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
 				>
-					<div
-						className={`absolute top-4 z-20 transition-transform ${conflict_data ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'}`}
-					>
-						<div className="bg-red-500 text-white px-4 py-3 rounded-lg shadow-xl border border-red-600 flex items-start gap-3 w-[400px]">
-							<ShieldAlert size={20} className="shrink-0 mt-0.5 text-red-200" />
-							<div className="flex-1 min-w-0 flex flex-col">
-								<h4 className="font-bold text-sm tracking-tight mb-1">Conflict Detected</h4>
-								<p className="text-xs text-red-100 mb-3 leading-tight">
-									{conflict_data?.userName || 'A collaborator'} also edited the same annotation
-									while you were working.
-								</p>
-								<div className="flex gap-2">
-									<button
-										onClick={() => set_conflict_data(undefined)}
-										className="flex-1 bg-white/20 hover:bg-white/30 transition-colors py-1.5 rounded text-xs font-semibold"
-									>
-										Keep Mine
-									</button>
-									<button
-										onClick={() => set_conflict_data(undefined)}
-										className="flex-1 bg-white text-red-600 hover:bg-red-50 transition-colors py-1.5 rounded text-xs font-semibold"
-									>
-										Accept Theirs
-									</button>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<AnnotationCanvas
-						imageUrl="https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&q=80&w=1600"
-						annotations={annotations}
-						predictions={predictions}
-						showPredictions={is_showing_predictions}
-						onPredictionsChange={(preds) => set_predictions(preds as Prediction[])}
-						collaborators={collaborators}
-						selectedPredictionId={selected_prediction_id}
-						setSelectedPredictionId={set_selected_prediction_id}
-						activeTool={active_tool}
-						activeClass={active_class}
-						getClassColor={get_class_color}
-						getClassName={get_class_name}
-						selectedAnnId={selected_ann_id}
-						setSelectedAnnId={set_selected_ann_id}
-						onAnnotationsChange={set_annotations}
-						onOffsetChange={set_offset}
-						onZoomChange={set_zoom_level}
-						zoomLevel={zoom_level}
-						offset={offset}
-						brushSize={brush_size}
-						brushOpacity={brush_opacity}
-					/>
-
-					<div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-						<div
-							className={`p-2 rounded-lg border ${border_subtle} ${bg_panel} shadow-lg backdrop-blur flex items-center gap-2 text-xs font-medium pointer-events-auto`}
-						>
-							<MousePointerClick size={14} className={text_muted} />
-							<span className={text_heading}>Auto-Segment</span>
-							<kbd
-								className={`px-1 py-0.5 rounded ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'} ml-1`}
-							>
-								Shift+A
-							</kbd>
-						</div>
-					</div>
+					{canvas}
 				</div>
 
 				<div
@@ -427,7 +564,6 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 									selected_ann_id,
 									annotations,
 									classes,
-									collaborators,
 									set_annotations,
 									isDarkMode,
 									text_muted,
@@ -469,7 +605,6 @@ export default function annotation_studio({ isDarkMode }: AnnotationStudioProps)
 						set_annotations,
 						get_class_color,
 						get_class_name,
-						collaborators,
 						isDarkMode,
 						text_muted,
 						text_heading,

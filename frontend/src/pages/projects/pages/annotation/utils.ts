@@ -1,5 +1,35 @@
 import type { Annotation, ClassInfo, Mode, Prediction } from './types'
 
+const CLASSES_STORAGE_KEY = 'annotation_classes'
+
+export function load_classes(): ClassInfo[] {
+	try {
+		const raw = localStorage.getItem(CLASSES_STORAGE_KEY)
+		if (!raw) return []
+		const parsed = JSON.parse(raw)
+		if (!Array.isArray(parsed)) return []
+		return parsed.filter(
+			(item): item is ClassInfo =>
+				item &&
+				typeof item === 'object' &&
+				typeof item.id === 'string' &&
+				typeof item.name === 'string' &&
+				typeof item.color === 'string'
+		)
+	} catch {
+		/* ignore */
+	}
+	return []
+}
+
+export function save_classes(classes: ClassInfo[]): void {
+	try {
+		localStorage.setItem(CLASSES_STORAGE_KEY, JSON.stringify(classes))
+	} catch {
+		/* ignore */
+	}
+}
+
 export function handle_mode_shortcut(key: string, set_active_tool: (t: Mode) => void): boolean {
 	const modes: Record<string, Mode> = {
 		v: 'select',
@@ -107,4 +137,66 @@ export function theme_get_class_name(classes: ClassInfo[], id: string) {
 
 export function theme_current_count(id: string, annotations: Annotation[]) {
 	return annotations.filter((a) => a.classId === id).length
+}
+
+const CLASS_COLORS = [
+	'#3b82f6',
+	'#10b981',
+	'#f59e0b',
+	'#8b5cf6',
+	'#ef4444',
+	'#ec4899',
+	'#14b8a6',
+	'#f97316',
+	'#06b6d4',
+	'#84cc16',
+	'#a855f7',
+	'#e11d48',
+	'#0ea5e9',
+	'#d946ef',
+	'#22c55e'
+]
+
+export function generate_class_color(classes: ClassInfo[]): string {
+	const used = new Set(classes.map((c) => c.color))
+	for (const color of CLASS_COLORS) {
+		if (!used.has(color)) return color
+	}
+	let c = '#'
+	for (let i = 0; i < 6; i++) c += '0123456789abcdef'[Math.floor(Math.random() * 16)]
+	return c
+}
+
+export function class_create(name: string, classes: ClassInfo[], color?: string): ClassInfo {
+	const id = name.toLowerCase().replace(/[^a-z0-9_]/g, '_') + '_' + crypto.randomUUID().slice(0, 8)
+	return { id, name, color: color || generate_class_color(classes) }
+}
+
+export function class_rename(classes: ClassInfo[], id: string, new_name: string): ClassInfo[] {
+	return classes.map((c) => (c.id === id ? { ...c, name: new_name } : c))
+}
+
+export function class_delete(
+	id: string,
+	classes: ClassInfo[],
+	annotations: Annotation[]
+): { updated_classes: ClassInfo[]; affected_annotation_ids: string[] } {
+	const affected = annotations.filter((a) => a.classId === id).map((a) => a.id)
+	return {
+		updated_classes: classes.filter((c) => c.id !== id),
+		affected_annotation_ids: affected
+	}
+}
+
+export function handle_class_shortcut(
+	key: string,
+	classes: ClassInfo[],
+	set_active_class: (id: string) => void
+): boolean {
+	const num = parseInt(key, 10)
+	if (num >= 1 && num <= 9 && num <= classes.length) {
+		set_active_class(classes[num - 1]!.id)
+		return true
+	}
+	return false
 }

@@ -6,7 +6,7 @@ import { use_auth } from '../../contexts/auth_context'
 import { use_project_store } from '../../store/projectStore'
 import type { ProjectType } from '../../store/projectStore'
 import { use_google_auth } from '../../hooks/use_google_auth'
-import { ensure_project_drive_folder } from '../../utils/google_drive'
+import { ensure_project_drive_folder, get_user_folder_id } from '../../utils/google_drive'
 
 const PROJECT_TYPES: ProjectType[] = [
 	'Object Detection',
@@ -114,10 +114,12 @@ export default function new_project_dialog({
 
 		if (google_auth.is_authenticated && google_auth.access_token) {
 			try {
+				const user_folder_id = await get_user_folder_id(google_auth.access_token)
 				drive_folder_id = await ensure_project_drive_folder({
 					access_token: google_auth.access_token,
 					project_id: id,
-					project_name: trimmed
+					project_name: trimmed,
+					user_folder_id
 				})
 			} catch (error) {
 				set_is_saving(false)

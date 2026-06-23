@@ -61,7 +61,7 @@ async function create_dataset_for_upload(params: {
 	return data.id
 }
 
-export function use_upload(on_close: () => void) {
+export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 	const [is_minimized, set_is_minimized] = useState(false)
 	const [files, set_files] = useState<UploadFile[]>([])
 	const [is_drag_active, set_is_drag_active] = useState(false)
@@ -72,7 +72,7 @@ export function use_upload(on_close: () => void) {
 	})()
 
 	const { datasets } = use_datasets(project_id)
-	const [target_dataset, set_target_dataset] = useState('')
+	const [target_dataset, set_target_dataset] = useState(initial_dataset_id ?? '')
 	const [new_dataset_name, set_new_dataset_name] = useState('')
 	const [new_dataset_description, set_new_dataset_description] = useState('')
 	const resolved_dataset_id_ref = useRef<string | undefined>(undefined)
@@ -83,23 +83,15 @@ export function use_upload(on_close: () => void) {
 			if (first) set_target_dataset(first.id)
 		}
 	}, [datasets, target_dataset])
+
+	useEffect(() => {
+		set_target_dataset(initial_dataset_id ?? '')
+	}, [initial_dataset_id])
 	const file_input_ref = useRef<HTMLInputElement>(undefined!)
 	const folder_input_ref = useRef<HTMLInputElement>(undefined!)
 	const google_auth = use_google_auth()
 
-	/* runs once on mount: auto-trigger Google auth when the dialog opens */
-	const auto_connect_ref = useRef(false)
-	useEffect(() => {
-		if (
-			!auto_connect_ref.current &&
-			google_auth.is_configured &&
-			!google_auth.is_authenticated &&
-			!google_auth.is_loading
-		) {
-			auto_connect_ref.current = true
-			google_auth.sign_in()
-		}
-	}, [google_auth])
+	/* Google auth is triggered only on "Start Upload" click — not on dialog open */
 
 	const total_files = files.length
 	const completed_files = files.filter((f) => f.status === 'success').length
@@ -242,14 +234,25 @@ export function use_upload(on_close: () => void) {
 		const pending_files = files.filter((f) => f.status === 'pending')
 		if (pending_files.length === 0) return
 
+		/* If Google Drive is configured but not yet authenticated, trigger sign-in silently
+			 and continue with direct upload. Uploads will use Drive on retry after auth. */
 		if (google_auth.is_configured && !google_auth.is_authenticated && !google_auth.is_loading) {
-			set_should_upload_after_auth(true)
 			google_auth.sign_in()
-			return
 		}
 
 		const dataset_id = await resolve_dataset_id()
 		if (!dataset_id) {
+			set_files((prev) =>
+				prev.map((f) =>
+					f.status === 'pending'
+						? {
+								...f,
+								status: 'error',
+								error: 'No dataset selected. Select or create a dataset first.'
+							}
+						: f
+				)
+			)
 			return
 		}
 
@@ -302,25 +305,26 @@ export function use_upload(on_close: () => void) {
 			})
 			if (file_to_upload) {
 				const callbacks = make_callbacks(file_to_upload)
-				const ds_id = resolved_dataset_id_ref.current ?? target_dataset
-				if (!ds_id) {
-					callbacks.on_error('No dataset selected for upload')
-					return
-				}
-				if (google_auth.is_authenticated) {
-					upload_to_drive_and_save(
-						file_to_upload,
-						google_auth.access_token!,
-						ds_id,
-						project_id,
-						callbacks
-					)
-				} else {
-					upload_file(file_to_upload, ds_id, callbacks)
-				}
+				void resolve_dataset_id().then((ds_id) => {
+					if (!ds_id) {
+						callbacks.on_error('No dataset selected. Select or create a dataset first.')
+						return
+					}
+					if (google_auth.is_authenticated) {
+						upload_to_drive_and_save(
+							file_to_upload!,
+							google_auth.access_token!,
+							ds_id,
+							project_id,
+							callbacks
+						)
+					} else {
+						upload_file(file_to_upload!, ds_id, callbacks)
+					}
+				})
 			}
 		},
-		[target_dataset, google_auth, project_id, make_callbacks]
+		[google_auth, project_id, make_callbacks, resolve_dataset_id]
 	)
 
 	const remove_file = useCallback((id: string) => {
