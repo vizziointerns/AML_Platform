@@ -88,15 +88,13 @@ async function save_image_metadata(
 	if (db_err) {
 		throw new Error(`Failed to save image metadata: ${db_err.message}`)
 	}
-	const { data: current_count } = await supabase
+	const { error: update_err } = await supabase
 		.from('datasets')
-		.select('image_count')
+		.update({ image_count: { '+': 1 } })
 		.eq('id', dataset_id)
-		.single()
-	await supabase
-		.from('datasets')
-		.update({ image_count: (current_count?.image_count ?? 0) + 1 })
-		.eq('id', dataset_id)
+	if (update_err) {
+		console.error('Failed to increment dataset image_count:', update_err)
+	}
 }
 
 interface ProjectDriveInfo {

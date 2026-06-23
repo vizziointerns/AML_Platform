@@ -168,7 +168,7 @@ export function generate_class_color(classes: ClassInfo[]): string {
 }
 
 export function class_create(name: string, classes: ClassInfo[], color?: string): ClassInfo {
-	const id = name.toLowerCase().replace(/[^a-z0-9_]/g, '_') + '_' + Date.now().toString(36)
+	const id = name.toLowerCase().replace(/[^a-z0-9_]/g, '_') + '_' + crypto.randomUUID().slice(0, 8)
 	return { id, name, color: color || generate_class_color(classes) }
 }
 

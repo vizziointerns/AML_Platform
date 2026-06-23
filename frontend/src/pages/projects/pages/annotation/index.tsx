@@ -208,6 +208,10 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 					if (loaded[0]) {
 						set_selected_ann_id(loaded[0].id)
 					}
+				} else {
+					set_history([[]])
+					set_history_step(0)
+					set_selected_ann_id(undefined)
 				}
 			})
 			.catch((err) => {
@@ -397,7 +401,8 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		set_predictions,
 		set_selected_ann_id,
 		set_selected_prediction_id,
-		classes
+		classes,
+		handle_save
 	])
 
 	const center_image = () => {

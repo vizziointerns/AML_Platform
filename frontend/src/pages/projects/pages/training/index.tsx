@@ -197,11 +197,13 @@ function status_tag(status: string) {
 function compute_stats(runs: TrainingRun[]) {
 	const active = runs.filter((r) => r.status === 'Running').length
 	const completed = runs.filter((r) => r.status === 'Completed')
-	const avg_accuracy = completed.length
-		? completed.reduce((sum, r) => sum + (r.accuracy ?? 0), 0) / completed.length
+	const with_accuracy = completed.filter((r) => r.accuracy !== undefined)
+	const with_loss = completed.filter((r) => r.loss !== undefined)
+	const avg_accuracy = with_accuracy.length
+		? with_accuracy.reduce((sum, r) => sum + r.accuracy!, 0) / with_accuracy.length
 		: 0
-	const avg_loss = completed.length
-		? completed.reduce((sum, r) => sum + (r.loss ?? 0), 0) / completed.length
+	const avg_loss = with_loss.length
+		? with_loss.reduce((sum, r) => sum + r.loss!, 0) / with_loss.length
 		: 0
 	const total_duration_hours = runs.reduce((sum, r) => {
 		if (!r.duration) return sum

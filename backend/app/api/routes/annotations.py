@@ -81,8 +81,11 @@ def save_annotations(
     existing = db.query(Annotation).filter(Annotation.image_id == image_id).all()
     existing_map = {e.annotation_id: e for e in existing}
     incoming_ids = {a.annotation_id for a in body}
+    processed_ids: set[str] = set()
 
     for item in body:
+        if item.annotation_id in processed_ids:
+            continue
         points_json = None
         if item.points is not None:
             points_json = json.dumps([p.model_dump() for p in item.points])
@@ -114,6 +117,8 @@ def save_annotations(
                 lines=lines_json,
             )
             db.add(row)
+
+        processed_ids.add(item.annotation_id)
 
     for ann_id, row in existing_map.items():
         if ann_id not in incoming_ids:

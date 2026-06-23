@@ -37,6 +37,7 @@ export function use_annotation_image(
 	useEffect(() => {
 		if (!dataset_id) {
 			set_images([])
+			set_error(undefined)
 			set_is_loading_images(false)
 			return
 		}
@@ -73,7 +74,8 @@ export function use_annotation_image(
 	}, [dataset_id])
 
 	const current_index = useMemo(() => {
-		if (!image_id || images.length === 0) return -1
+		if (images.length === 0) return -1
+		if (!image_id) return 0
 		return images.findIndex((img) => img.id === image_id)
 	}, [image_id, images])
 

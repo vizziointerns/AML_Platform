@@ -83,6 +83,10 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			if (first) set_target_dataset(first.id)
 		}
 	}, [datasets, target_dataset])
+
+	useEffect(() => {
+		set_target_dataset(initial_dataset_id ?? '')
+	}, [initial_dataset_id])
 	const file_input_ref = useRef<HTMLInputElement>(undefined!)
 	const folder_input_ref = useRef<HTMLInputElement>(undefined!)
 	const google_auth = use_google_auth()
@@ -301,25 +305,26 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			})
 			if (file_to_upload) {
 				const callbacks = make_callbacks(file_to_upload)
-				const ds_id = resolved_dataset_id_ref.current ?? target_dataset
-				if (!ds_id) {
-					callbacks.on_error('No dataset selected for upload')
-					return
-				}
-				if (google_auth.is_authenticated) {
-					upload_to_drive_and_save(
-						file_to_upload,
-						google_auth.access_token!,
-						ds_id,
-						project_id,
-						callbacks
-					)
-				} else {
-					upload_file(file_to_upload, ds_id, callbacks)
-				}
+				void resolve_dataset_id().then((ds_id) => {
+					if (!ds_id) {
+						callbacks.on_error('No dataset selected. Select or create a dataset first.')
+						return
+					}
+					if (google_auth.is_authenticated) {
+						upload_to_drive_and_save(
+							file_to_upload!,
+							google_auth.access_token!,
+							ds_id,
+							project_id,
+							callbacks
+						)
+					} else {
+						upload_file(file_to_upload!, ds_id, callbacks)
+					}
+				})
 			}
 		},
-		[target_dataset, google_auth, project_id, make_callbacks]
+		[google_auth, project_id, make_callbacks, resolve_dataset_id]
 	)
 
 	const remove_file = useCallback((id: string) => {

@@ -94,8 +94,11 @@ export async function update_training_run(
 	run_id: number,
 	payload: UpdateTrainingPayload
 ): Promise<TrainingRun> {
-	const { data } = await api_client.patch<TrainingRun>(`/training/${project_id}/${run_id}`, payload)
-	return data
+	const { data } = await api_client.patch<TrainingRunRaw>(
+		`/training/${project_id}/${run_id}`,
+		payload
+	)
+	return to_run(data)
 }
 
 export async function delete_training_run(project_id: string, run_id: number): Promise<void> {
