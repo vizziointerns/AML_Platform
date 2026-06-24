@@ -6,3 +6,5 @@ psycopg[binary]
 pydantic-settings
 mypy
 pydantic
+httpx
+ultralytics

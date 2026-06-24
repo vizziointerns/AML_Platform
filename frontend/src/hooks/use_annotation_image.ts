@@ -16,6 +16,7 @@ export interface UseAnnotationImageResult {
 	is_loading: boolean
 	is_empty: boolean
 	error: string | undefined
+	dataset_id: string | undefined
 	go_next: () => void
 	go_prev: () => void
 	has_next: boolean
@@ -110,6 +111,7 @@ export function use_annotation_image(
 		is_loading: is_loading_datasets || is_loading_images,
 		is_empty: !is_loading_datasets && !is_loading_images && images.length === 0,
 		error,
+		dataset_id,
 		go_next,
 		go_prev,
 		has_next,
