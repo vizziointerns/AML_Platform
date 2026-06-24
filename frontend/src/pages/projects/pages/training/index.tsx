@@ -16,6 +16,7 @@ import {
 	create_training_run,
 	delete_training_run,
 	start_training_run,
+	download_weights_url,
 	type TrainingRun
 } from '../../../../api/training'
 import { fetch_classes } from '../../../../api/classes'
@@ -393,18 +394,38 @@ function table_row({
 				<td className={`px-6 py-4 ${text_muted}`}>{run.duration || '—'}</td>
 				<td className="px-6 py-4">{status_tag(run.status)}</td>
 				<td className="px-6 py-4">
-					<button
-						onClick={() => on_delete(run.id)}
-						disabled={deleting_id === run.id}
-						className={`p-1.5 rounded-md text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-colors ${deleting_id === run.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-						title="Delete run"
-					>
-						{deleting_id === run.id ? (
-							<Activity size={14} className="animate-spin" />
-						) : (
-							<Trash2 size={14} />
+					<div className="flex items-center gap-1">
+						{run.status === 'Completed' && (
+							<button
+								onClick={async () => {
+									const url = await download_weights_url(run.project_id, run.id)
+									const a = document.createElement('a')
+									a.href = url
+									a.download = `model_${run.id}_best.pt`
+									document.body.appendChild(a)
+									a.click()
+									document.body.removeChild(a)
+									setTimeout(() => URL.revokeObjectURL(url), 5000)
+								}}
+								className="p-1.5 rounded-md text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+								title="Download model weights"
+							>
+								<Download size={14} />
+							</button>
 						)}
-					</button>
+						<button
+							onClick={() => on_delete(run.id)}
+							disabled={deleting_id === run.id}
+							className={`p-1.5 rounded-md text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-colors ${deleting_id === run.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+							title="Delete run"
+						>
+							{deleting_id === run.id ? (
+								<Activity size={14} className="animate-spin" />
+							) : (
+								<Trash2 size={14} />
+							)}
+						</button>
+					</div>
 				</td>
 			</tr>
 			{run.status === 'Failed' && run.error_message && (

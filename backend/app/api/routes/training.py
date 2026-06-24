@@ -169,6 +169,30 @@ def start_training(
     return _row_to_out(row)
 
 
+@router.get("/training/{project_id}/{run_id}/weights")
+def download_weights(project_id: str, run_id: int, db: Session = Depends(get_db)):
+    row = (
+        db.query(TrainingRun)
+        .filter(TrainingRun.id == run_id, TrainingRun.project_id == project_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Training run not found")
+    if row.status != "Completed":
+        raise HTTPException(status_code=400, detail="Training run is not completed")
+
+    weights_path = Path(__file__).resolve().parent.parent.parent.parent / "models" / str(run_id) / "best.pt"
+    if not weights_path.exists():
+        raise HTTPException(status_code=404, detail="Model weights not found")
+
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        str(weights_path),
+        media_type="application/octet-stream",
+        filename=f"model_{run_id}_best.pt",
+    )
+
+
 @router.delete("/training/{project_id}/{run_id}", status_code=204)
 def delete_training_run(project_id: str, run_id: int, db: Session = Depends(get_db)) -> None:
     cancel_run(run_id)

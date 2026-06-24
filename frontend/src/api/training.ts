@@ -108,6 +108,14 @@ export async function delete_training_run(project_id: string, run_id: number): P
 	await api_client.delete(`/training/${project_id}/${run_id}`)
 }
 
+export async function download_weights_url(project_id: string, run_id: number): Promise<string> {
+	const { data: blob } = await api_client.get<Blob>(`/training/${project_id}/${run_id}/weights`, {
+		responseType: 'blob'
+	})
+	const url = URL.createObjectURL(blob)
+	return url
+}
+
 export interface StartTrainingImage {
 	id: string
 	file_name: string
