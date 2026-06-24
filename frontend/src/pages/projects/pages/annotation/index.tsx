@@ -240,12 +240,14 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	const local_classes = useRef(load_classes())
 	const [classes, set_classes] = useState<ClassInfo[]>(local_classes.current)
 	const [active_class, set_active_class] = useState(local_classes.current[0]?.id ?? '')
+	const classes_fetched = useRef(false)
 
 	useEffect(() => {
 		if (!dataset_id) return
 		fetch_classes(dataset_id)
 			.then((backend_classes) => {
 				if (backend_classes.length > 0) {
+					classes_fetched.current = true
 					set_classes(backend_classes)
 					set_active_class((prev) =>
 						backend_classes.some((c) => c.id === prev) ? prev : (backend_classes[0]?.id ?? '')
@@ -261,12 +263,22 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		save_classes(classes)
 	}, [classes])
 
+	const save_backend_timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 	useEffect(() => {
 		if (!dataset_id) return
-		if (classes.length > 0) {
+		if (classes_fetched.current) {
+			classes_fetched.current = false
+			return
+		}
+		if (classes.length === 0) return
+		if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
+		save_backend_timeout.current = setTimeout(() => {
 			save_classes_to_backend(dataset_id, classes).catch(() => {
 				/* silently ignore */
 			})
+		}, 500)
+		return () => {
+			if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
 		}
 	}, [classes, dataset_id])
 

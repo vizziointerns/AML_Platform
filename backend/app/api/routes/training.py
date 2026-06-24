@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import inspect, Table
+from fastapi.responses import FileResponse
+from sqlalchemy import inspect, Table, text
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -26,7 +27,7 @@ def _ensure_table(db: Session) -> None:
         assert isinstance(table, Table)
         Base.metadata.create_all(bind=db.get_bind(), tables=[table])
     try:
-        db.execute("ALTER TABLE training_runs ADD COLUMN metrics TEXT DEFAULT '[]'")
+        db.execute(text("ALTER TABLE training_runs ADD COLUMN metrics TEXT DEFAULT '[]'"))
         db.commit()
     except Exception:
         pass
@@ -170,7 +171,7 @@ def start_training(
 
 
 @router.get("/training/{project_id}/{run_id}/weights")
-def download_weights(project_id: str, run_id: int, db: Session = Depends(get_db)):
+def download_weights(project_id: str, run_id: int, db: Session = Depends(get_db)) -> FileResponse:
     row = (
         db.query(TrainingRun)
         .filter(TrainingRun.id == run_id, TrainingRun.project_id == project_id)
@@ -185,7 +186,6 @@ def download_weights(project_id: str, run_id: int, db: Session = Depends(get_db)
     if not weights_path.exists():
         raise HTTPException(status_code=404, detail="Model weights not found")
 
-    from fastapi.responses import FileResponse
     return FileResponse(
         str(weights_path),
         media_type="application/octet-stream",

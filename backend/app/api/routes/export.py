@@ -1,12 +1,15 @@
 import io
 import json
+import logging
 import os
 import tempfile
 import zipfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import inspect, Table
 from sqlalchemy.orm import Session
@@ -16,6 +19,7 @@ from app.db.session import get_db
 from app.models.annotation import Annotation
 from app.models.class_label import ClassLabel
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -69,16 +73,30 @@ def _make_data_yaml(
     return "\n".join(lines)
 
 
+_ALLOWED_HOSTS: set[str] = set()
+
+
+def _validate_image_url(url: str) -> str:
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if _ALLOWED_HOSTS and host not in _ALLOWED_HOSTS:
+        raise HTTPException(status_code=400, detail=f"URL host not allowed: {host}")
+    return url
+
+
 @router.post("/datasets/export/yolo")
 def export_yolo(
     body: ExportRequest,
     db: Session = Depends(get_db),
-):
+) -> Response:
     """Export annotations in YOLO format as a ZIP file.
 
     Accepts image metadata and class definitions, generates
     YOLO .txt label files + data.yaml, downloads images,
     and returns a ZIP archive ready for training.
+
+    Note: Only bounding-box (bbox) annotations are included in the export.
+    Polygon, mask, and other annotation types are silently skipped.
     """
     _ensure_tables(db)
 
@@ -138,24 +156,26 @@ def export_yolo(
                 zf.writestr(label_path, "\n".join(yolo_lines))
 
                 try:
-                    response = httpx.get(img.file_url, timeout=30, follow_redirects=True)
-                    if response.status_code == 200:
-                        img_path = f"images/{subset_name}/{img.file_name}"
-                        zf.writestr(img_path, response.content)
-                    else:
-                        print(
-                            f"Warning: failed to download {img.file_name} "
-                            f"(status {response.status_code})"
+                    safe_url = _validate_image_url(img.file_url)
+                    response = httpx.get(safe_url, timeout=30, follow_redirects=True)
+                    response.raise_for_status()
+                    content_type = response.headers.get("content-type", "")
+                    if not content_type.startswith("image/"):
+                        logger.warning(
+                            "Skipped %s: Content-Type is %s (expected image/*)",
+                            img.file_name,
+                            content_type,
                         )
+                        continue
+                    img_path = f"images/{subset_name}/{img.file_name}"
+                    zf.writestr(img_path, response.content)
                 except Exception as exc:
-                    print(f"Warning: error downloading {img.file_name}: {exc}")
+                    logger.warning("Failed to download %s: %s", img.file_name, exc)
 
         data_yaml = _make_data_yaml(class_names, ".")
         zf.writestr("data.yaml", data_yaml)
 
     zip_buffer.seek(0)
-
-    from fastapi.responses import Response
 
     return Response(
         content=zip_buffer.getvalue(),

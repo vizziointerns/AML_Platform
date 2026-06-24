@@ -6,9 +6,10 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
-from sqlalchemy import inspect, Table
+from sqlalchemy import inspect, Table, text
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -19,6 +20,13 @@ from app.models.training import TrainingRun
 MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
 
 _cancelled_runs: dict[int, threading.Event] = {}
+
+
+def _validate_image_url(url: str) -> None:
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if host in ("169.254.169.254", "127.0.0.1", "localhost", "0.0.0.0"):
+        raise ValueError(f"URL host not allowed: {host}")
 
 
 class TrainingConfig:
@@ -84,7 +92,7 @@ def _ensure_tables(db: Session) -> None:
 
 def _ensure_metrics_column(db: Session) -> None:
     try:
-        db.execute("ALTER TABLE training_runs ADD COLUMN metrics TEXT DEFAULT '[]'")
+        db.execute(text("ALTER TABLE training_runs ADD COLUMN metrics TEXT DEFAULT '[]'"))
         db.commit()
     except Exception:
         pass
@@ -103,8 +111,9 @@ def run_training(cfg: TrainingConfig) -> None:
     work_dir = Path(tempfile.gettempdir()) / f"yolo_training_{cfg.run_id}_{timestamp}"
     output_dir = Path(tempfile.gettempdir()) / f"yolo_output_{cfg.run_id}_{timestamp}"
 
-    from ultralytics import YOLO
+    from ultralytics import YOLO  # type: ignore[attr-defined]
 
+    metrics_history: list[dict[str, Any]] = []
     db = SessionLocal()
     start_time = time.time()
     try:
@@ -164,9 +173,10 @@ def run_training(cfg: TrainingConfig) -> None:
                 label_path.write_text("\n".join(yolo_lines), encoding="utf-8")
 
                 try:
-                    response = httpx.get(img["file_url"], timeout=60, follow_redirects=True)
-                    if response.status_code == 200:
-                        (img_dir / img["file_name"]).write_bytes(response.content)
+                    _validate_image_url(img["file_url"])
+                    response = httpx.get(img["file_url"], timeout=60, follow_redirects=False)
+                    response.raise_for_status()
+                    (img_dir / img["file_name"]).write_bytes(response.content)
                 except Exception as exc:
                     print(f"Warning: failed to download {img['file_name']}: {exc}")
 
@@ -185,10 +195,9 @@ def run_training(cfg: TrainingConfig) -> None:
 
         model = YOLO(f"{cfg.model_type}.pt")
 
-        metrics_history: list[dict[str, Any]] = []
         last_reported = -1
 
-        def on_epoch_end(trainer):
+        def on_epoch_end(trainer: object) -> None:
             nonlocal last_reported
             current = getattr(trainer, "epoch", -1)
             if current <= last_reported:
@@ -207,9 +216,9 @@ def run_training(cfg: TrainingConfig) -> None:
             if hasattr(trainer, "metrics"):
                 m = trainer.metrics
                 if hasattr(m, "map50"):
-                    ep_metrics["accuracy"] = float(m.map50) / 100.0
+                    ep_metrics["accuracy"] = float(m.map50)
                 if hasattr(m, "map50_95"):
-                    ep_metrics["map50_95"] = float(m.map50_95) / 100.0
+                    ep_metrics["map50_95"] = float(m.map50_95)
             if hasattr(trainer, "loss") and trainer.loss is not None:
                 loss_vals = trainer.loss
                 if isinstance(loss_vals, (int, float)):
@@ -262,7 +271,7 @@ def run_training(cfg: TrainingConfig) -> None:
         if hasattr(results, "box"):
             box_map = getattr(results.box, "map50", None)
             if box_map is not None:
-                final_accuracy = float(box_map) / 100.0
+                final_accuracy = float(box_map)
         if hasattr(results, "loss") and results.loss is not None:
             losses = results.loss
             if isinstance(losses, (int, float)):
@@ -291,7 +300,7 @@ def run_training(cfg: TrainingConfig) -> None:
         import traceback
 
         tb = traceback.format_exc()
-        _update_run(cfg.run_id, status="Failed", error_message=str(exc), metrics=json.dumps(metrics_history) if 'metrics_history' in dir() else "[]")
+        _update_run(cfg.run_id, status="Failed", error_message=str(exc), metrics=json.dumps(metrics_history))
         shutil.rmtree(work_dir, ignore_errors=True)
         shutil.rmtree(output_dir, ignore_errors=True)
 
