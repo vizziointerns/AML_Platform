@@ -1,13 +1,13 @@
 # AML Platform
 
-A computer vision platform — manage datasets, annotate images with AI-assisted tools, train models, and build ML workflows.
+A computer vision platform — manage datasets, annotate images with AI-assisted tools, train YOLO models, and build ML workflows.
 
 ## Tech Stack
 
 | Layer      | Stack                                                           |
 | ---------- | --------------------------------------------------------------- |
 | Frontend   | React 19, TypeScript, Vite 8, Tailwind CSS 4, Konva (canvas)   |
-| Backend    | Python 3.12, FastAPI, SQLAlchemy, Alembic                       |
+| Backend    | Python 3.12+, FastAPI, SQLAlchemy, Alembic, Ultralytics (YOLO)   |
 | Database   | SQLite (dev), PostgreSQL (prod), Supabase (auth + storage)      |
 | Storage    | Google Drive API (image upload), Supabase (metadata)            |
 | CI         | GitHub Actions — frontend (pnpm) + backend (pip)                |
@@ -17,6 +17,7 @@ A computer vision platform — manage datasets, annotate images with AI-assisted
 - **Node.js** 20+
 - **pnpm** 9+ (only pnpm — npm/yarn will refuse to install)
 - **Python** 3.12+
+- **Ultralytics** — auto-downloads YOLO11n on first training run (requires internet)
 - **(Optional)** Docker Desktop for local Postgres
 - **Google Cloud** project with Drive API enabled (for image upload)
 - **Supabase** project (for auth, database, and RLS)
@@ -24,10 +25,10 @@ A computer vision platform — manage datasets, annotate images with AI-assisted
 ## Project Structure
 
 ```
-AML_Platform/
+aml_platform/
 ├── frontend/               # React SPA (pnpm)
 │   ├── src/
-│   │   ├── api/            # API client (Drive upload, Supabase)
+│   │   ├── api/            # API clients (training, annotations, classes, export)
 │   │   ├── components/     # UI components
 │   │   │   ├── AnnotationBox/     # Bounding box annotation rendering
 │   │   │   ├── AnnotationCanvas/  # Canvas with drawing tools
@@ -50,10 +51,12 @@ AML_Platform/
 │   └── package.json
 ├── backend/                # FastAPI server
 │   ├── app/
-│   │   ├── api/routes/     # Route handlers (health, projects)
+│   │   ├── api/routes/     # Route handlers (health, projects, annotations, training, classes, export)
 │   │   ├── core/           # Config, settings
 │   │   ├── db/             # Database session & base
-│   │   └── models/         # SQLAlchemy models (User)
+│   │   ├── models/         # SQLAlchemy models (TrainingRun, Annotation, ClassLabel)
+│   │   ├── schemas/        # Pydantic request/response schemas
+│   │   └── training/       # YOLO training orchestrator (background thread)
 │   ├── alembic/            # Migrations
 │   └── .env.example
 ├── docker-compose.yml      # Postgres 16 (dev)
@@ -67,15 +70,16 @@ AML_Platform/
 
 ```powershell
 cd backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env -Force
-alembic upgrade head
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
+uvicorn app.main:app --reload
 ```
 
 Health check: `GET http://127.0.0.1:8000/api/health`
+
+> Tables are auto-created on first request (no Alembic migration needed for dev).
 
 ### 2) Frontend
 
@@ -87,7 +91,7 @@ pnpm run dev
 
 Opens at `http://localhost:5173`.
 
-> **Note:** The annotation studio, training runs, and other data-persisting features require the backend server to be running (`uvicorn main:app --reload --host 127.0.0.1 --port 8000`). Without it, drawn annotations and training operations will not be saved to the database.
+> **Note:** The annotation studio, training runs, and export features require the backend server to be running. Without it, annotations and training operations will not be saved.
 
 ## Environment Variables
 
@@ -118,7 +122,8 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 - Resizable left/right panels with class list and properties
 - Hover highlighting, drag/resize existing annotations
 - Locked annotation support
-- **Backend required** — annotations are persisted to a local SQLite database via the FastAPI server at `http://localhost:8000/api/annotations`
+- Classes synced to backend (survives cache clears)
+- **Backend required** — annotations are persisted to SQLite via the FastAPI server
 
 ### Dataset Management
 - Create, rename, delete datasets
@@ -132,6 +137,19 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 - Metadata stored in Supabase (`dataset_images` table)
 - Images served via Google's CDN thumbnail URL
 - Upload progress tracking and cancellation
+
+### Training Pipeline
+- **YOLO11n** model training via Ultralytics
+- Background thread with live progress (epoch count, accuracy, loss)
+- Per-epoch metrics chart (mAP50 accuracy + loss curve)
+- 70/15/15 train/val/test split (test held for evaluation)
+- Training cancellation support
+- Model weights saved locally (`backend/models/<run_id>/best.pt`)
+
+### YOLO Export
+- Export annotations + images as a YOLO-format ZIP
+- Includes `data.yaml`, normalized `.txt` labels, and split folders
+- Can be used externally (e.g., Google Colab, local training)
 
 ### Authentication
 - Supabase Auth (email/password)
@@ -155,7 +173,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 
 | Command                          | Description            |
 | -------------------------------- | ---------------------- |
-| `uvicorn main:app --reload --host 127.0.0.1 --port 8000` | Dev server (required for annotation & training) |
+| `uvicorn app.main:app --reload`                        | Dev server (required for annotation & training) |
 | `mypy .`                         | Type check             |
 | `alembic upgrade head`           | Run migrations         |
 | `alembic revision --autogenerate -m "message"` | New migration |
@@ -169,14 +187,17 @@ docker compose down              # Stop Postgres
 
 ## Routes
 
-| Route        | Page                     | Description                          |
-| ------------ | ------------------------ | ------------------------------------ |
-| `dashboard`  | Dashboard                | Stats, charts, activity feed         |
-| `projects`   | ProjectsView             | Project grid with search/filter      |
-| `datasets`   | DatasetsView             | Dataset explorer & image gallery     |
-| `annotation` | AnnotationStudio         | Canvas annotation (bbox/polygon/brush) |
-| `workflow`   | WorkflowBuilder          | Visual pipeline builder (React Flow) |
-| `auth/*`     | AuthFlow                 | Login, signup, onboarding, invite    |
+| Route                    | Page                     | Description                              |
+| ------------------------ | ------------------------ | ---------------------------------------- |
+| `dashboard`              | Dashboard                | Stats, charts, activity feed             |
+| `projects`               | ProjectsView             | Project grid with search/filter          |
+| `datasets`               | DatasetsView             | Dataset explorer & image gallery         |
+| `annotation/:imageId`    | AnnotationStudio         | Canvas annotation (bbox/polygon/brush)   |
+| `training`               | TrainingPage             | Training runs, progress, metrics, export |
+| `models`                 | ModelsPage               | Trained model management (mock)          |
+| `deployment`             | DeploymentPage           | Model deployment (mock)                  |
+| `workflow`               | WorkflowBuilder          | Visual pipeline builder (React Flow)     |
+| `auth/*`                 | AuthFlow                 | Login, signup, onboarding, invite        |
 
 ## Database Schema
 
@@ -206,6 +227,67 @@ Stores per-image metadata linked to Google Drive.
 | class_labels | TEXT[]    | Populated during annotation        |
 
 Row-level security (RLS) policies restrict access to the owning user's projects.
+
+### `annotations`
+Stores image annotations per image.
+
+| Column       | Type      | Notes                                |
+|--------------|-----------|--------------------------------------|
+| id           | TEXT      | UUID primary key                     |
+| image_id     | TEXT      | References dataset_images(id)        |
+| type         | TEXT      | `bbox`, `polygon`, `brush`           |
+| class_id     | TEXT      | References class_labels(id)          |
+| coordinates  | TEXT      | JSON — percentage coords (0–100)     |
+| metadata     | TEXT      | JSON — brush points, opacity, etc.   |
+| created_at   | DATETIME  |                                      |
+| updated_at   | DATETIME  |                                      |
+
+### `training_runs`
+Stores model training jobs per project.
+
+| Column        | Type      | Notes                                |
+|---------------|-----------|--------------------------------------|
+| id            | INTEGER   | Auto-increment primary key            |
+| project_id    | TEXT      | References projects(id)              |
+| dataset_id    | TEXT      | References datasets(id)              |
+| name          | TEXT      |                                      |
+| model_type    | TEXT      | e.g. `Object Detection (YOLO)`       |
+| epochs        | INTEGER   |                                      |
+| status        | TEXT      | `queued`, `Running`, `Completed`, `Failed` |
+| accuracy      | REAL      | Final mAP50 (0–1)                    |
+| loss          | REAL      | Final loss value                     |
+| current_epoch | INTEGER   | Live progress                        |
+| duration      | TEXT      | Formatted string (e.g. `00h 05m 23s`) |
+| metrics       | TEXT      | JSON — per-epoch accuracy/loss array |
+| error_message | TEXT      |                                      |
+| created_at    | DATETIME  |                                      |
+| started_at    | DATETIME  |                                      |
+| completed_at  | DATETIME  |                                      |
+
+### `class_labels`
+Stores class definitions per dataset (synced between frontend and backend).
+
+| Column     | Type      | Notes                         |
+|------------|-----------|-------------------------------|
+| id         | TEXT      | UUID primary key              |
+| dataset_id | TEXT      | References datasets(id)       |
+| name       | TEXT      | Class name                    |
+| color      | TEXT      | Hex color for display         |
+| index      | INTEGER   | YOLO class index              |
+
+## Git Ignored Files
+
+These files are auto-generated and not committed:
+
+| File / Directory           | Reason                                       |
+|----------------------------|----------------------------------------------|
+| `backend/dev.db`           | Local SQLite database (auto-created)         |
+| `backend/models/`          | Trained model weights `.pt` files            |
+| `backend/yolo11n.pt`      | Ultralytics base model (auto-downloaded)     |
+| `backend/stderr.txt`       | Runtime log                                  |
+| `backend/stdout.txt`       | Runtime log                                  |
+
+Teammates should run the backend once — tables auto-create on the first request.
 
 ## Code Conventions
 
