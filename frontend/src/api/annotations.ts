@@ -72,3 +72,23 @@ export async function save_annotations(
 	)
 	return (data?.annotations ?? []).map(from_payload)
 }
+
+interface BatchItem {
+	image_id: string
+	annotations: Annotation[]
+}
+
+interface BatchResponse {
+	results: AnnotationListResponse[]
+}
+
+export async function save_annotations_batch(datasets: BatchItem[]): Promise<Annotation[][]> {
+	const payload = {
+		datasets: datasets.map((d) => ({
+			image_id: d.image_id,
+			annotations: d.annotations.map((a) => to_payload(a, d.image_id))
+		}))
+	}
+	const { data } = await api_client.post<BatchResponse>('/annotations/batch', payload)
+	return (data?.results ?? []).map((r) => (r.annotations ?? []).map(from_payload))
+}

@@ -16,6 +16,7 @@ export interface TrainingRun {
 	started_at: string | undefined
 	completed_at: string | undefined
 	error_message: string | undefined
+	metrics: string | undefined
 }
 
 interface TrainingRunRaw {
@@ -34,6 +35,7 @@ interface TrainingRunRaw {
 	started_at: string | null
 	completed_at: string | null
 	error_message: string | null
+	metrics: string | null
 }
 
 function to_run(raw: TrainingRunRaw): TrainingRun {
@@ -52,7 +54,8 @@ function to_run(raw: TrainingRunRaw): TrainingRun {
 		created_at: raw.created_at,
 		started_at: raw.started_at ?? undefined,
 		completed_at: raw.completed_at ?? undefined,
-		error_message: raw.error_message ?? undefined
+		error_message: raw.error_message ?? undefined,
+		metrics: raw.metrics ?? undefined
 	}
 }
 
@@ -103,4 +106,43 @@ export async function update_training_run(
 
 export async function delete_training_run(project_id: string, run_id: number): Promise<void> {
 	await api_client.delete(`/training/${project_id}/${run_id}`)
+}
+
+export async function download_weights_url(project_id: string, run_id: number): Promise<string> {
+	const { data: blob } = await api_client.get<Blob>(`/training/${project_id}/${run_id}/weights`, {
+		responseType: 'blob'
+	})
+	const url = URL.createObjectURL(blob)
+	return url
+}
+
+export interface StartTrainingImage {
+	id: string
+	file_name: string
+	file_url: string
+	width: number
+	height: number
+}
+
+export interface StartTrainingClass {
+	id: string
+	name: string
+	index: number
+}
+
+export interface StartTrainingPayload {
+	images: StartTrainingImage[]
+	classes: StartTrainingClass[]
+}
+
+export async function start_training_run(
+	project_id: string,
+	run_id: number,
+	payload: StartTrainingPayload
+): Promise<TrainingRun> {
+	const { data } = await api_client.post<TrainingRunRaw>(
+		`/training/${project_id}/${run_id}/start`,
+		payload
+	)
+	return to_run(data)
 }

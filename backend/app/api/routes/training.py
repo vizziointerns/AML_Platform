@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy import inspect, Table
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
+from sqlalchemy import inspect, Table, text
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -10,7 +14,9 @@ from app.schemas.training import (
     TrainingRunListOut,
     TrainingRunOut,
     TrainingRunUpdate,
+    TrainingStartPayload,
 )
+from app.training.trainer import TrainingConfig, start_training_background, cancel_run
 
 router = APIRouter()
 
@@ -20,9 +26,18 @@ def _ensure_table(db: Session) -> None:
         table = TrainingRun.__table__
         assert isinstance(table, Table)
         Base.metadata.create_all(bind=db.get_bind(), tables=[table])
+    try:
+        db.execute(text("ALTER TABLE training_runs ADD COLUMN metrics TEXT DEFAULT '[]'"))
+        db.commit()
+    except Exception:
+        pass
 
 
 def _row_to_out(row: TrainingRun) -> TrainingRunOut:
+    try:
+        metrics_val = row.metrics
+    except Exception:
+        metrics_val = None
     return TrainingRunOut(
         id=row.id,
         project_id=row.project_id,
@@ -39,6 +54,7 @@ def _row_to_out(row: TrainingRun) -> TrainingRunOut:
         started_at=row.started_at,
         completed_at=row.completed_at,
         error_message=row.error_message,
+        metrics=metrics_val,
     )
 
 
@@ -113,8 +129,13 @@ def update_training_run(
     return _row_to_out(row)
 
 
-@router.delete("/training/{project_id}/{run_id}", status_code=204)
-def delete_training_run(project_id: str, run_id: int, db: Session = Depends(get_db)) -> None:
+@router.post("/training/{project_id}/{run_id}/start", response_model=TrainingRunOut)
+def start_training(
+    project_id: str,
+    run_id: int,
+    body: TrainingStartPayload,
+    db: Session = Depends(get_db),
+) -> TrainingRunOut:
     _ensure_table(db)
     row = (
         db.query(TrainingRun)
@@ -122,8 +143,72 @@ def delete_training_run(project_id: str, run_id: int, db: Session = Depends(get_
         .first()
     )
     if not row:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="Training run not found")
+    if row.status.lower() not in ("queued",):
+        raise HTTPException(status_code=400, detail=f"Training run is already {row.status}")
+
+    if not body.images:
+        raise HTTPException(status_code=400, detail="No images provided for training")
+    if not body.classes:
+        raise HTTPException(status_code=400, detail="No classes provided for training")
+
+    row.status = "queued"
+    row.started_at = datetime.now(timezone.utc).isoformat()
+    db.commit()
+    db.refresh(row)
+
+    cfg = TrainingConfig.from_api(
+        run_id=run_id,
+        project_id=project_id,
+        dataset_id=row.dataset_id,
+        images=[img.model_dump() for img in body.images],
+        classes=[c.model_dump() for c in body.classes],
+        epochs=row.epochs,
+    )
+    start_training_background(cfg)
+
+    return _row_to_out(row)
+
+
+@router.get("/training/{project_id}/{run_id}/weights")
+def download_weights(project_id: str, run_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    row = (
+        db.query(TrainingRun)
+        .filter(TrainingRun.id == run_id, TrainingRun.project_id == project_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Training run not found")
+    if row.status != "Completed":
+        raise HTTPException(status_code=400, detail="Training run is not completed")
+
+    weights_path = Path(__file__).resolve().parent.parent.parent.parent / "models" / str(run_id) / "best.pt"
+    if not weights_path.exists():
+        raise HTTPException(status_code=404, detail="Model weights not found")
+
+    return FileResponse(
+        str(weights_path),
+        media_type="application/octet-stream",
+        filename=f"model_{run_id}_best.pt",
+    )
+
+
+@router.delete("/training/{project_id}/{run_id}", status_code=204)
+def delete_training_run(project_id: str, run_id: int, db: Session = Depends(get_db)) -> None:
+    cancel_run(run_id)
+    _ensure_table(db)
+    row = (
+        db.query(TrainingRun)
+        .filter(TrainingRun.id == run_id, TrainingRun.project_id == project_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Training run not found")
+
+    import shutil
+    model_path = Path(__file__).resolve().parent.parent.parent.parent / "models" / str(run_id)
+    if model_path.exists():
+        shutil.rmtree(str(model_path), ignore_errors=True)
+
     db.delete(row)
     db.commit()

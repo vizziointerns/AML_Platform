@@ -38,6 +38,7 @@ import {
 	render_left_panel
 } from './render'
 import { fetch_annotations, save_annotations } from '../../../../api/annotations'
+import { fetch_classes, save_classes_to_backend } from '../../../../api/classes'
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
 
 interface AnnotationStudioProps {
@@ -182,6 +183,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		error: image_error,
 		images: all_images,
 		current_index,
+		dataset_id,
 		go_next,
 		go_prev,
 		has_next,
@@ -235,13 +237,50 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	const [brush_size, set_brush_size] = useState(20)
 	const [brush_opacity, set_brush_opacity] = useState(100)
 
-	const saved = useRef(load_classes())
-	const [classes, set_classes] = useState<ClassInfo[]>(saved.current)
-	const [active_class, set_active_class] = useState(saved.current[0]?.id ?? '')
+	const local_classes = useRef(load_classes())
+	const [classes, set_classes] = useState<ClassInfo[]>(local_classes.current)
+	const [active_class, set_active_class] = useState(local_classes.current[0]?.id ?? '')
+	const classes_fetched = useRef(false)
+
+	useEffect(() => {
+		if (!dataset_id) return
+		fetch_classes(dataset_id)
+			.then((backend_classes) => {
+				if (backend_classes.length > 0) {
+					classes_fetched.current = true
+					set_classes(backend_classes)
+					set_active_class((prev) =>
+						backend_classes.some((c) => c.id === prev) ? prev : (backend_classes[0]?.id ?? '')
+					)
+				}
+			})
+			.catch(() => {
+				/* fall back to localStorage */
+			})
+	}, [dataset_id])
 
 	useEffect(() => {
 		save_classes(classes)
 	}, [classes])
+
+	const save_backend_timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+	useEffect(() => {
+		if (!dataset_id) return
+		if (classes_fetched.current) {
+			classes_fetched.current = false
+			return
+		}
+		if (classes.length === 0) return
+		if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
+		save_backend_timeout.current = setTimeout(() => {
+			save_classes_to_backend(dataset_id, classes).catch(() => {
+				/* silently ignore */
+			})
+		}, 500)
+		return () => {
+			if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
+		}
+	}, [classes, dataset_id])
 
 	const [history, set_history] = useState<Annotation[][]>([[]])
 	const [history_step, set_history_step] = useState(0)

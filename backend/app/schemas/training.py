@@ -34,6 +34,26 @@ class TrainingRunOut(BaseModel):
     started_at: str | None = None
     completed_at: str | None = None
     error_message: str | None = None
+    metrics: str | None = None
+
+
+class TrainingImageInfo(BaseModel):
+    id: str
+    file_name: str
+    file_url: str
+    width: int = 800
+    height: int = 600
+
+
+class TrainingClassInfo(BaseModel):
+    id: str
+    name: str
+    index: int = 0
+
+
+class TrainingStartPayload(BaseModel):
+    images: list[TrainingImageInfo]
+    classes: list[TrainingClassInfo]
 
 
 class TrainingRunListOut(BaseModel):

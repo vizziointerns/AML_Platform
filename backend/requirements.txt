@@ -6,3 +6,5 @@ psycopg[binary]
 pydantic-settings
 mypy
 pydantic
+httpx==0.28.1
+ultralytics==8.4.75

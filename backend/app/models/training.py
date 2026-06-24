@@ -28,3 +28,4 @@ class TrainingRun(Base):
     started_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     completed_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metrics: Mapped[str | None] = mapped_column(Text, nullable=True, default="[]")

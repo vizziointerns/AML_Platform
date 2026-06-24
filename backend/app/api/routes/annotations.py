@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy import inspect, Table
 from sqlalchemy.orm import Session
 
@@ -22,6 +23,58 @@ def _ensure_table(db: Session) -> None:
         table = Annotation.__table__
         assert isinstance(table, Table)
         Base.metadata.create_all(bind=db.get_bind(), tables=[table])
+
+
+def _upsert_annotations_for_image(
+    db: Session,
+    image_id: str,
+    incoming: list[AnnotationIn],
+) -> None:
+    existing = db.query(Annotation).filter(Annotation.image_id == image_id).all()
+    existing_map = {e.annotation_id: e for e in existing}
+    incoming_ids = {a.annotation_id for a in incoming}
+    processed_ids: set[str] = set()
+
+    for item in incoming:
+        if item.annotation_id in processed_ids:
+            continue
+        points_json = None
+        if item.points is not None:
+            points_json = json.dumps([p.model_dump() for p in item.points])
+        lines_json = None
+        if item.lines is not None:
+            lines_json = json.dumps([line_data.model_dump() for line_data in item.lines])
+
+        if item.annotation_id in existing_map:
+            row = existing_map[item.annotation_id]
+            row.type = item.type
+            row.class_id = item.class_id
+            row.x = item.x
+            row.y = item.y
+            row.w = item.w
+            row.h = item.h
+            row.points = points_json
+            row.lines = lines_json
+        else:
+            row = Annotation(
+                image_id=image_id,
+                annotation_id=item.annotation_id,
+                type=item.type,
+                class_id=item.class_id,
+                x=item.x,
+                y=item.y,
+                w=item.w,
+                h=item.h,
+                points=points_json,
+                lines=lines_json,
+            )
+            db.add(row)
+
+        processed_ids.add(item.annotation_id)
+
+    for ann_id, row in existing_map.items():
+        if ann_id not in incoming_ids:
+            db.delete(row)
 
 
 def _row_to_out(row: Annotation) -> AnnotationOut:
@@ -77,57 +130,45 @@ def save_annotations(
     db: Session = Depends(get_db),
 ) -> AnnotationListOut:
     _ensure_table(db)
-
-    existing = db.query(Annotation).filter(Annotation.image_id == image_id).all()
-    existing_map = {e.annotation_id: e for e in existing}
-    incoming_ids = {a.annotation_id for a in body}
-    processed_ids: set[str] = set()
-
-    for item in body:
-        if item.annotation_id in processed_ids:
-            continue
-        points_json = None
-        if item.points is not None:
-            points_json = json.dumps([p.model_dump() for p in item.points])
-        lines_json = None
-        if item.lines is not None:
-            lines_json = json.dumps([l.model_dump() for l in item.lines])
-
-        if item.annotation_id in existing_map:
-            row = existing_map[item.annotation_id]
-            row.type = item.type
-            row.class_id = item.class_id
-            row.x = item.x
-            row.y = item.y
-            row.w = item.w
-            row.h = item.h
-            row.points = points_json
-            row.lines = lines_json
-        else:
-            row = Annotation(
-                image_id=image_id,
-                annotation_id=item.annotation_id,
-                type=item.type,
-                class_id=item.class_id,
-                x=item.x,
-                y=item.y,
-                w=item.w,
-                h=item.h,
-                points=points_json,
-                lines=lines_json,
-            )
-            db.add(row)
-
-        processed_ids.add(item.annotation_id)
-
-    for ann_id, row in existing_map.items():
-        if ann_id not in incoming_ids:
-            db.delete(row)
-
+    _upsert_annotations_for_image(db, image_id, body)
     db.commit()
 
     rows = db.query(Annotation).filter(Annotation.image_id == image_id).all()
     return AnnotationListOut(annotations=[_row_to_out(r) for r in rows])
+
+
+class BatchAnnotationIn(BaseModel):
+    image_id: str
+    annotations: list[AnnotationIn]
+
+
+class BatchAnnotationsIn(BaseModel):
+    datasets: list[BatchAnnotationIn]
+
+
+class BatchAnnotationsOut(BaseModel):
+    results: list[AnnotationListOut]
+
+
+@router.post("/annotations/batch", response_model=BatchAnnotationsOut)
+def save_annotations_batch(
+    body: BatchAnnotationsIn,
+    db: Session = Depends(get_db),
+) -> BatchAnnotationsOut:
+    """Save annotations for multiple images in a single request."""
+    _ensure_table(db)
+    results: list[AnnotationListOut] = []
+
+    for dataset in body.datasets:
+        _upsert_annotations_for_image(db, dataset.image_id, dataset.annotations)
+
+    db.commit()
+
+    for dataset in body.datasets:
+        rows = db.query(Annotation).filter(Annotation.image_id == dataset.image_id).all()
+        results.append(AnnotationListOut(annotations=[_row_to_out(r) for r in rows]))
+
+    return BatchAnnotationsOut(results=results)
 
 
 @router.delete("/annotations/{image_id}", response_model=AnnotationListOut)
