@@ -105,18 +105,19 @@ def cancel_run(run_id: int) -> None:
 
 
 def run_training(cfg: TrainingConfig) -> None:
-    _update_run(cfg.run_id, status="Running", current_epoch=0)
-
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    work_dir = Path(tempfile.gettempdir()) / f"yolo_training_{cfg.run_id}_{timestamp}"
-    output_dir = Path(tempfile.gettempdir()) / f"yolo_output_{cfg.run_id}_{timestamp}"
-
-    from ultralytics import YOLO  # type: ignore[attr-defined]
-
     metrics_history: list[dict[str, Any]] = []
-    db = SessionLocal()
-    start_time = time.time()
+    db: Session | None = None
     try:
+        _update_run(cfg.run_id, status="Running", current_epoch=0)
+
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        work_dir = Path(tempfile.gettempdir()) / f"yolo_training_{cfg.run_id}_{timestamp}"
+        output_dir = Path(tempfile.gettempdir()) / f"yolo_output_{cfg.run_id}_{timestamp}"
+
+        from ultralytics import YOLO  # type: ignore[attr-defined]
+
+        db = SessionLocal()
+        start_time = time.time()
         _ensure_tables(db)
         _ensure_metrics_column(db)
 
@@ -306,10 +307,11 @@ def run_training(cfg: TrainingConfig) -> None:
 
     finally:
         _cancelled_runs.pop(cfg.run_id, None)
-        try:
-            db.close()
-        except Exception:
-            pass
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
 
 
 def start_training_background(cfg: TrainingConfig) -> None:
