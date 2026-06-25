@@ -240,7 +240,7 @@ export default function home({
 						onClick={on_open_uploader}
 						className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
 					>
-						<Database size={16} /> Create Datasets
+						<Database size={16} /> Upload Dataset
 					</button>
 				</div>
 			</div>

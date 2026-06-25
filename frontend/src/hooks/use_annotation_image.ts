@@ -83,6 +83,8 @@ export function use_annotation_image(
 
 		return () => {
 			is_cancelled = true
+			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+			blob_urls_ref.current = []
 		}
 	}, [dataset_id, google_auth.access_token])
 

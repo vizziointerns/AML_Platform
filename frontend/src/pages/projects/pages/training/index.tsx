@@ -26,6 +26,18 @@ import { use_datasets } from '../../../../hooks/use_datasets'
 import { use_google_auth } from '../../../../hooks/use_google_auth'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
 
+async function resolve_training_token(
+	google_auth: ReturnType<typeof use_google_auth>,
+	image_payload: { file_url: string }[]
+): Promise<string | undefined> {
+	const has_drive_images = image_payload.some(
+		(img) =>
+			img.file_url.includes('drive.google.com') || img.file_url.includes('googleapis.com/drive')
+	)
+	if (!has_drive_images) return 'no-token-needed'
+	return google_auth.access_token ?? (await google_auth.refresh_token())
+}
+
 const DIALOG_BG = {
 	overlay: (d: boolean) => (d ? 'bg-black/60' : 'bg-black/40'),
 	card: (d: boolean) => (d ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'),
@@ -518,14 +530,22 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 				height: img.height || 600
 			}))
 
-			if (class_payload.length > 0 && image_payload.length > 0) {
-				const token = google_auth.access_token ?? (await google_auth.refresh_token())
-				await start_training_run(project_id, run.id, {
-					images: image_payload,
-					classes: class_payload,
-					google_access_token: token
-				})
+			if (class_payload.length === 0 || image_payload.length === 0) {
+				set_is_new_dialog_open(false)
+				load_runs(false)
+				return
 			}
+			const token = await resolve_training_token(google_auth, image_payload)
+			if (!token) {
+				throw new Error(
+					'Google Drive authentication required. Please sign in with Google to download training images.'
+				)
+			}
+			await start_training_run(project_id, run.id, {
+				images: image_payload,
+				classes: class_payload,
+				google_access_token: token
+			})
 
 			set_is_new_dialog_open(false)
 			load_runs(false)

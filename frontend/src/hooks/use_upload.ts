@@ -8,17 +8,16 @@ import { ensure_new_dataset_drive_folder } from '../utils/google_drive'
 
 async function resolve_new_dataset_drive_folder_id(params: {
 	project_id: string | undefined
-	dataset_id: string
 	dataset_name: string
 	google_access_token: string | undefined
 }): Promise<string | undefined> {
-	const { project_id, dataset_id, dataset_name, google_access_token } = params
+	const { project_id, dataset_name, google_access_token } = params
 
 	if (!project_id || !google_access_token) {
 		return undefined
 	}
 
-	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_id, dataset_name)
+	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_name)
 }
 
 async function create_dataset_for_upload(params: {
@@ -31,7 +30,6 @@ async function create_dataset_for_upload(params: {
 	const { project_id, dataset_id, dataset_name, dataset_description, google_access_token } = params
 	const drive_folder_id = await resolve_new_dataset_drive_folder_id({
 		project_id,
-		dataset_id,
 		dataset_name,
 		google_access_token
 	})

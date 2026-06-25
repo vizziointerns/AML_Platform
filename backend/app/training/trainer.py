@@ -41,13 +41,22 @@ def _extract_drive_file_id(url: str) -> str | None:
 	return None
 
 
+def _sanitize_filename(name: str) -> str:
+	"""Strip path separators so the result is a safe basename."""
+	return Path(name).name
+
+
 def _download_image(
 	img: dict[str, Any],
 	dest: Path,
 	google_access_token: str | None,
 ) -> None:
 	file_url = img["file_url"]
-	file_name = img["file_name"]
+	safe_name = _sanitize_filename(img["file_name"])
+	dest_path = (dest / safe_name).resolve()
+
+	if not str(dest_path).startswith(str(dest.resolve())):
+		raise ValueError(f"Resolved path {dest_path} is outside destination {dest}")
 
 	_validate_image_url(file_url)
 
@@ -64,7 +73,7 @@ def _download_image(
 			},
 		)
 		response.raise_for_status()
-		(dest / file_name).write_bytes(response.content)
+		dest_path.write_bytes(response.content)
 	else:
 		response = httpx.get(
 			file_url,
@@ -73,7 +82,7 @@ def _download_image(
 			headers={"User-Agent": "Mozilla/5.0"},
 		)
 		response.raise_for_status()
-		(dest / file_name).write_bytes(response.content)
+		dest_path.write_bytes(response.content)
 
 
 class TrainingConfig:
@@ -227,16 +236,18 @@ def run_training(cfg: TrainingConfig) -> None:
 				label_path = label_dir / f"{Path(img['file_name']).stem}.txt"
 				label_path.write_text("\n".join(yolo_lines), encoding="utf-8")
 
-			try:
-				_download_image(img, img_dir, cfg.google_access_token)
-			except Exception as exc:
-				print(f"Warning: failed to download {img['file_name']}: {exc}")
+				try:
+					_download_image(img, img_dir, cfg.google_access_token)
+				except Exception as exc:
+					print(f"Warning: failed to download {img['file_name']}: {exc}")
 
 		db.close()
 		db = SessionLocal()
 
-		downloaded_count = len(list(img_dir.iterdir()))
-		if downloaded_count == 0:
+		train_img_dir = work_dir / "images" / "train"
+		val_img_dir = work_dir / "images" / "val"
+		total_downloaded = len(list(train_img_dir.iterdir())) + len(list(val_img_dir.iterdir()))
+		if total_downloaded == 0:
 			raise RuntimeError("No images could be downloaded from Google Drive. The access token may be expired or invalid.")
 
 		data_yaml_path = work_dir / "data.yaml"

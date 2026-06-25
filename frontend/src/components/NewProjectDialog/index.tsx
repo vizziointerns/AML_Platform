@@ -93,9 +93,11 @@ export default function new_project_dialog({
 		}
 
 		/* if Drive is configured but not authenticated, popup once then resume */
-		if (google_auth.is_configured && !google_auth.is_authenticated && !google_auth.is_loading) {
-			set_is_pending_submit(true)
-			google_auth.sign_in()
+		if (google_auth.is_configured && !google_auth.is_authenticated) {
+			if (!google_auth.is_loading) {
+				set_is_pending_submit(true)
+				google_auth.sign_in()
+			}
 			return
 		}
 
@@ -164,10 +166,14 @@ export default function new_project_dialog({
 
 	/* when Drive auth completes after a pending submit, re-submit automatically */
 	useEffect(() => {
-		if (is_pending_submit && google_auth.is_authenticated && !is_saving) {
+		if (!is_pending_submit) return
+		if (google_auth.is_authenticated && !is_saving) {
 			void handle_submit()
+		} else if (google_auth.error) {
+			set_is_pending_submit(false)
+			set_name_error(google_auth.error)
 		}
-	}, [is_pending_submit, google_auth.is_authenticated, is_saving, handle_submit])
+	}, [is_pending_submit, google_auth.is_authenticated, google_auth.error, is_saving, handle_submit])
 
 	if (!isOpen) return undefined
 

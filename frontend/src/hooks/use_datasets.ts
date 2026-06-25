@@ -26,10 +26,12 @@ async function fetch_image_counts(dataset_ids: string[]): Promise<Record<string,
 	const count_map: Record<string, number> = {}
 	if (dataset_ids.length === 0) return count_map
 
-	const { data: counts } = await supabase
+	const { data: counts, error: counts_err } = await supabase
 		.from('dataset_images')
 		.select('dataset_id')
 		.in('dataset_id', dataset_ids)
+
+	if (counts_err) return count_map
 
 	for (const row of counts ?? []) {
 		count_map[row.dataset_id] = (count_map[row.dataset_id] ?? 0) + 1

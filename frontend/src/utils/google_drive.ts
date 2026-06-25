@@ -197,16 +197,19 @@ export async function ensure_dataset_drive_folder(params: {
 export async function ensure_new_dataset_drive_folder(
 	access_token: string,
 	project_id: string,
-	_dataset_id: string,
 	dataset_name: string
 ): Promise<string> {
 	const user_folder_id = await get_user_folder_id(access_token)
 
-	const { data: project_row } = await supabase
+	const { data: project_row, error: project_err } = await supabase
 		.from('projects')
 		.select('name, drive_folder_id')
 		.eq('id', project_id)
 		.single()
+
+	if (project_err) {
+		throw new Error(`Failed to fetch project: ${project_err.message}`)
+	}
 
 	const project_name = project_row?.name ?? 'Project'
 
@@ -219,10 +222,14 @@ export async function ensure_new_dataset_drive_folder(
 	})
 
 	if (!project_row?.drive_folder_id) {
-		await supabase
+		const { error: update_err } = await supabase
 			.from('projects')
 			.update({ drive_folder_id: ensured.project_folder_id })
 			.eq('id', project_id)
+
+		if (update_err) {
+			throw new Error(`Failed to save drive folder ID: ${update_err.message}`)
+		}
 	}
 
 	return ensured.dataset_folder_id

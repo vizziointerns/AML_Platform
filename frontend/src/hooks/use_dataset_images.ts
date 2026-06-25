@@ -96,15 +96,15 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 	)
 
 	useEffect(() => {
+		/* revoke previous blob URLs */
+		for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+		blob_urls_ref.current = []
+
 		if (!dataset_id) {
 			set_images([])
 			set_is_loading(false)
 			return
 		}
-
-		/* revoke previous blob URLs */
-		for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-		blob_urls_ref.current = []
 
 		let is_cancelled = false
 		set_is_loading(true)
@@ -153,12 +153,21 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 			if (is_cancelled) return
 
 			blob_urls_ref.current = await resolve_image_urls(validated, google_auth.access_token)
+
+			if (is_cancelled) {
+				for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+				blob_urls_ref.current = []
+				return
+			}
+
 			set_images(validated)
 			set_is_loading(false)
 		})()
 
 		return () => {
 			is_cancelled = true
+			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+			blob_urls_ref.current = []
 		}
 	}, [dataset_id, refresh_counter, google_auth.access_token])
 

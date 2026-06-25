@@ -97,6 +97,7 @@ export function use_google_auth(): UseGoogleAuthResult {
 	const client_id = get_client_id()
 	const is_configured = !!client_id
 	const silent_refresh_ref = useRef<() => void>(() => {})
+	const refresh_timer_ref = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
 	const handle_token_response = useCallback((response: GoogleOAuthResponse | GoogleAuthError) => {
 		if ('error' in response) {
@@ -114,7 +115,8 @@ export function use_google_auth(): UseGoogleAuthResult {
 		/* schedule silent refresh before token expires */
 		const expires_ms = (response.expires_in - 60) * 1000
 		if (expires_ms > 0) {
-			setTimeout(
+			if (refresh_timer_ref.current) clearTimeout(refresh_timer_ref.current)
+			refresh_timer_ref.current = setTimeout(
 				() => {
 					silent_refresh_ref.current()
 				},
@@ -170,6 +172,7 @@ export function use_google_auth(): UseGoogleAuthResult {
 	}, [client_id, handle_token_response])
 
 	const sign_out = useCallback(() => {
+		if (refresh_timer_ref.current) clearTimeout(refresh_timer_ref.current)
 		set_access_token(undefined)
 		set_error(undefined)
 		clear_google_access_token_storage_internal()
@@ -209,7 +212,11 @@ export function use_google_auth(): UseGoogleAuthResult {
 				}
 			})
 
-			client?.requestAccessToken()
+			if (!client) {
+				resolve(undefined)
+				return
+			}
+			client.requestAccessToken()
 		})
 	}, [client_id])
 
