@@ -176,6 +176,10 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		navigate(`/projects/${project_id}/datasets`)
 	}, [navigate, project_id])
 
+	const go_to_training = useCallback(() => {
+		navigate(`/projects/${project_id}/training`)
+	}, [navigate, project_id])
+
 	const {
 		current_image,
 		is_loading: is_loading_images,
@@ -533,7 +537,8 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				has_next,
 				current_image?.file_name,
 				current_index,
-				all_images.length
+				all_images.length,
+				go_to_training
 			)}
 
 			<div className="flex flex-1 overflow-hidden relative">

@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
+import { resolve_image_urls } from '../utils/drive_image'
+import { use_google_auth } from './use_google_auth'
 import { use_datasets } from './use_datasets'
 
 export interface AnnotationImageInfo {
@@ -28,10 +30,12 @@ export function use_annotation_image(
 	image_id: string | undefined
 ): UseAnnotationImageResult {
 	const navigate = useNavigate()
+	const google_auth = use_google_auth()
 	const { datasets, is_loading: is_loading_datasets } = use_datasets(project_id)
 	const [images, set_images] = useState<AnnotationImageInfo[]>([])
 	const [is_loading_images, set_is_loading_images] = useState(true)
 	const [error, set_error] = useState<string | undefined>(undefined)
+	const blob_urls_ref = useRef<string[]>([])
 
 	const dataset_id = datasets[0]?.id
 
@@ -43,36 +47,44 @@ export function use_annotation_image(
 			return
 		}
 
+		for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+		blob_urls_ref.current = []
+
 		let is_cancelled = false
 		set_is_loading_images(true)
 		set_error(undefined)
+		;(async () => {
+			const { data, error: err } = await supabase
+				.from('dataset_images')
+				.select('id, file_url, file_name')
+				.eq('dataset_id', dataset_id)
+				.order('uploaded_at', { ascending: true })
 
-		supabase
-			.from('dataset_images')
-			.select('id, file_url, file_name')
-			.eq('dataset_id', dataset_id)
-			.order('uploaded_at', { ascending: true })
-			.then(({ data, error: err }) => {
-				if (is_cancelled) return
-				if (err) {
-					set_error(err.message)
-					set_images([])
-				} else {
-					set_images(
-						(data ?? []).map((row) => ({
-							id: row.id,
-							file_url: row.file_url,
-							file_name: row.file_name ?? 'Unknown'
-						}))
-					)
-				}
+			if (is_cancelled) return
+			if (err) {
+				set_error(err.message)
+				set_images([])
 				set_is_loading_images(false)
-			})
+				return
+			}
+
+			const parsed = (data ?? []).map((row) => ({
+				id: row.id,
+				file_url: row.file_url,
+				file_name: row.file_name ?? 'Unknown'
+			}))
+
+			if (is_cancelled) return
+
+			blob_urls_ref.current = await resolve_image_urls(parsed, google_auth.access_token)
+			set_images(parsed)
+			set_is_loading_images(false)
+		})()
 
 		return () => {
 			is_cancelled = true
 		}
-	}, [dataset_id])
+	}, [dataset_id, google_auth.access_token])
 
 	const current_index = useMemo(() => {
 		if (images.length === 0) return -1

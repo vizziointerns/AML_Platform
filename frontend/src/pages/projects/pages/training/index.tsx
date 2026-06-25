@@ -23,6 +23,7 @@ import { fetch_classes } from '../../../../api/classes'
 import { export_yolo } from '../../../../api/export'
 import { supabase } from '../../../../utils/supabase'
 import { use_datasets } from '../../../../hooks/use_datasets'
+import { use_google_auth } from '../../../../hooks/use_google_auth'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
 
 const DIALOG_BG = {
@@ -446,6 +447,7 @@ function table_row({
 export default function training_page({ is_dark_mode }: { is_dark_mode: boolean }) {
 	const { projectId: project_id } = useParams<{ projectId: string }>()
 	const { datasets } = use_datasets(project_id ?? '')
+	const google_auth = use_google_auth()
 	const [runs, set_runs] = useState<TrainingRun[]>([])
 	const [is_loading, set_is_loading] = useState(true)
 	const [is_exporting, set_is_exporting] = useState(false)
@@ -517,9 +519,11 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 			}))
 
 			if (class_payload.length > 0 && image_payload.length > 0) {
+				const token = google_auth.access_token ?? (await google_auth.refresh_token())
 				await start_training_run(project_id, run.id, {
 					images: image_payload,
-					classes: class_payload
+					classes: class_payload,
+					google_access_token: token
 				})
 			}
 

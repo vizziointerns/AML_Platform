@@ -92,11 +92,7 @@ export default function project_router() {
 		}
 		if (sub_route === 'dashboard') {
 			return project ? (
-				<ProjectDashboard
-					project={project}
-					is_dark_mode={is_dark_mode}
-					on_open_uploader={open_uploader}
-				/>
+				<ProjectDashboard project={project} is_dark_mode={is_dark_mode} />
 			) : (
 				<div className="flex items-center justify-center h-full">
 					<div className="loading-spinner" />

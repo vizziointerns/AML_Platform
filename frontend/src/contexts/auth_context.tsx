@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '../utils/supabase'
 import type { User, AuthError } from '@supabase/supabase-js'
 import { clear_google_access_token_storage } from '../hooks/use_google_auth'
-
 export interface AuthContextValue {
 	user: User | undefined
 	is_loading: boolean

@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../utils/supabase'
+import { resolve_image_urls } from '../utils/drive_image'
+import { use_google_auth } from './use_google_auth'
 
 export interface DatasetImage {
 	id: string
@@ -25,6 +27,20 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 	const [images, set_images] = useState<DatasetImage[]>([])
 	const [is_loading, set_is_loading] = useState(true)
 	const [error, set_error] = useState<string | undefined>()
+	const [refresh_counter, set_refresh_counter] = useState(0)
+	const google_auth = use_google_auth()
+	const blob_urls_ref = useRef<string[]>([])
+
+	/* re-fetch when datasets change (e.g. after upload) */
+	useEffect(() => {
+		const handler = () => set_refresh_counter((c) => c + 1)
+		window.addEventListener('datasets-changed', handler)
+		window.addEventListener('upload-complete', handler)
+		return () => {
+			window.removeEventListener('datasets-changed', handler)
+			window.removeEventListener('upload-complete', handler)
+		}
+	}, [])
 
 	const delete_images = useCallback(
 		async (image_ids: string[]) => {
@@ -86,6 +102,10 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 			return
 		}
 
+		/* revoke previous blob URLs */
+		for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+		blob_urls_ref.current = []
+
 		let is_cancelled = false
 		set_is_loading(true)
 		set_error(undefined)
@@ -128,15 +148,19 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 					class_labels: Array.isArray(r.class_labels) ? r.class_labels : [],
 					file_extension: r.file_extension ?? '',
 					uploaded_at: r.uploaded_at ?? ''
-				}))
-			set_images(validated as DatasetImage[])
+				})) as DatasetImage[]
+
+			if (is_cancelled) return
+
+			blob_urls_ref.current = await resolve_image_urls(validated, google_auth.access_token)
+			set_images(validated)
 			set_is_loading(false)
 		})()
 
 		return () => {
 			is_cancelled = true
 		}
-	}, [dataset_id])
+	}, [dataset_id, refresh_counter, google_auth.access_token])
 
 	return { images, is_loading, error, delete_images }
 }

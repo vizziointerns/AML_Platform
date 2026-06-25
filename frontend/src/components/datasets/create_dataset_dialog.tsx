@@ -66,34 +66,33 @@ export function create_dataset_dialog({
 			return
 		}
 
-		if (google_auth.is_configured && !google_auth.is_authenticated) {
-			if (google_auth.is_loading) return
+		/* if Drive is configured but not authenticated, popup once then resume */
+		if (google_auth.is_configured && !google_auth.is_authenticated && !google_auth.is_loading) {
 			set_is_pending_save(true)
 			google_auth.sign_in()
 			return
 		}
 
 		set_is_saving(true)
-		set_error(undefined)
 		set_is_pending_save(false)
+		set_error(undefined)
 
 		const dataset_id = crypto.randomUUID()
 		const tags = get_dataset_tags(tags_input)
 
 		let drive_folder_id: string | undefined
-		try {
-			drive_folder_id = await resolve_dataset_drive_folder_id({
-				project_id,
-				dataset_id,
-				dataset_name: trimmed_name,
-				google_access_token: google_auth.is_authenticated ? google_auth.access_token : undefined
-			})
-		} catch (drive_error) {
-			set_is_saving(false)
-			set_error(
-				drive_error instanceof Error ? drive_error.message : 'Failed to create Google Drive folder'
-			)
-			return
+		if (google_auth.is_authenticated) {
+			try {
+				drive_folder_id = await resolve_dataset_drive_folder_id({
+					project_id,
+					dataset_id,
+					dataset_name: trimmed_name,
+					google_access_token: google_auth.access_token
+				})
+			} catch (drive_error) {
+				/* Drive folder creation failed — proceed without it */
+				console.warn('Failed to create Drive folder:', drive_error)
+			}
 		}
 
 		const { error: err } = await supabase.from('datasets').insert({
@@ -123,19 +122,12 @@ export function create_dataset_dialog({
 		on_close()
 	}
 
+	/* when Drive auth completes after a pending save, re-submit automatically */
 	useEffect(() => {
 		if (is_pending_save && google_auth.is_authenticated && !is_saving) {
 			void handle_save()
 		}
 	}, [is_pending_save, google_auth.is_authenticated, is_saving])
-
-	useEffect(() => {
-		if (!google_auth.error) return
-
-		set_is_pending_save(false)
-		set_is_saving(false)
-		set_error(google_auth.error)
-	}, [google_auth.error])
 
 	if (!is_open) return <></>
 
