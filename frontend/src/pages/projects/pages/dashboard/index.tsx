@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ImageIcon, PenTool, Download, Database, Tags, HardDrive } from 'lucide-react'
 import type { Project } from '../../../../store/projectStore'
 import { use_project_stats } from '../../../../hooks/use_project_stats'
@@ -6,6 +7,7 @@ import { stat_card } from '../../../../components/dashboard/stat_card'
 import { progress_card } from '../../../../components/dashboard/progress_card'
 import { quick_actions_card } from '../../../../components/dashboard/quick_actions_card'
 import { team_members_card } from '../../../../components/dashboard/team_members_card'
+import { create_dataset_dialog } from '../../../../components/datasets/create_dataset_dialog'
 import type { ActionItem } from '../../../../components/dashboard/quick_actions_card'
 import { useNavigate } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
@@ -85,24 +87,23 @@ function render_stats_grid(
 
 export function project_dashboard({
 	project,
-	is_dark_mode,
-	on_open_uploader
+	is_dark_mode
 }: {
 	project: Project
 	is_dark_mode: boolean
-	on_open_uploader: () => void
 }) {
 	const { projectId: project_id } = useParams()
 	const navigate = useNavigate()
 	const { stats, is_loading, error } = use_project_stats(project_id)
+	const [is_create_dialog_open, set_is_create_dialog_open] = useState(false)
 
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 
 	const actions: ActionItem[] = [
 		{
-			label: 'Upload Data',
-			icon: ImageIcon,
-			on_click: on_open_uploader,
+			label: 'Create Datasets',
+			icon: Database,
+			on_click: () => set_is_create_dialog_open(true),
 			variant: 'primary'
 		},
 		{
@@ -129,14 +130,6 @@ export function project_dashboard({
 							{project.name} — project overview and statistics.
 						</p>
 					</div>
-					<div className="flex gap-2">
-						<button
-							onClick={on_open_uploader}
-							className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors"
-						>
-							Upload Data
-						</button>
-					</div>
 				</div>
 
 				{error ? (
@@ -154,6 +147,17 @@ export function project_dashboard({
 				{quick_actions_card({ actions, is_dark_mode })}
 
 				{team_members_card({ members: project.members, is_dark_mode })}
+
+				{create_dataset_dialog({
+					is_open: is_create_dialog_open,
+					on_close: () => set_is_create_dialog_open(false),
+					project_id,
+					is_dark_mode,
+					on_created: () => {
+						window.dispatchEvent(new CustomEvent('datasets-changed'))
+						if (project_id) navigate(`/projects/${project_id}/datasets`)
+					}
+				})}
 			</div>
 		</div>
 	)

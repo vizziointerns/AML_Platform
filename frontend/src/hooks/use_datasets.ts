@@ -22,6 +22,23 @@ export interface UseDatasetsResult {
 	refresh: () => void
 }
 
+async function fetch_image_counts(dataset_ids: string[]): Promise<Record<string, number>> {
+	const count_map: Record<string, number> = {}
+	if (dataset_ids.length === 0) return count_map
+
+	const { data: counts, error: counts_err } = await supabase
+		.from('dataset_images')
+		.select('dataset_id')
+		.in('dataset_id', dataset_ids)
+
+	if (counts_err) return count_map
+
+	for (const row of counts ?? []) {
+		count_map[row.dataset_id] = (count_map[row.dataset_id] ?? 0) + 1
+	}
+	return count_map
+}
+
 export function use_datasets(project_id: string | undefined): UseDatasetsResult {
 	const [datasets, set_datasets] = useState<DatasetInfo[]>([])
 	const [is_loading, set_is_loading] = useState(true)
@@ -49,14 +66,13 @@ export function use_datasets(project_id: string | undefined): UseDatasetsResult 
 
 			if (err) {
 				if (
-					err.message?.includes('does not exist') ||
-					err.message?.includes('Could not find the table') ||
-					err.code === '406'
+					!err.message?.includes('does not exist') &&
+					!err.message?.includes('Could not find the table') &&
+					err.code !== '406'
 				) {
-					set_datasets([])
-				} else {
 					set_error(err.message)
 				}
+				set_datasets([])
 				set_is_loading(false)
 				return
 			}
@@ -68,6 +84,15 @@ export function use_datasets(project_id: string | undefined): UseDatasetsResult 
 				class_count: row.class_count ?? 0,
 				storage_bytes: row.storage_bytes ?? 0
 			}))
+
+			if (normalized.length > 0 && !is_cancelled.current) {
+				const count_map = await fetch_image_counts(normalized.map((d) => d.id))
+				if (is_cancelled.current) return
+				for (const ds of normalized) {
+					ds.image_count = count_map[ds.id] ?? 0
+				}
+			}
+
 			set_datasets(normalized as DatasetInfo[])
 			set_is_loading(false)
 		},

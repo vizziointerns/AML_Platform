@@ -88,13 +88,6 @@ async function save_image_metadata(
 	if (db_err) {
 		throw new Error(`Failed to save image metadata: ${db_err.message}`)
 	}
-	const { error: update_err } = await supabase
-		.from('datasets')
-		.update({ image_count: { '+': 1 } })
-		.eq('id', dataset_id)
-	if (update_err) {
-		console.error('Failed to increment dataset image_count:', update_err)
-	}
 }
 
 interface ProjectDriveInfo {
@@ -150,9 +143,7 @@ async function ensure_upload_folder(
 
 	const ensured = await ensure_dataset_drive_folder({
 		access_token,
-		project_id: resolved_project_id,
 		project_name: project.name,
-		dataset_id: dataset.id,
 		dataset_name: dataset.name,
 		existing_project_folder_id: project.drive_folder_id,
 		existing_dataset_folder_id: dataset.drive_folder_id,
@@ -293,6 +284,17 @@ async function upload_file_to_drive(
 	})
 }
 
+async function make_drive_file_public(file_id: string, access_token: string): Promise<void> {
+	await fetch(`https://www.googleapis.com/drive/v3/files/${file_id}/permissions`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${access_token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ role: 'reader', type: 'anyone' })
+	})
+}
+
 export async function upload_to_drive_and_save(
 	file: UploadFile,
 	access_token: string,
@@ -305,11 +307,9 @@ export async function upload_to_drive_and_save(
 
 	try {
 		let parent_folder_id: string | undefined
-
 		if (dataset_id) {
 			parent_folder_id = await ensure_upload_folder(access_token, dataset_id, _project_id)
 		}
-
 		if (!parent_folder_id) {
 			throw new Error('No dataset folder available for Google Drive upload')
 		}
@@ -322,20 +322,11 @@ export async function upload_to_drive_and_save(
 			callbacks
 		)
 
+		await make_drive_file_public(result.drive_file_id, access_token).catch(() => {})
+
 		if (dataset_id) {
-			const supabase_callbacks: UploadCallbacks = {
-				...callbacks,
-				on_progress: (progress, loaded, total) =>
-					callbacks.on_progress(80 + Math.round(progress * 0.2), loaded, total)
-			}
-			const supabase_url = await upload_to_supabase_storage(
-				file.file,
-				dataset_id,
-				result.file_name,
-				supabase_callbacks.on_progress,
-				controller.signal
-			)
-			await save_image_metadata(dataset_id, result.file_name, supabase_url, result.file_size)
+			const drive_url = `https://drive.google.com/uc?id=${result.drive_file_id}`
+			await save_image_metadata(dataset_id, result.file_name, drive_url, result.file_size)
 		}
 
 		callbacks.on_complete()

@@ -417,7 +417,8 @@ export function render_top_toolbar(
 	has_next?: boolean,
 	file_name?: string,
 	current_index?: number,
-	total_images?: number
+	total_images?: number,
+	on_start_training?: () => void
 ) {
 	return (
 		<div
@@ -530,8 +531,11 @@ export function render_top_toolbar(
 					<Maximize size={16} />
 				</button>
 				<div className={`w-px h-5 mx-1 ${border_subtle}`}></div>
-				<button className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 text-sm font-medium rounded-md hover:bg-emerald-600/20 transition-colors">
-					<CheckCircle2 size={16} /> Submit
+				<button
+					onClick={on_start_training}
+					className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 text-sm font-medium rounded-md hover:bg-emerald-600/20 transition-colors"
+				>
+					<CheckCircle2 size={16} /> Start Training
 				</button>
 			</div>
 		</div>

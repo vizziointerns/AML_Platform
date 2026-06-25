@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Plus } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
@@ -71,7 +71,6 @@ export default function new_project_dialog({
 	const [type, set_type] = useState<ProjectType>('Object Detection')
 	const [name_error, set_name_error] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
-	const [auth_error, set_auth_error] = useState('')
 	const [is_pending_submit, set_is_pending_submit] = useState(false)
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
@@ -81,12 +80,6 @@ export default function new_project_dialog({
 	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
-	const auth_alert = auth_error ? (
-		<div className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-			{auth_error}
-		</div>
-	) : undefined
-
 	const handle_submit = useCallback(async () => {
 		const trimmed = name.trim()
 		if (!trimmed) {
@@ -95,14 +88,16 @@ export default function new_project_dialog({
 		}
 
 		if (!user) {
-			set_auth_error('You must be signed in to create a project.')
+			set_name_error('You must be signed in to create a project.')
 			return
 		}
 
+		/* if Drive is configured but not authenticated, popup once then resume */
 		if (google_auth.is_configured && !google_auth.is_authenticated) {
-			if (google_auth.is_loading) return
-			set_is_pending_submit(true)
-			google_auth.sign_in()
+			if (!google_auth.is_loading) {
+				set_is_pending_submit(true)
+				google_auth.sign_in()
+			}
 			return
 		}
 
@@ -117,15 +112,14 @@ export default function new_project_dialog({
 				const user_folder_id = await get_user_folder_id(google_auth.access_token)
 				drive_folder_id = await ensure_project_drive_folder({
 					access_token: google_auth.access_token,
-					project_id: id,
 					project_name: trimmed,
 					user_folder_id
 				})
 			} catch (error) {
-				set_is_saving(false)
 				set_name_error(
 					error instanceof Error ? error.message : 'Failed to create Google Drive folder'
 				)
+				set_is_saving(false)
 				return
 			}
 		}
@@ -165,25 +159,21 @@ export default function new_project_dialog({
 		set_description('')
 		set_type('Object Detection')
 		set_name_error('')
-		set_auth_error('')
 		set_is_saving(false)
 		on_close()
 		navigate(`/projects/${id}/dashboard`)
-	}, [name, description, type, user, google_auth, add_project, on_close, navigate, name_error])
+	}, [name, description, type, user, google_auth, add_project, on_close, navigate])
 
+	/* when Drive auth completes after a pending submit, re-submit automatically */
 	useEffect(() => {
-		if (is_pending_submit && google_auth.is_authenticated && !is_saving) {
+		if (!is_pending_submit) return
+		if (google_auth.is_authenticated && !is_saving) {
 			void handle_submit()
+		} else if (google_auth.error) {
+			set_is_pending_submit(false)
+			set_name_error(google_auth.error)
 		}
-	}, [is_pending_submit, google_auth.is_authenticated, is_saving, handle_submit])
-
-	useEffect(() => {
-		if (!google_auth.error) return
-
-		set_is_pending_submit(false)
-		set_is_saving(false)
-		set_auth_error(google_auth.error)
-	}, [google_auth.error])
+	}, [is_pending_submit, google_auth.is_authenticated, google_auth.error, is_saving, handle_submit])
 
 	if (!isOpen) return undefined
 
@@ -220,7 +210,6 @@ export default function new_project_dialog({
 					</div>
 
 					<div className="px-6 py-6 space-y-5">
-						{auth_alert}
 						<div className="space-y-1.5">
 							<label className={`text-sm font-medium ${text_heading}`}>
 								Project Name <span className="text-red-500">*</span>

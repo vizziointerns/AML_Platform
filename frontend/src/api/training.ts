@@ -133,6 +133,7 @@ export interface StartTrainingClass {
 export interface StartTrainingPayload {
 	images: StartTrainingImage[]
 	classes: StartTrainingClass[]
+	google_access_token?: string | null
 }
 
 export async function start_training_run(

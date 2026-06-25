@@ -8,17 +8,16 @@ import { ensure_new_dataset_drive_folder } from '../utils/google_drive'
 
 async function resolve_new_dataset_drive_folder_id(params: {
 	project_id: string | undefined
-	dataset_id: string
 	dataset_name: string
 	google_access_token: string | undefined
 }): Promise<string | undefined> {
-	const { project_id, dataset_id, dataset_name, google_access_token } = params
+	const { project_id, dataset_name, google_access_token } = params
 
 	if (!project_id || !google_access_token) {
 		return undefined
 	}
 
-	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_id, dataset_name)
+	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_name)
 }
 
 async function create_dataset_for_upload(params: {
@@ -31,7 +30,6 @@ async function create_dataset_for_upload(params: {
 	const { project_id, dataset_id, dataset_name, dataset_description, google_access_token } = params
 	const drive_folder_id = await resolve_new_dataset_drive_folder_id({
 		project_id,
-		dataset_id,
 		dataset_name,
 		google_access_token
 	})
@@ -90,8 +88,6 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 	const file_input_ref = useRef<HTMLInputElement>(undefined!)
 	const folder_input_ref = useRef<HTMLInputElement>(undefined!)
 	const google_auth = use_google_auth()
-
-	/* Google auth is triggered only on "Start Upload" click — not on dialog open */
 
 	const total_files = files.length
 	const completed_files = files.filter((f) => f.status === 'success').length
@@ -169,8 +165,6 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 		[process_files]
 	)
 
-	const [should_upload_after_auth, set_should_upload_after_auth] = useState(false)
-
 	const make_callbacks = useCallback(
 		(file: UploadFile) => ({
 			on_progress: (progress: number, loaded: number, total: number) => {
@@ -234,12 +228,6 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 		const pending_files = files.filter((f) => f.status === 'pending')
 		if (pending_files.length === 0) return
 
-		/* If Google Drive is configured but not yet authenticated, trigger sign-in silently
-			 and continue with direct upload. Uploads will use Drive on retry after auth. */
-		if (google_auth.is_configured && !google_auth.is_authenticated && !google_auth.is_loading) {
-			google_auth.sign_in()
-		}
-
 		const dataset_id = await resolve_dataset_id()
 		if (!dataset_id) {
 			set_files((prev) =>
@@ -278,16 +266,6 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 
 		await Promise.allSettled(uploads)
 	}, [files, target_dataset, google_auth, project_id, make_callbacks, resolve_dataset_id])
-
-	const start_upload_ref = useRef(start_upload)
-	start_upload_ref.current = start_upload
-
-	useEffect(() => {
-		if (should_upload_after_auth && google_auth.is_authenticated) {
-			set_should_upload_after_auth(false)
-			setTimeout(() => start_upload_ref.current(), 0)
-		}
-	}, [should_upload_after_auth, google_auth.is_authenticated])
 
 	const retry_upload = useCallback(
 		(id: string) => {

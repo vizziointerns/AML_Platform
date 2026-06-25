@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { use_dashboard_stats } from '../../hooks/use_dashboard_stats'
 import { use_recent_projects } from '../../hooks/use_recent_projects'
 import { recent_project_card as RecentProjectCard } from '../../components/RecentProjectCard'
-import { Layers, ImageIcon, Users, HardDrive, Plus, ChevronRight } from 'lucide-react'
+import { Layers, ImageIcon, Users, HardDrive, Plus, ChevronRight, Database } from 'lucide-react'
 
 function stat_card({
 	title,
@@ -240,7 +240,7 @@ export default function home({
 						onClick={on_open_uploader}
 						className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
 					>
-						<ImageIcon size={16} /> Upload Data
+						<Database size={16} /> Upload Dataset
 					</button>
 				</div>
 			</div>
