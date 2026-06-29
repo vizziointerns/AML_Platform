@@ -38,7 +38,7 @@ export function use_annotation_image(
 	const [error, set_error] = useState<string | undefined>(undefined)
 	const blob_urls_ref = useRef<string[]>([])
 	const stable_images_ref = useRef<AnnotationImageInfo[]>([])
-	if (images.length > 1) stable_images_ref.current = images
+	stable_images_ref.current = images
 
 	const dataset_id = datasets[0]?.id
 
@@ -77,6 +77,11 @@ export function use_annotation_image(
 			if (is_cancelled) return
 
 			const new_blob_urls = await resolve_image_urls(parsed, google_auth.access_token)
+
+			if (is_cancelled) {
+				for (const url of new_blob_urls) URL.revokeObjectURL(url)
+				return
+			}
 
 			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
 			blob_urls_ref.current = new_blob_urls

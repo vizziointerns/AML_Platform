@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,7 @@ from app.models.training import TrainingRun
 from app.schemas.inference import InferenceRequest, InferenceResponse
 from app.training.inference import run_inference
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -31,6 +33,7 @@ def inference_endpoint(body: InferenceRequest, db: Session = Depends(get_db)) ->
     try:
         predictions = run_inference(body.image_url, model_path)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Inference failed")
+        raise HTTPException(status_code=500, detail="Inference failed") from e
 
     return InferenceResponse(predictions=predictions)

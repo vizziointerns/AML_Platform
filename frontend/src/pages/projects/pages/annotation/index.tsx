@@ -173,6 +173,8 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	} = use_annotation_image(project_id, imageId)
 
 	const image_url = current_image?.file_url
+	const image_url_ref = useRef(image_url)
+	image_url_ref.current = image_url
 	const is_loading_image = is_loading_images
 
 	const [is_saving, set_is_saving] = useState(false)
@@ -266,6 +268,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 
 	useEffect(() => {
 		if (!project_id) return
+		set_custom_models([])
 		let is_cancelled = false
 		fetch_training_runs(project_id)
 			.then((runs) => {
@@ -281,7 +284,9 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 						}))
 				)
 			})
-			.catch(() => {})
+			.catch(() => {
+				if (!is_cancelled) set_custom_models([])
+			})
 		return () => {
 			is_cancelled = true
 		}
@@ -337,7 +342,12 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 			const all_annotations = [...annotations, ...preds_as_annotations]
 			await save_annotations(imageId, all_annotations)
 			if (preds_as_annotations.length > 0) {
-				set_annotations((prev) => [...prev, ...preds_as_annotations])
+				set_history((prev) => {
+					const updated = [...(prev[history_step] ?? []), ...preds_as_annotations]
+					const copy = [...prev]
+					copy[history_step] = updated
+					return copy
+				})
 				set_predictions([])
 				set_is_showing_predictions(false)
 				set_selected_prediction_id(undefined)
@@ -351,7 +361,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		} finally {
 			set_is_saving(false)
 		}
-	}, [imageId, annotations, predictions, is_saving, set_annotations])
+	}, [imageId, annotations, predictions, is_saving, history_step])
 
 	const undo = useCallback(() => {
 		set_history_step((prev) => Math.max(0, prev - 1))
@@ -481,10 +491,12 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	const handle_run_inference = useCallback(
 		async (model_id?: number) => {
 			if (!image_url) return
+			const captured_image_url = image_url
 			set_is_running_inference(true)
 			set_is_model_selector_open(false)
 			try {
-				const results = await run_inference(image_url, model_id)
+				const results = await run_inference(captured_image_url, model_id)
+				if (captured_image_url !== image_url_ref.current) return
 				const current_classes = classes
 				let updated_classes = [...current_classes]
 
