@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from PIL import Image
 
 from app.schemas.segment import SegmentRequest, SegmentResponse
+from app.training.inference import _make_pin_hook, _validate_image_url
 from app.training.segment import auto_segment, run_segmentation
 
 logger = logging.getLogger(__name__)
@@ -22,15 +23,19 @@ MAX_REDIRECTS = 20
 def segment_endpoint(body: SegmentRequest) -> SegmentResponse:
     tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
     try:
+        _validate_image_url(body.image_url)
         with httpx.Client(
-            timeout=60, follow_redirects=True, max_redirects=MAX_REDIRECTS
+            timeout=60,
+            follow_redirects=True,
+            max_redirects=MAX_REDIRECTS,
+            event_hooks={"request": [_make_pin_hook()]},
         ) as client:
-            response = client.get(body.image_url)
-            response.raise_for_status()
-            for chunk in response.iter_bytes(CHUNK_SIZE):
-                if tmp.tell() + len(chunk) > MAX_IMAGE_SIZE:
-                    raise HTTPException(status_code=400, detail="Image exceeds maximum size")
-                tmp.write(chunk)
+            with client.stream("GET", body.image_url) as response:
+                response.raise_for_status()
+                for chunk in response.iter_bytes(CHUNK_SIZE):
+                    if tmp.tell() + len(chunk) > MAX_IMAGE_SIZE:
+                        raise HTTPException(status_code=400, detail="Image exceeds maximum size")
+                    tmp.write(chunk)
         tmp.close()
 
         image = np.array(Image.open(tmp.name).convert("RGB"))

@@ -1,9 +1,11 @@
 import logging
+import threading
 from pathlib import Path
 
 import cv2
 import numpy as np
 import torch
+from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 from app.schemas.segment import Point2D, PolygonOut
@@ -14,31 +16,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 MODELS_DIR = BASE_DIR / "models"
 
 _SAM_PREDICTOR: SAM2ImagePredictor | None = None
+_LOCK = threading.Lock()
 
 
 def _load_model() -> SAM2ImagePredictor:
     global _SAM_PREDICTOR
     if _SAM_PREDICTOR is not None:
         return _SAM_PREDICTOR
+    with _LOCK:
+        if _SAM_PREDICTOR is not None:
+            return _SAM_PREDICTOR
+        ckpt = MODELS_DIR / "sam2.1_hiera_tiny.pt"
+        cfg = MODELS_DIR / "sam2.1_hiera_t.yaml"
 
-    ckpt = MODELS_DIR / "sam2.1_hiera_tiny.pt"
-    cfg = MODELS_DIR / "sam2.1_hiera_t.yaml"
+        if not ckpt.exists():
+            raise RuntimeError(
+                f"SAM 2.1 checkpoint not found at {ckpt}. "
+                f"Run `python scripts/download_sam_checkpoint.py` first."
+            )
 
-    if not ckpt.exists():
-        raise RuntimeError(
-            f"SAM 2.1 checkpoint not found at {ckpt}. "
-            f"Run `python scripts/download_sam_checkpoint.py` first."
-        )
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info("Loading SAM 2.1 model on %s ...", device)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    logger.info("Loading SAM 2.1 model on %s ...", device)
-
-    predictor = SAM2ImagePredictor.from_pretrained(
-        "facebook/sam2.1-hiera-tiny",
-        device=device,
-    )
-    _SAM_PREDICTOR = predictor
-    return predictor
+        model = build_sam2(str(cfg), str(ckpt), device=device)
+        predictor = SAM2ImagePredictor(model)
+        _SAM_PREDICTOR = predictor
+        return predictor
 
 
 def _mask_to_polygons(mask: np.ndarray, min_area: int = 50) -> list[list[tuple[float, float]]]:
@@ -67,29 +70,30 @@ def run_segmentation(
 ) -> list[PolygonOut]:
     predictor = _load_model()
 
-    predictor.set_image(image)
+    with _LOCK:
+        predictor.set_image(image)
 
-    if prompt_type == "point":
-        if len(prompt_data) < 2:
-            raise ValueError("prompt_data must have at least 2 values for point prompt")
-        point_coords = np.array([[prompt_data[0], prompt_data[1]]], dtype=np.float32)
-        point_labels = np.array([1], dtype=np.int32)
-        masks, _, _ = predictor.predict(
-            point_coords=point_coords,
-            point_labels=point_labels,
-            multimask_output=True,
-        )
-    elif prompt_type == "box":
-        if len(prompt_data) < 4:
-            raise ValueError("prompt_data must have 4 values for box prompt")
-        x1, y1, x2, y2 = prompt_data[:4]
-        box = np.array([x1, y1, x2, y2], dtype=np.float32)
-        masks, _, _ = predictor.predict(
-            box=box,
-            multimask_output=False,
-        )
-    else:
-        raise ValueError(f"Unsupported prompt_type: {prompt_type}")
+        if prompt_type == "point":
+            if len(prompt_data) < 2:
+                raise ValueError("prompt_data must have at least 2 values for point prompt")
+            point_coords = np.array([[prompt_data[0], prompt_data[1]]], dtype=np.float32)
+            point_labels = np.array([1], dtype=np.int32)
+            masks, _, _ = predictor.predict(
+                point_coords=point_coords,
+                point_labels=point_labels,
+                multimask_output=True,
+            )
+        elif prompt_type == "box":
+            if len(prompt_data) < 4:
+                raise ValueError("prompt_data must have 4 values for box prompt")
+            x1, y1, x2, y2 = prompt_data[:4]
+            box = np.array([x1, y1, x2, y2], dtype=np.float32)
+            masks, _, _ = predictor.predict(
+                box=box,
+                multimask_output=False,
+            )
+        else:
+            raise ValueError(f"Unsupported prompt_type: {prompt_type}")
 
     height, width = image.shape[:2]
     polygons: list[PolygonOut] = []

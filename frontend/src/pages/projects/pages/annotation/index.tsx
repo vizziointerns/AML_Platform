@@ -63,7 +63,8 @@ function handle_segment_click(
 	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
 	set_selected_ann_id: (id: string | undefined) => void,
 	set_active_tool: (mode: Mode) => void,
-	set_is_running_segmentation: (v: boolean) => void
+	set_is_running_segmentation: (v: boolean) => void,
+	is_current_image: () => boolean
 ) {
 	set_is_running_segmentation(true)
 
@@ -84,6 +85,7 @@ function handle_segment_click(
 
 	run_segmentation(image_url, prompt_type, prompt_data)
 		.then((polygons) => {
+			if (!is_current_image()) return
 			const new_annotations: Annotation[] = polygons.map((poly) => {
 				const xs = poly.points.map((p) => p.x)
 				const ys = poly.points.map((p) => p.y)
@@ -116,12 +118,14 @@ function handle_sam_auto_segment(
 	set_is_model_selector_open: (v: boolean) => void,
 	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
 	set_selected_ann_id: (id: string | undefined) => void,
-	set_active_tool: (mode: Mode) => void
+	set_active_tool: (mode: Mode) => void,
+	is_current_image: () => boolean
 ) {
 	set_is_running_segmentation(true)
 	set_is_model_selector_open(false)
 	run_auto_segmentation(image_url, active_class)
 		.then((polygons) => {
+			if (!is_current_image()) return
 			const new_annotations: Annotation[] = polygons.map((poly) => {
 				const xs = poly.points.map((p) => p.x)
 				const ys = poly.points.map((p) => p.y)
@@ -404,6 +408,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	const [selected_model_id, set_selected_model_id] = useState<number | undefined>(undefined)
 	const [is_running_inference, set_is_running_inference] = useState(false)
 	const [is_running_segmentation, set_is_running_segmentation] = useState(false)
+	const is_processing = is_running_inference || is_running_segmentation
 
 	useEffect(() => {
 		set_predictions([])
@@ -534,6 +539,11 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	function on_key_down(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 		const key = e.key.toLowerCase()
+		if ((e.ctrlKey || e.metaKey) && key === 's') {
+			e.preventDefault()
+			void handle_save()
+			return
+		}
 		if (handle_mode_shortcut(key, set_active_tool)) return
 		if (handle_brush_size_shortcut(key, set_brush_size)) return
 		if (handle_zoom_level_shortcut(key, set_zoom_level)) return
@@ -550,11 +560,6 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		)
 			return
 		if (handle_class_shortcut(key, classes, set_active_class)) return
-		if ((e.ctrlKey || e.metaKey) && key === 's') {
-			e.preventDefault()
-			void handle_save()
-			return
-		}
 		handle_undo_redo_shortcut(key, e, undo, redo)
 	}
 
@@ -580,8 +585,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	}
 
 	const show_prediction_btn = () => {
-		if (classes.length === 0) return
-		set_selected_model_id(-1)
+		set_selected_model_id(undefined)
 		set_is_model_selector_open(true)
 	}
 
@@ -598,7 +602,8 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 					set_is_model_selector_open,
 					set_annotations,
 					set_selected_ann_id,
-					set_active_tool
+					set_active_tool,
+					() => captured_image_url === image_url_ref.current
 				)
 				return
 			}
@@ -661,7 +666,8 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				set_annotations,
 				set_selected_ann_id,
 				set_active_tool,
-				set_is_running_segmentation
+				set_is_running_segmentation,
+				() => image_url === image_url_ref.current
 			)
 		},
 		[
@@ -778,7 +784,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
 				>
-					{is_running_inference && (
+					{is_processing && (
 						<div
 							className="absolute inset-0 bg-black/20 z-50 flex items-center justify-center"
 							data-segmenting={is_running_segmentation}
@@ -787,7 +793,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 								className={`flex items-center gap-2 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'} px-4 py-2 rounded-lg shadow-lg`}
 							>
 								<Loader2 size={20} className="animate-spin" />
-								<span className={`text-sm font-medium ${text_heading}`}>Running inference...</span>
+								<span className={`text-sm font-medium ${text_heading}`}>Processing...</span>
 							</div>
 						</div>
 					)}
@@ -919,7 +925,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				set_selected_model_id,
 				() => handle_run_inference(selected_model_id),
 				() => set_is_model_selector_open(false),
-				is_running_inference || is_running_segmentation,
+				is_processing,
 				text_muted,
 				text_heading,
 				bg_panel,
