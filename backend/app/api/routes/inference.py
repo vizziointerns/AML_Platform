@@ -32,6 +32,8 @@ def inference_endpoint(body: InferenceRequest, db: Session = Depends(get_db)) ->
 
     try:
         predictions = run_inference(body.image_url, model_path)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
     except Exception as e:
         logger.exception("Inference failed")
         raise HTTPException(status_code=500, detail="Inference failed") from e

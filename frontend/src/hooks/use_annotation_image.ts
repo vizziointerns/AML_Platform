@@ -38,7 +38,13 @@ export function use_annotation_image(
 	const [error, set_error] = useState<string | undefined>(undefined)
 	const blob_urls_ref = useRef<string[]>([])
 	const stable_images_ref = useRef<AnnotationImageInfo[]>([])
-	stable_images_ref.current = images
+
+	useEffect(() => {
+		return () => {
+			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+			blob_urls_ref.current = []
+		}
+	}, [])
 
 	const dataset_id = datasets[0]?.id
 
@@ -83,6 +89,7 @@ export function use_annotation_image(
 				return
 			}
 
+			stable_images_ref.current = parsed.map((img) => ({ ...img }))
 			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
 			blob_urls_ref.current = new_blob_urls
 
@@ -92,8 +99,6 @@ export function use_annotation_image(
 
 		return () => {
 			is_cancelled = true
-			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-			blob_urls_ref.current = []
 		}
 	}, [dataset_id, google_auth.access_token])
 

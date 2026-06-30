@@ -83,7 +83,7 @@ def run_inference(image_url: str, model_path: str | None = None) -> list[Inferre
                 if total > MAX_IMAGE_SIZE:
                     raise ValueError(f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes")
                 tmp.write(chunk)
-            tmp.close()
+        tmp.close()
 
         from ultralytics import YOLO  # type: ignore[attr-defined]
 
@@ -122,6 +122,8 @@ def run_inference(image_url: str, model_path: str | None = None) -> list[Inferre
         return predictions
     finally:
         try:
+            if not tmp.closed:
+                tmp.close()
             Path(tmp.name).unlink(missing_ok=True)
-        except Exception:
-            pass
+        except OSError:
+            logger.warning("Failed to clean up inference temp file", exc_info=True)
