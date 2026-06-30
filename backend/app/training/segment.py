@@ -4,6 +4,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import sam2
 import torch
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
@@ -27,7 +28,7 @@ def _load_model() -> SAM2ImagePredictor:
         if _SAM_PREDICTOR is not None:
             return _SAM_PREDICTOR
         ckpt = MODELS_DIR / "sam2.1_hiera_tiny.pt"
-        cfg = MODELS_DIR / "sam2.1_hiera_t.yaml"
+        cfg = Path(sam2.__file__).parent / "configs" / "sam2.1" / "sam2.1_hiera_t.yaml"
 
         if not ckpt.exists():
             raise RuntimeError(
@@ -74,8 +75,8 @@ def run_segmentation(
         predictor.set_image(image)
 
         if prompt_type == "point":
-            if len(prompt_data) < 2:
-                raise ValueError("prompt_data must have at least 2 values for point prompt")
+            if len(prompt_data) != 2:
+                raise ValueError("prompt_data must have exactly 2 values for point prompt")
             point_coords = np.array([[prompt_data[0], prompt_data[1]]], dtype=np.float32)
             point_labels = np.array([1], dtype=np.int32)
             masks, _, _ = predictor.predict(
@@ -84,8 +85,8 @@ def run_segmentation(
                 multimask_output=True,
             )
         elif prompt_type == "box":
-            if len(prompt_data) < 4:
-                raise ValueError("prompt_data must have 4 values for box prompt")
+            if len(prompt_data) != 4:
+                raise ValueError("prompt_data must have exactly 4 values for box prompt")
             x1, y1, x2, y2 = prompt_data[:4]
             box = np.array([x1, y1, x2, y2], dtype=np.float32)
             masks, _, _ = predictor.predict(
