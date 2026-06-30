@@ -37,7 +37,8 @@ export function handle_mode_shortcut(key: string, set_active_tool: (t: Mode) => 
 		b: 'bbox',
 		p: 'polygon',
 		w: 'brush',
-		e: 'eraser'
+		e: 'eraser',
+		s: 'segment'
 	}
 	if (modes[key]) {
 		set_active_tool(modes[key])

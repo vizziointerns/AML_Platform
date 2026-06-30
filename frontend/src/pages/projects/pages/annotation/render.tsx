@@ -896,6 +896,24 @@ export function render_model_selection_dialog(
 
 				<label
 					className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+						selected_model_id === -1 ? 'border-indigo-500 bg-indigo-50/10' : border_subtle
+					} ${bg_hover}`}
+				>
+					<input
+						type="radio"
+						name="model"
+						checked={selected_model_id === -1}
+						onChange={() => set_selected_model_id(-1)}
+						className="accent-indigo-500"
+					/>
+					<div>
+						<div className={`text-sm font-medium ${text_heading}`}>SAM 2</div>
+						<div className={`text-xs ${text_muted}`}>Segment Anything Model 2.1</div>
+					</div>
+				</label>
+
+				<label
+					className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
 						selected_model_id === undefined ? 'border-indigo-500 bg-indigo-50/10' : border_subtle
 					} ${bg_hover}`}
 				>
