@@ -4,6 +4,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 from app.schemas.segment import Point2D, PolygonOut
 
@@ -12,15 +13,13 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 MODELS_DIR = BASE_DIR / "models"
 
-_SAM_PREDICTOR = None
+_SAM_PREDICTOR: SAM2ImagePredictor | None = None
 
 
-def _load_model() -> object:
+def _load_model() -> SAM2ImagePredictor:
     global _SAM_PREDICTOR
     if _SAM_PREDICTOR is not None:
         return _SAM_PREDICTOR
-
-    from sam2.sam2_image_predictor import SAM2ImagePredictor
 
     ckpt = MODELS_DIR / "sam2.1_hiera_tiny.pt"
     cfg = MODELS_DIR / "sam2.1_hiera_t.yaml"
