@@ -33,7 +33,7 @@ cache_lock = threading.Lock()
 sam_training_lock = threading.Lock()
 
 
-def rle_to_mask(rle_dict: dict) -> np.ndarray:
+def rle_to_mask(rle_dict: dict[str, Any]) -> Any:
 	counts = rle_dict["counts"]
 	h, w = rle_dict["size"]
 
@@ -57,6 +57,15 @@ def rle_to_mask(rle_dict: dict) -> np.ndarray:
 	return flat.reshape((w, h)).T
 
 
+def mask_to_rle(mask: np.ndarray) -> dict[str, Any]:
+	try:
+		import pycocotools.mask as maskUtils
+		rle = maskUtils.encode(np.asfortranarray(mask))
+		rle["counts"] = rle["counts"].decode("utf-8")
+		return dict(rle)
+	except ImportError:
+		return {"size": list(mask.shape), "counts": ""}
+
 def dice_loss(pred_logits: torch.Tensor, target: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
 	pred_probs = torch.sigmoid(pred_logits)
 	intersection = (pred_probs * target).sum()
@@ -64,7 +73,7 @@ def dice_loss(pred_logits: torch.Tensor, target: torch.Tensor, eps: float = 1e-6
 	return 1.0 - (2.0 * intersection + eps) / (union + eps)
 
 
-def get_sam_embedding(predictor: Any, img_path: str, image_id: str, device: str) -> torch.Tensor:
+def get_sam_embedding(predictor: Any, img_path: str, image_id: str, device: str) -> Any:
 	cache_dir = os.path.join(
 		os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
 		"cache",
@@ -84,7 +93,8 @@ def get_sam_embedding(predictor: Any, img_path: str, image_id: str, device: str)
 
 	import cv2
 	image = cv2.imread(img_path)
-	image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+	if image is not None:
+		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 	predictor.set_image(image)
 	embedding = predictor.get_image_embedding()
@@ -145,6 +155,7 @@ def run_sam_training(cfg: TrainingConfig) -> None:
 			work_dir.mkdir(parents=True, exist_ok=True)
 
 			device = "cuda" if torch.cuda.is_available() else "cpu"
+			sam_model: Any
 			sam_model, predictor = load_sam_model(device=device)
 
 			if ResizeLongestSide is None:

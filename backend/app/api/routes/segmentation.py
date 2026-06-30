@@ -4,7 +4,9 @@ import tempfile
 import cv2
 import httpx
 import numpy as np
+import numpy as np
 import torch
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -70,7 +72,7 @@ def start_segmentation_train(
 		run_id: int
 		status: str
 
-	res: TrainSubmitResponse = {"run_id": run.id, "status": "queued"}
+	res: dict[str, Any] = {"run_id": run.id, "status": "queued"}
 	return res
 
 
@@ -118,12 +120,15 @@ def predict_segmentation(
 
 	try:
 		# Load image
-		image = cv2.imread(img_path)
-		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+		image_bgr = cv2.imread(img_path)
+		if image_bgr is None:
+			raise HTTPException(status_code=400, detail="Downloaded file is not a valid image.")
+		image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 		H, W, _ = image.shape
 
 		# Load model
 		device = "cuda" if torch.cuda.is_available() else "cpu"
+		sam_model: Any
 		sam_model, predictor = load_sam_model(device=device)
 
 		from segment_anything.utils.transforms import ResizeLongestSide

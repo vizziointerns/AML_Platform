@@ -17,7 +17,9 @@ from app.models.training import TrainingRun
 from app.training.trainer import TrainingConfig
 from app.training.trainer_sam import run_sam_training
 
-def test_sam_training():
+from typing import Any
+from pathlib import Path
+def test_sam_training() -> None:
     # 1. Setup DB
     print("Setting up DB...")
     Base.metadata.create_all(bind=engine)
@@ -51,9 +53,10 @@ def test_sam_training():
         # Fallback raw list logic
         flat = mask_np.T.flatten()
         counts = []
-        last_val = 0
+        last_val = -1
         current_count = 0
-        for val in flat:
+        for val_np in flat:
+            val = int(val_np)
             if val == last_val:
                 current_count += 1
             else:
@@ -100,15 +103,15 @@ def test_sam_training():
 
     # Mock _download_image to just copy the dummy image
     import app.training.trainer_sam as t_sam
-    def mock_download(img_dict, dest, token):
+    def mock_download(img_dict: dict[str, Any], dest: Path, token: str | None) -> None:
         import shutil
         dest.mkdir(parents=True, exist_ok=True)
         shutil.copy2(img_path, dest / img_dict["file_name"])
     
-    t_sam._download_image = mock_download
+    setattr(t_sam, "_download_image", mock_download)
 
     # Mock load_sam_model to avoid downloading weights (403 Forbidden)
-    def mock_load_sam(device):
+    def mock_load_sam(device: str) -> tuple[Any, Any]:
         from segment_anything import sam_model_registry, SamPredictor
         sam = sam_model_registry["vit_b"](checkpoint=None)
         sam.to(device=device)
@@ -120,13 +123,13 @@ def test_sam_training():
             param.requires_grad = True
         return sam, SamPredictor(sam)
 
-    t_sam.load_sam_model = mock_load_sam
+    setattr(t_sam, "load_sam_model", mock_load_sam)
 
     # Gradient flow validation hook
     print("Setting up gradient validation...")
     original_step = torch.optim.AdamW.step
 
-    def hooked_step(self, *args, **kwargs):
+    def hooked_step(self: Any, *args: Any, **kwargs: Any) -> Any:
         print("Validating gradient flow...")
         decoder_has_grad = False
         for group in self.param_groups:
@@ -142,7 +145,7 @@ def test_sam_training():
             
         return original_step(self, *args, **kwargs)
 
-    torch.optim.AdamW.step = hooked_step
+    setattr(torch.optim.AdamW, "step", hooked_step)
 
     # 6. Run Training Simulation
     print("Running training simulation...")
@@ -150,12 +153,12 @@ def test_sam_training():
 
     # 7. Check metrics
     db = SessionLocal()
-    run = db.query(TrainingRun).filter(TrainingRun.id == 9999).first()
-    if run:
-        if run.error_message:
-            print(f"Run Error Message: {run.error_message}")
-        if run.metrics:
-            metrics = json.loads(run.metrics)
+    queried_run = db.query(TrainingRun).filter(TrainingRun.id == 9999).first()
+    if queried_run is not None:
+        if queried_run.error_message:
+            print(f"Run Error Message: {queried_run.error_message}")
+        if queried_run.metrics:
+            metrics = json.loads(queried_run.metrics)
             print("Metrics Output:", metrics)
             assert len(metrics) > 0, "No metrics were collected!"
             assert "metric_type" in metrics[0] and metrics[0]["metric_type"] == "iou"
