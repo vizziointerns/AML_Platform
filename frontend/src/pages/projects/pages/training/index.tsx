@@ -704,7 +704,7 @@ async function perform_delete(
 interface RenderTrainingProps {
 	project_id: string
 	task_type: TaskType | undefined
-	datasets: any[]
+	datasets: DatasetInfo[]
 	is_dark_mode: boolean
 	runs: TrainingRun[]
 	is_loading: boolean
