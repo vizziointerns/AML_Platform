@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Plus, Search, Filter, Star, Clock, Cpu } from 'lucide-react'
+import { Box, Plus, Search, Filter, Cpu } from 'lucide-react'
 
 interface ModelInfo {
 	id: string
