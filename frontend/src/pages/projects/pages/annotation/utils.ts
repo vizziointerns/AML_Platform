@@ -30,7 +30,11 @@ export function save_classes(classes: ClassInfo[]): void {
 	}
 }
 
-export function handle_mode_shortcut(key: string, set_active_tool: (t: Mode) => void): boolean {
+export function handle_mode_shortcut(
+	key: string,
+	set_active_tool: (t: Mode) => void,
+	e?: KeyboardEvent
+): boolean {
 	const modes: Record<string, Mode> = {
 		v: 'select',
 		h: 'pan',
@@ -39,6 +43,9 @@ export function handle_mode_shortcut(key: string, set_active_tool: (t: Mode) => 
 		w: 'brush',
 		e: 'eraser',
 		s: 'segment'
+	}
+	if (key === 's' && e && (e.ctrlKey || e.metaKey)) {
+		return false
 	}
 	if (modes[key]) {
 		set_active_tool(modes[key])

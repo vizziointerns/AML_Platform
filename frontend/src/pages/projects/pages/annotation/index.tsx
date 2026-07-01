@@ -544,7 +544,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 			void handle_save()
 			return
 		}
-		if (handle_mode_shortcut(key, set_active_tool)) return
+		if (handle_mode_shortcut(key, set_active_tool, e)) return
 		if (handle_brush_size_shortcut(key, set_brush_size)) return
 		if (handle_zoom_level_shortcut(key, set_zoom_level)) return
 		if (

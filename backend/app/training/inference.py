@@ -41,8 +41,8 @@ def _resolve_hostname(hostname: str) -> str:
         else:
             raise ValueError(f"Could not resolve hostname: {hostname}")
 
-    if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-        raise ValueError(f"Access to private/reserved host not allowed: {addr}")
+    if not addr.is_global or addr.is_multicast:
+        raise ValueError(f"Access to non-public host not allowed: {addr}")
     return str(addr)
 
 
@@ -67,8 +67,16 @@ def _make_pin_hook() -> Callable[[httpx.Request], None]:
         if not hostname:
             raise ValueError("URL missing hostname")
         resolved = _resolve_hostname(hostname)
-        request.url = request.url.copy_with(host=resolved)
-        request.headers["Host"] = hostname
+        host_header = hostname
+        if request.url.port is not None:
+            host_header = f"{hostname}:{request.url.port}"
+        request.headers["Host"] = host_header
+        # For HTTPS, keep the original hostname in the URL so TLS/SNI
+        # uses the real domain name and certificate verification works.
+        # For plain HTTP, rewriting the URL host to the resolved IP
+        # prevents the TCP connection from re-resolving DNS (anti-rebinding).
+        if scheme != "https":
+            request.url = request.url.copy_with(host=resolved)
     return pin_request
 
 
@@ -83,19 +91,22 @@ def run_inference(image_url: str, model_path: str | None = None) -> list[Inferre
             max_redirects=MAX_REDIRECTS,
             event_hooks={"request": [_make_pin_hook()]},
         ) as client:
-            with client.stream("GET", image_url) as response:
-                response.raise_for_status()
+            try:
+                with client.stream("GET", image_url) as response:
+                    response.raise_for_status()
 
-                content_type = response.headers.get("content-type", "")
-                if not content_type.startswith(ALLOWED_MIME_PREFIXES):
-                    raise ValueError(f"Invalid content type: {content_type}")
+                    content_type = response.headers.get("content-type", "")
+                    if not content_type.startswith(ALLOWED_MIME_PREFIXES):
+                        raise ValueError(f"Invalid content type: {content_type}")
 
-                total = 0
-                for chunk in response.iter_bytes(CHUNK_SIZE):
-                    total += len(chunk)
-                    if total > MAX_IMAGE_SIZE:
-                        raise ValueError(f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes")
-                    tmp.write(chunk)
+                    total = 0
+                    for chunk in response.iter_bytes(CHUNK_SIZE):
+                        total += len(chunk)
+                        if total > MAX_IMAGE_SIZE:
+                            raise ValueError(f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes")
+                        tmp.write(chunk)
+            except httpx.HTTPError as e:
+                raise ValueError(str(e)) from e
         tmp.close()
 
         from ultralytics import YOLO  # type: ignore[attr-defined]
