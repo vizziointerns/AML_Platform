@@ -475,7 +475,7 @@ export default function datasets_view({
 							navigate(`/projects/${project_id}/annotation/${first_image.id}`)
 						}
 					},
-					on_start_training: () => navigate(`/projects/${project_id}/training`),
+					on_start_training: () => navigate(`/projects/${project_id}/models`),
 					images,
 					on_delete_images: handle_delete_images,
 					is_deleting_images,

@@ -95,7 +95,7 @@ class TrainingConfig:
 		classes: list[dict[str, Any]],
 		epochs: int,
 		google_access_token: str | None = None,
-		model_type: str = "yolo11n",
+		task_type: str = "detect",
 	):
 		self.run_id = run_id
 		self.project_id = project_id
@@ -104,7 +104,7 @@ class TrainingConfig:
 		self.classes = classes
 		self.epochs = epochs
 		self.google_access_token = google_access_token
-		self.model_type = model_type
+		self.task_type = task_type
 
 	@classmethod
 	def from_api(
@@ -116,6 +116,7 @@ class TrainingConfig:
 		classes: list[dict[str, Any]],
 		epochs: int,
 		google_access_token: str | None = None,
+		task_type: str = "detect",
 	) -> "TrainingConfig":
 		return cls(
 			run_id=run_id,
@@ -125,6 +126,7 @@ class TrainingConfig:
 			classes=classes,
 			epochs=epochs,
 			google_access_token=google_access_token,
+			task_type=task_type,
 		)
 
 
@@ -164,7 +166,7 @@ def cancel_run(run_id: int) -> None:
 		event.set()
 
 
-def run_training(cfg: TrainingConfig) -> None:
+def run_yolo_training(cfg: TrainingConfig) -> None:
 	metrics_history: list[dict[str, Any]] = []
 	db: Session | None = None
 	try:
@@ -260,7 +262,7 @@ def run_training(cfg: TrainingConfig) -> None:
 			encoding="utf-8",
 		)
 
-		model = YOLO(f"{cfg.model_type}.pt")
+		model = YOLO("yolo11n.pt")
 
 		last_reported = -1
 
@@ -400,7 +402,19 @@ def run_training(cfg: TrainingConfig) -> None:
 				pass
 
 
+def run_sam_training(cfg: TrainingConfig) -> None:
+	_update_run(cfg.run_id, status="Failed", error_message="SAM training is not implemented in this version")
+
+TRAINING_DISPATCHER = {
+	"detect": run_yolo_training,
+	"segment": run_sam_training,
+}
+
 def start_training_background(cfg: TrainingConfig) -> None:
 	_cancelled_runs[cfg.run_id] = threading.Event()
-	thread = threading.Thread(target=run_training, args=(cfg,), daemon=True)
+	handler = TRAINING_DISPATCHER.get(cfg.task_type)
+	if not handler:
+		_update_run(cfg.run_id, status="Failed", error_message=f"Unknown task type: {cfg.task_type}")
+		return
+	thread = threading.Thread(target=handler, args=(cfg,), daemon=True)
 	thread.start()

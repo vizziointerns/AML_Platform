@@ -13,7 +13,7 @@ class TrainingRun(Base):
     project_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     dataset_id: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
-    model_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False)
     epochs: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="queued", nullable=False)
     accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)

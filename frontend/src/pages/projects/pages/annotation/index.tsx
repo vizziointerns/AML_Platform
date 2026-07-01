@@ -177,7 +177,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	}, [navigate, project_id])
 
 	const go_to_training = useCallback(() => {
-		navigate(`/projects/${project_id}/training`)
+		navigate(`/projects/${project_id}/models`)
 	}, [navigate, project_id])
 
 	const {

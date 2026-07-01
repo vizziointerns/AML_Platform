@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { TaskType } from '../constants/models'
 
 export type ProjectType =
 	| 'Object Detection'
@@ -24,6 +25,7 @@ export interface Project {
 	isPinned: boolean
 	isFavorite: boolean
 	thumbnail: string
+	task_type?: TaskType
 }
 
 interface ProjectState {

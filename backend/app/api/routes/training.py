@@ -43,7 +43,7 @@ def _row_to_out(row: TrainingRun) -> TrainingRunOut:
 		project_id=row.project_id,
 		dataset_id=row.dataset_id,
 		name=row.name,
-		model_type=row.model_type,
+		task_type=row.task_type,
 		epochs=row.epochs,
 		status=row.status,
 		accuracy=row.accuracy,
@@ -96,7 +96,7 @@ def create_training_run(
 		project_id=project_id,
 		dataset_id=body.dataset_id,
 		name=body.name,
-		model_type=body.model_type,
+		task_type=body.task_type,
 		epochs=body.epochs,
 		status="queued",
 	)

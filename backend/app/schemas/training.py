@@ -5,7 +5,7 @@ from typing import Literal
 class TrainingRunCreate(BaseModel):
     dataset_id: str
     name: str
-    model_type: str
+    task_type: Literal["detect", "segment"]
     epochs: int = Field(gt=0)
 
 
@@ -23,7 +23,7 @@ class TrainingRunOut(BaseModel):
     project_id: str
     dataset_id: str
     name: str
-    model_type: str
+    task_type: Literal["detect", "segment"]
     epochs: int
     status: str
     accuracy: float | None = None

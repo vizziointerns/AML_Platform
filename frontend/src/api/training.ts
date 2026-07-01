@@ -1,11 +1,12 @@
 import { api_client } from './client'
+import type { TaskType } from '../constants/models'
 
 export interface TrainingRun {
 	id: number
 	project_id: string
 	dataset_id: string
 	name: string
-	model_type: string
+	task_type: TaskType
 	epochs: number
 	status: 'Running' | 'Completed' | 'Failed' | 'Queued'
 	accuracy: number | undefined
@@ -24,7 +25,7 @@ interface TrainingRunRaw {
 	project_id: string
 	dataset_id: string
 	name: string
-	model_type: string
+	task_type: TaskType
 	epochs: number
 	status: string
 	accuracy: number | null
@@ -44,7 +45,7 @@ function to_run(raw: TrainingRunRaw): TrainingRun {
 		project_id: raw.project_id,
 		dataset_id: raw.dataset_id,
 		name: raw.name,
-		model_type: raw.model_type,
+		task_type: raw.task_type,
 		epochs: raw.epochs,
 		status: raw.status as TrainingRun['status'],
 		accuracy: raw.accuracy ?? undefined,
@@ -66,7 +67,7 @@ interface TrainingRunListResponse {
 interface CreateTrainingPayload {
 	dataset_id: string
 	name: string
-	model_type: string
+	task_type: TaskType
 	epochs: number
 }
 
