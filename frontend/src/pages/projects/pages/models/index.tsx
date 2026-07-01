@@ -34,9 +34,10 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 
-	const filtered = SUPPORTED_MODELS.filter((m) =>
-		m.name.toLowerCase().includes(search_query.toLowerCase()) || 
-		m.task_type.toLowerCase().includes(search_query.toLowerCase())
+	const filtered = SUPPORTED_MODELS.filter(
+		(m) =>
+			m.name.toLowerCase().includes(search_query.toLowerCase()) ||
+			m.task_type.toLowerCase().includes(search_query.toLowerCase())
 	)
 
 	const status_color = (status: string) => {
@@ -111,7 +112,9 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 									</h3>
 								</div>
 								<div className={`flex flex-wrap gap-4 text-xs ${text_muted} mb-3`}>
-									<span className={`flex items-center gap-1.5 font-medium ${is_dark_mode ? 'text-blue-400' : 'text-blue-600'}`}>
+									<span
+										className={`flex items-center gap-1.5 font-medium ${is_dark_mode ? 'text-blue-400' : 'text-blue-600'}`}
+									>
 										<Cpu size={14} /> {model.task_type}
 									</span>
 								</div>
