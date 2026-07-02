@@ -59,7 +59,13 @@ function new_training_dialog({
 	on_close,
 	on_create,
 	is_creating,
-	task_type
+	task_type,
+	new_run_dataset_id,
+	set_new_run_dataset_id,
+	new_run_name,
+	set_new_run_name,
+	new_run_epochs,
+	set_new_run_epochs
 }: {
 	is_dark_mode: boolean
 	datasets: DatasetInfo[]
@@ -73,14 +79,23 @@ function new_training_dialog({
 	}) => void
 	is_creating: boolean
 	task_type: TaskType
+	new_run_dataset_id: string
+	set_new_run_dataset_id: (id: string) => void
+	new_run_name: string
+	set_new_run_name: (name: string) => void
+	new_run_epochs: number
+	set_new_run_epochs: (epochs: number) => void
 }) {
-	const model_display_name = get_model_for_task(task_type).name
+	let model_display_name = 'Unknown Model'
+	try {
+		if (task_type) {
+			model_display_name = get_model_for_task(task_type).name
+		}
+	} catch {
+		console.warn('Invalid task type found:', task_type)
+	}
 
-	const [dataset_id, set_dataset_id] = useState(datasets[0]?.id ?? '')
-	const [name, set_name] = useState('')
-	const [epochs, set_epochs] = useState(50)
-
-	const effective_dataset_id = dataset_id || (datasets.length > 0 ? (datasets[0]?.id ?? '') : '')
+	const effective_dataset_id = new_run_dataset_id || (datasets.length > 0 ? (datasets[0]?.id ?? '') : '')
 
 	if (!open) return undefined
 
@@ -91,12 +106,12 @@ function new_training_dialog({
 	const input_bg = DIALOG_BG.input(d)
 
 	const handle_create = () => {
-		if (!effective_dataset_id || !name.trim()) return
+		if (!effective_dataset_id || !new_run_name.trim()) return
 		on_create({
 			dataset_id: effective_dataset_id,
-			name: name.trim(),
+			name: new_run_name.trim(),
 			task_type: task_type,
-			epochs
+			epochs: new_run_epochs
 		})
 	}
 
@@ -120,8 +135,8 @@ function new_training_dialog({
 						<label className={`block text-sm font-medium mb-1.5 ${text_heading}`}>Name</label>
 						<input
 							type="text"
-							value={name}
-							onChange={(e) => set_name(e.target.value)}
+							value={new_run_name}
+							onChange={(e) => set_new_run_name(e.target.value)}
 							placeholder="e.g. Object Detection (YOLO) v1"
 							className={`w-full px-3 py-2 rounded-md border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${input_bg}`}
 						/>
@@ -130,7 +145,7 @@ function new_training_dialog({
 						<label className={`block text-sm font-medium mb-1.5 ${text_heading}`}>Dataset</label>
 						<select
 							value={effective_dataset_id}
-							onChange={(e) => set_dataset_id(e.target.value)}
+							onChange={(e) => set_new_run_dataset_id(e.target.value)}
 							className={`w-full px-3 py-2 rounded-md border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${input_bg}`}
 						>
 							{datasets.length === 0 ? (
@@ -156,8 +171,8 @@ function new_training_dialog({
 							type="number"
 							min={1}
 							max={1000}
-							value={epochs}
-							onChange={(e) => set_epochs(Math.max(1, parseInt(e.target.value) || 1))}
+							value={new_run_epochs}
+							onChange={(e) => set_new_run_epochs(Math.max(1, parseInt(e.target.value) || 1))}
 							className={`w-full px-3 py-2 rounded-md border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${input_bg}`}
 						/>
 					</div>
@@ -171,7 +186,7 @@ function new_training_dialog({
 					</button>
 					<button
 						onClick={handle_create}
-						disabled={is_creating || !effective_dataset_id || !name.trim()}
+						disabled={is_creating || !effective_dataset_id || !new_run_name.trim()}
 						className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{is_creating ? 'Creating...' : 'Start Training'}
@@ -714,6 +729,12 @@ interface RenderTrainingProps {
 	is_creating: boolean
 	is_fetching_project: boolean
 	deleting_id: number | undefined
+	new_run_dataset_id: string
+	set_new_run_dataset_id: (id: string) => void
+	new_run_name: string
+	set_new_run_name: (name: string) => void
+	new_run_epochs: number
+	set_new_run_epochs: (epochs: number) => void
 	stats: { active_jobs: number; avg_accuracy: string; avg_loss: string; total_hours: string }
 	set_is_new_dialog_open: (val: boolean) => void
 	handle_export: () => void
@@ -865,7 +886,13 @@ function render_training_page(props: RenderTrainingProps) {
 					on_close: () => props.set_is_new_dialog_open(false),
 					on_create: props.handle_create,
 					is_creating: props.is_creating,
-					task_type: props.task_type
+					task_type: props.task_type,
+					new_run_dataset_id: props.new_run_dataset_id,
+					set_new_run_dataset_id: props.set_new_run_dataset_id,
+					new_run_name: props.new_run_name,
+					set_new_run_name: props.set_new_run_name,
+					new_run_epochs: props.new_run_epochs,
+					set_new_run_epochs: props.set_new_run_epochs
 				})}
 		</div>
 	)
@@ -887,6 +914,10 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 	const [is_new_dialog_open, set_is_new_dialog_open] = useState(false)
 	const [is_creating, set_is_creating] = useState(false)
 	const [deleting_id, set_deleting_id] = useState<number | undefined>(undefined)
+
+	const [new_run_dataset_id, set_new_run_dataset_id] = useState('')
+	const [new_run_name, set_new_run_name] = useState('')
+	const [new_run_epochs, set_new_run_epochs] = useState(50)
 
 	useEffect(() => {
 		if (!project_id) {
@@ -990,6 +1021,12 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 		is_creating,
 		is_fetching_project,
 		deleting_id,
+		new_run_dataset_id,
+		set_new_run_dataset_id,
+		new_run_name,
+		set_new_run_name,
+		new_run_epochs,
+		set_new_run_epochs,
 		stats,
 		set_is_new_dialog_open,
 		handle_export,

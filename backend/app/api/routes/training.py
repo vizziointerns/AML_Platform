@@ -38,6 +38,11 @@ def _row_to_out(row: TrainingRun) -> TrainingRunOut:
 		metrics_val = row.metrics
 	except Exception:
 		metrics_val = None
+
+	if row.task_type not in ("detect", "segment"):
+		from fastapi import HTTPException
+		raise HTTPException(status_code=400, detail=f"Invalid task_type in DB: {row.task_type}")
+
 	return TrainingRunOut(
 		id=row.id,
 		project_id=row.project_id,
