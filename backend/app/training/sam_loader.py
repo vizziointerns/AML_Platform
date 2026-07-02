@@ -1,20 +1,14 @@
-import hashlib
 import os
-import tempfile
-import urllib.request
 import torch
+from huggingface_hub import hf_hub_download
 from segment_anything import sam_model_registry, SamPredictor
-
-EXPECTED_CHECKPOINT_SHA256 = (
-    "01ec2a8be9170e5b1c697d5eae5dcc37f4c725b26c0f6c4c75f0f2e15e7f0a1c"
-)
 
 
 def load_sam_model(
     device: str = "cpu", checkpoint_path: str | None = None
 ) -> tuple[torch.nn.Module, SamPredictor]:
     if checkpoint_path is None:
-        checkpoint_name = "sam_vit_b_01ec2a.pth"
+        checkpoint_name = "sam_vit_b_01ec64.pth"
         models_dir = os.path.join(
             os.path.dirname(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,25 +20,12 @@ def load_sam_model(
         if not os.path.exists(checkpoint_path):
             os.makedirs(models_dir, exist_ok=True)
             print(f"Downloading SAM ViT-B checkpoint to {checkpoint_path}...")
-            url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec2a.pth"
-            tmp_fd, tmp_path = tempfile.mkstemp(dir=models_dir, suffix=".tmp")
-            os.close(tmp_fd)
-            try:
-                urllib.request.urlretrieve(url, tmp_path)
-                sha256 = hashlib.sha256()
-                with open(tmp_path, "rb") as f:
-                    for chunk in iter(lambda: f.read(65536), b""):
-                        sha256.update(chunk)
-                if sha256.hexdigest() != EXPECTED_CHECKPOINT_SHA256:
-                    raise RuntimeError(
-                        f"SHA256 mismatch for {checkpoint_name}: "
-                        f"got {sha256.hexdigest()}, expected {EXPECTED_CHECKPOINT_SHA256}"
-                    )
-                os.replace(tmp_path, checkpoint_path)
-            except Exception:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-                raise
+            cached_path = hf_hub_download(
+                repo_id="ybelkada/segment-anything",
+                filename=f"checkpoints/{checkpoint_name}",
+            )
+            import shutil
+            shutil.copy2(cached_path, checkpoint_path)
             print("Download complete.")
 
     sam = sam_model_registry["vit_b"](checkpoint=checkpoint_path)
