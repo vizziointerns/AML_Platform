@@ -9,13 +9,31 @@ import { update_project } from '../../../../api/projects'
 export default function models_page({ is_dark_mode }: { is_dark_mode: boolean }) {
 	const [search_query, set_search_query] = useState('')
 	const navigate = useNavigate()
-	const { project_id } = useParams<{ project_id: string }>()
+	const { projectId: project_id } = useParams<{ projectId: string }>()
 	const { updateProject: update_project_store } = use_project_store()
 
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
+
+	const handle_select_model = async (model: typeof SUPPORTED_MODELS[0]) => {
+		console.info('click triggered', model)
+		if (!project_id) return
+		
+		try {
+			console.info('before Supabase call')
+			await update_project(project_id, { task_type: model.task_type })
+			console.info('after Supabase success')
+			
+			update_project_store(project_id, { task_type: model.task_type })
+			console.info('before navigation')
+			
+			navigate(`/projects/${project_id}/training`)
+		} catch (err) {
+			console.error('Failed to update task type', err)
+		}
+	}
 
 	const filtered = SUPPORTED_MODELS.filter(
 		(m) =>
@@ -106,16 +124,9 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 								</p>
 								<div className="flex items-center justify-end pt-3 border-t border-zinc-800/20">
 									<button
-										onClick={async () => {
-											if (project_id) {
-												try {
-													await update_project(project_id, { task_type: model.task_type })
-													update_project_store(project_id, { task_type: model.task_type })
-													navigate(`/projects/${project_id}/training`)
-												} catch (err) {
-													console.error('Failed to update task type', err)
-												}
-											}
+										onClick={(e) => {
+											e.preventDefault()
+											handle_select_model(model)
 										}}
 										className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
 									>
