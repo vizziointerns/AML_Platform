@@ -11,14 +11,20 @@ from app.core.config import settings
 
 def _create_engine() -> Engine:
     url = settings.database_url
-    connect_args: dict[str, object] | None = None
+    kwargs: dict[str, object] = {"pool_pre_ping": True}
     if url.startswith("sqlite:"):
-        connect_args = {"check_same_thread": False}
-    return create_engine(url, pool_pre_ping=True, connect_args=connect_args or {})
+        kwargs["connect_args"] = {"check_same_thread": False}
+    else:
+        kwargs["pool_size"] = 20
+        kwargs["max_overflow"] = 10
+        kwargs["pool_recycle"] = 3600
+    return create_engine(url, **kwargs)
 
 
 engine = _create_engine()
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
+SessionLocal = sessionmaker(
+    bind=engine, autoflush=False, autocommit=False, class_=Session
+)
 
 
 def get_db() -> Generator[Session, None, None]:
