@@ -13,6 +13,7 @@ export interface AnnotationImageInfo {
 
 export interface UseAnnotationImageResult {
 	images: AnnotationImageInfo[]
+	stable_images: AnnotationImageInfo[]
 	current_index: number
 	current_image: AnnotationImageInfo | undefined
 	is_loading: boolean
@@ -36,6 +37,14 @@ export function use_annotation_image(
 	const [is_loading_images, set_is_loading_images] = useState(true)
 	const [error, set_error] = useState<string | undefined>(undefined)
 	const blob_urls_ref = useRef<string[]>([])
+	const stable_images_ref = useRef<AnnotationImageInfo[]>([])
+
+	useEffect(() => {
+		return () => {
+			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+			blob_urls_ref.current = []
+		}
+	}, [])
 
 	const dataset_id = datasets[0]?.id
 
@@ -46,9 +55,6 @@ export function use_annotation_image(
 			set_is_loading_images(false)
 			return
 		}
-
-		for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-		blob_urls_ref.current = []
 
 		let is_cancelled = false
 		set_is_loading_images(true)
@@ -76,15 +82,23 @@ export function use_annotation_image(
 
 			if (is_cancelled) return
 
-			blob_urls_ref.current = await resolve_image_urls(parsed, google_auth.access_token)
+			const new_blob_urls = await resolve_image_urls(parsed, google_auth.access_token)
+
+			if (is_cancelled) {
+				for (const url of new_blob_urls) URL.revokeObjectURL(url)
+				return
+			}
+
+			stable_images_ref.current = parsed.map((img) => ({ ...img }))
+			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
+			blob_urls_ref.current = new_blob_urls
+
 			set_images(parsed)
 			set_is_loading_images(false)
 		})()
 
 		return () => {
 			is_cancelled = true
-			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-			blob_urls_ref.current = []
 		}
 	}, [dataset_id, google_auth.access_token])
 
@@ -120,6 +134,7 @@ export function use_annotation_image(
 
 	return {
 		images,
+		stable_images: stable_images_ref.current,
 		current_index,
 		current_image,
 		is_loading: is_loading_datasets || is_loading_images,
