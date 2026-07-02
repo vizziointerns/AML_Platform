@@ -1,88 +1,14 @@
-import json
-import os
-import random
-import shutil
-import tempfile
+import queue
 import threading
-import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
-import httpx
-from sqlalchemy import inspect, Table, text
-from sqlalchemy.orm import Session
-
-from app.db.base import Base
 from app.db.session import SessionLocal
-from app.models.annotation import Annotation
 from app.models.training import TrainingRun
 
 MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
 
 _cancelled_runs: dict[int, threading.Event] = {}
-
-
-def _validate_image_url(url: str) -> None:
-	parsed = urlparse(url)
-	host = parsed.hostname or ""
-	if host in ("169.254.169.254", "127.0.0.1", "localhost", "0.0.0.0"):
-		raise ValueError(f"URL host not allowed: {host}")
-
-
-def _extract_drive_file_id(url: str) -> str | None:
-	from urllib.parse import parse_qs, urlparse
-
-	parsed = urlparse(url)
-	qs = parse_qs(parsed.query)
-	ids = qs.get("id")
-	if ids:
-		return ids[0]
-	return None
-
-
-def _sanitize_filename(name: str) -> str:
-	"""Strip path separators so the result is a safe basename."""
-	return Path(name).name
-
-
-def _download_image(
-	img: dict[str, Any],
-	dest: Path,
-	google_access_token: str | None,
-) -> None:
-	file_url = img["file_url"]
-	safe_name = _sanitize_filename(img["file_name"])
-	dest_path = (dest / safe_name).resolve()
-
-	if not str(dest_path).startswith(str(dest.resolve())):
-		raise ValueError(f"Resolved path {dest_path} is outside destination {dest}")
-
-	_validate_image_url(file_url)
-
-	file_id = _extract_drive_file_id(file_url) if "drive.google.com" in file_url else None
-
-	if file_id and google_access_token:
-		drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
-		response = httpx.get(
-			drive_url,
-			timeout=60,
-			headers={
-				"Authorization": f"Bearer {google_access_token}",
-				"User-Agent": "Mozilla/5.0",
-			},
-		)
-		response.raise_for_status()
-		dest_path.write_bytes(response.content)
-	else:
-		response = httpx.get(
-			file_url,
-			timeout=60,
-			follow_redirects=True,
-			headers={"User-Agent": "Mozilla/5.0"},
-		)
-		response.raise_for_status()
-		dest_path.write_bytes(response.content)
 
 
 class TrainingConfig:
@@ -131,39 +57,23 @@ class TrainingConfig:
 
 
 def _update_run(run_id: int, **kwargs: Any) -> None:
-	db = SessionLocal()
-	try:
-		run = db.query(TrainingRun).filter(TrainingRun.id == run_id).first()
-		if run:
-			for key, value in kwargs.items():
-				setattr(run, key, value)
-			db.commit()
-	except Exception:
-		pass
-	finally:
-		db.close()
-
-
-def _ensure_tables(db: Session) -> None:
-	for table_cls in [Annotation, TrainingRun]:
-		if not inspect(db.get_bind()).has_table(table_cls.__tablename__):
-			table = table_cls.__table__
-			assert isinstance(table, Table)
-			Base.metadata.create_all(bind=db.get_bind(), tables=[table])
-
-
-def _ensure_metrics_column(db: Session) -> None:
-	try:
-		db.execute(text("ALTER TABLE training_runs ADD COLUMN metrics TEXT DEFAULT '[]'"))
-		db.commit()
-	except Exception:
-		pass
+    db = SessionLocal()
+    try:
+        run = db.query(TrainingRun).filter(TrainingRun.id == run_id).first()
+        if run:
+            for key, value in kwargs.items():
+                setattr(run, key, value)
+            db.commit()
+    except Exception:
+        pass
+    finally:
+        db.close()
 
 
 def cancel_run(run_id: int) -> None:
-	event = _cancelled_runs.get(run_id)
-	if event:
-		event.set()
+    event = _cancelled_runs.get(run_id)
+    if event:
+        event.set()
 
 
 def run_yolo_training(cfg: TrainingConfig) -> None:

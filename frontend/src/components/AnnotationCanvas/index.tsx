@@ -34,7 +34,8 @@ export default function annotation_canvas({
 	zoomLevel: zoom_level,
 	offset,
 	brushSize: brush_size = 20,
-	brushOpacity: brush_opacity = 100
+	brushOpacity: brush_opacity = 100,
+	onSegmentClick: on_segment_click
 }: AnnotationCanvasProps) {
 	const [image] = useImage(image_url, 'anonymous')
 
@@ -166,7 +167,8 @@ export default function annotation_canvas({
 				set_drawing_start,
 				set_drawing_rect,
 				set_drawing_mask_lines,
-				brush_size
+				brush_size,
+				on_segment_click
 			)
 		},
 		[
@@ -176,7 +178,8 @@ export default function annotation_canvas({
 			drawing_polygon,
 			zoom_level,
 			image,
-			brush_size
+			brush_size,
+			on_segment_click
 		]
 	)
 

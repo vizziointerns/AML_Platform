@@ -7,6 +7,7 @@ import {
 	Hexagon,
 	Pencil,
 	Eraser,
+	WandSparkles,
 	Loader2,
 	ImageIcon
 } from 'lucide-react'
@@ -35,10 +36,15 @@ import {
 	render_image_properties_panel,
 	render_layers_panel,
 	render_top_toolbar,
-	render_left_panel
+	render_left_panel,
+	render_model_selection_dialog,
+	type ModelOption
 } from './render'
 import { fetch_annotations, save_annotations } from '../../../../api/annotations'
 import { fetch_classes, save_classes_to_backend } from '../../../../api/classes'
+import { fetch_training_runs } from '../../../../api/training'
+import { run_inference } from '../../../../api/inference'
+import { run_segmentation, run_auto_segmentation } from '../../../../api/segment'
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
 
 interface AnnotationStudioProps {
@@ -47,13 +53,111 @@ interface AnnotationStudioProps {
 	projectId?: string
 }
 
+function handle_segment_click(
+	image_url: string,
+	pos: { x: number; y: number },
+	image: HTMLImageElement,
+	selected_prediction_id: string | undefined,
+	predictions: Prediction[],
+	active_class: string,
+	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	set_selected_ann_id: (id: string | undefined) => void,
+	set_active_tool: (mode: Mode) => void,
+	set_is_running_segmentation: (v: boolean) => void,
+	is_current_image: () => boolean
+) {
+	set_is_running_segmentation(true)
+
+	const img_w = image.naturalWidth
+	const img_h = image.naturalHeight
+	const selected_pred = predictions.find((p) => p.id === selected_prediction_id)
+	const assigned_class = selected_pred ? selected_pred.classId : active_class
+
+	const prompt_type = selected_pred ? 'box' : 'point'
+	const prompt_data: number[] = selected_pred
+		? [
+				(selected_pred.x / 100) * img_w,
+				(selected_pred.y / 100) * img_h,
+				((selected_pred.x + selected_pred.w) / 100) * img_w,
+				((selected_pred.y + selected_pred.h) / 100) * img_h
+			]
+		: [pos.x, pos.y]
+
+	run_segmentation(image_url, prompt_type, prompt_data)
+		.then((polygons) => {
+			if (!is_current_image()) return
+			const new_annotations: Annotation[] = polygons.map((poly) => {
+				const xs = poly.points.map((p) => p.x)
+				const ys = poly.points.map((p) => p.y)
+				return {
+					id: 'seg_' + Math.random().toString(36).substr(2, 9),
+					type: 'polygon' as const,
+					classId: assigned_class,
+					x: Math.round(Math.min(...xs) * 100) / 100,
+					y: Math.round(Math.min(...ys) * 100) / 100,
+					w: Math.round((Math.max(...xs) - Math.min(...xs)) * 100) / 100,
+					h: Math.round((Math.max(...ys) - Math.min(...ys)) * 100) / 100,
+					points: poly.points
+				}
+			})
+			if (new_annotations.length > 0) {
+				const first = new_annotations[0]!
+				set_annotations((prev) => [...prev, ...new_annotations])
+				set_selected_ann_id(first.id)
+				set_active_tool('select')
+			}
+		})
+		.catch((err) => console.error('Segmentation failed:', err))
+		.finally(() => set_is_running_segmentation(false))
+}
+
+function handle_sam_auto_segment(
+	image_url: string,
+	active_class: string,
+	set_is_running_segmentation: (v: boolean) => void,
+	set_is_model_selector_open: (v: boolean) => void,
+	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	set_selected_ann_id: (id: string | undefined) => void,
+	set_active_tool: (mode: Mode) => void,
+	is_current_image: () => boolean
+) {
+	set_is_running_segmentation(true)
+	set_is_model_selector_open(false)
+	run_auto_segmentation(image_url, active_class)
+		.then((polygons) => {
+			if (!is_current_image()) return
+			const new_annotations: Annotation[] = polygons.map((poly) => {
+				const xs = poly.points.map((p) => p.x)
+				const ys = poly.points.map((p) => p.y)
+				return {
+					id: 'seg_' + Math.random().toString(36).substr(2, 9),
+					type: 'polygon' as const,
+					classId: active_class,
+					x: Math.round(Math.min(...xs) * 100) / 100,
+					y: Math.round(Math.min(...ys) * 100) / 100,
+					w: Math.round((Math.max(...xs) - Math.min(...xs)) * 100) / 100,
+					h: Math.round((Math.max(...ys) - Math.min(...ys)) * 100) / 100,
+					points: poly.points
+				}
+			})
+			if (new_annotations.length > 0) {
+				set_annotations((prev) => [...prev, ...new_annotations])
+				set_selected_ann_id(new_annotations[0]!.id)
+				set_active_tool('select')
+			}
+		})
+		.catch((err) => console.error('Auto segmentation failed:', err))
+		.finally(() => set_is_running_segmentation(false))
+}
+
 const tools = [
 	{ id: 'select' as Mode, icon: MousePointer2, label: 'Select (V)' },
 	{ id: 'pan' as Mode, icon: Hand, label: 'Pan (H)' },
 	{ id: 'bbox' as Mode, icon: Square, label: 'Bounding Box (B)' },
 	{ id: 'polygon' as Mode, icon: Hexagon, label: 'Polygon (P)' },
 	{ id: 'brush' as Mode, icon: Pencil, label: 'Brush (W)' },
-	{ id: 'eraser' as Mode, icon: Eraser, label: 'Eraser (E)' }
+	{ id: 'eraser' as Mode, icon: Eraser, label: 'Eraser (E)' },
+	{ id: 'segment' as Mode, icon: WandSparkles, label: 'Auto Segment (S)' }
 ]
 
 function render_canvas_content(
@@ -80,14 +184,9 @@ function render_canvas_content(
 	offset: { x: number; y: number },
 	brush_size: number,
 	brush_opacity: number,
-	all_images: Array<{ id: string; file_url: string; file_name: string }>,
-	project_id: string | undefined,
-	current_index: number,
 	text_muted: string,
 	text_heading: string,
-	border_subtle: string,
-	bg_panel: string,
-	navigate: ReturnType<typeof useNavigate>
+	on_segment_click?: (pos: { x: number; y: number }, image: HTMLImageElement) => void
 ) {
 	if (is_loading_image) {
 		return (
@@ -140,28 +239,8 @@ function render_canvas_content(
 					offset={offset}
 					brushSize={brush_size}
 					brushOpacity={brush_opacity}
+					onSegmentClick={on_segment_click}
 				/>
-			)}
-			{all_images.length > 1 && (
-				<div
-					className={`h-16 border-t ${border_subtle} ${bg_panel} flex items-center gap-2 px-4 overflow-x-auto shrink-0 w-full`}
-				>
-					{all_images.map((img, idx) => (
-						<button
-							key={img.id}
-							onClick={() =>
-								navigate(`/projects/${project_id}/annotation/${img.id}`, { replace: true })
-							}
-							className={`shrink-0 w-14 h-12 rounded-md border-2 overflow-hidden transition-all ${
-								idx === current_index
-									? 'border-blue-500 ring-1 ring-blue-500/30'
-									: `${border_subtle} hover:border-blue-400/50`
-							}`}
-						>
-							<img src={img.file_url} alt={img.file_name} className="w-full h-full object-cover" />
-						</button>
-					))}
-				</div>
 			)}
 		</>
 	)
@@ -186,6 +265,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		is_empty,
 		error: image_error,
 		images: all_images,
+		stable_images,
 		current_index,
 		dataset_id,
 		go_next,
@@ -195,6 +275,8 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	} = use_annotation_image(project_id, imageId)
 
 	const image_url = current_image?.file_url
+	const image_url_ref = useRef(image_url)
+	image_url_ref.current = image_url
 	const is_loading_image = is_loading_images
 
 	const [is_saving, set_is_saving] = useState(false)
@@ -286,32 +368,53 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		}
 	}, [classes, dataset_id])
 
+	useEffect(() => {
+		if (!project_id) return
+		set_custom_models([])
+		let is_cancelled = false
+		fetch_training_runs(project_id)
+			.then((runs) => {
+				if (is_cancelled) return
+				set_custom_models(
+					runs
+						.filter((r) => r.status === 'Completed')
+						.map((r) => ({
+							id: r.id,
+							name: r.name,
+							model_type: r.model_type,
+							accuracy: r.accuracy
+						}))
+				)
+			})
+			.catch(() => {
+				if (!is_cancelled) set_custom_models([])
+			})
+		return () => {
+			is_cancelled = true
+		}
+	}, [project_id])
+
 	const [history, set_history] = useState<Annotation[][]>([[]])
 	const [history_step, set_history_step] = useState(0)
 	const annotations = history[history_step] ?? []
-
-	const handle_save = useCallback(async () => {
-		if (!imageId || is_saving) return
-		set_is_saving(true)
-		set_save_message(undefined)
-		try {
-			await save_annotations(imageId, annotations)
-			set_save_message('Saved')
-			setTimeout(() => set_save_message(undefined), 2000)
-		} catch (err) {
-			console.error('Failed to save annotations:', err)
-			set_save_message('Save failed')
-			setTimeout(() => set_save_message(undefined), 3000)
-		} finally {
-			set_is_saving(false)
-		}
-	}, [imageId, annotations, is_saving])
 
 	const [predictions, set_predictions] = useState<Prediction[]>([])
 	const [is_showing_predictions, set_is_showing_predictions] = useState(false)
 	const [selected_prediction_id, set_selected_prediction_id] = useState<string | undefined>(
 		undefined
 	)
+	const [is_model_selector_open, set_is_model_selector_open] = useState(false)
+	const [custom_models, set_custom_models] = useState<ModelOption[]>([])
+	const [selected_model_id, set_selected_model_id] = useState<number | undefined>(undefined)
+	const [is_running_inference, set_is_running_inference] = useState(false)
+	const [is_running_segmentation, set_is_running_segmentation] = useState(false)
+	const is_processing = is_running_inference || is_running_segmentation
+
+	useEffect(() => {
+		set_predictions([])
+		set_is_showing_predictions(false)
+		set_selected_prediction_id(undefined)
+	}, [imageId])
 
 	const set_annotations = useCallback(
 		(new_annotations_or_updater: Annotation[] | ((prev: Annotation[]) => Annotation[])) => {
@@ -333,6 +436,36 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		},
 		[history_step]
 	)
+
+	const handle_save = useCallback(async () => {
+		if (!imageId || is_saving) return
+		set_is_saving(true)
+		set_save_message(undefined)
+		try {
+			const preds_as_annotations = predictions as Annotation[]
+			const all_annotations = [...annotations, ...preds_as_annotations]
+			await save_annotations(imageId, all_annotations)
+			if (preds_as_annotations.length > 0) {
+				set_history((prev) => {
+					const updated = [...(prev[history_step] ?? []), ...preds_as_annotations]
+					const copy = [...prev]
+					copy[history_step] = updated
+					return copy
+				})
+				set_predictions([])
+				set_is_showing_predictions(false)
+				set_selected_prediction_id(undefined)
+			}
+			set_save_message('Saved')
+			setTimeout(() => set_save_message(undefined), 2000)
+		} catch (err) {
+			console.error('Failed to save annotations:', err)
+			set_save_message('Save failed')
+			setTimeout(() => set_save_message(undefined), 3000)
+		} finally {
+			set_is_saving(false)
+		}
+	}, [imageId, annotations, predictions, is_saving, history_step])
 
 	const undo = useCallback(() => {
 		set_history_step((prev) => Math.max(0, prev - 1))
@@ -362,11 +495,9 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 
 	const handle_delete_class = useCallback(
 		(id: string) => {
-			const { updated_classes, affected_annotation_ids } = class_delete(id, classes, annotations)
+			const { updated_classes } = class_delete(id, classes, annotations)
 			set_classes(updated_classes)
-			if (affected_annotation_ids.length > 0) {
-				set_annotations((prev) => prev.map((a) => (a.classId === id ? { ...a, classId: '' } : a)))
-			}
+			set_annotations((prev) => prev.map((a) => (a.classId === id ? { ...a, classId: '' } : a)))
 			if (active_class === id) {
 				const remaining = updated_classes
 				set_active_class(remaining.length > 0 ? remaining[0]!.id : '')
@@ -408,7 +539,12 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	function on_key_down(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 		const key = e.key.toLowerCase()
-		if (handle_mode_shortcut(key, set_active_tool)) return
+		if ((e.ctrlKey || e.metaKey) && key === 's') {
+			e.preventDefault()
+			void handle_save()
+			return
+		}
+		if (handle_mode_shortcut(key, set_active_tool, e)) return
 		if (handle_brush_size_shortcut(key, set_brush_size)) return
 		if (handle_zoom_level_shortcut(key, set_zoom_level)) return
 		if (
@@ -424,11 +560,6 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		)
 			return
 		if (handle_class_shortcut(key, classes, set_active_class)) return
-		if ((e.ctrlKey || e.metaKey) && key === 's') {
-			e.preventDefault()
-			void handle_save()
-			return
-		}
 		handle_undo_redo_shortcut(key, e, undo, redo)
 	}
 
@@ -454,22 +585,101 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	}
 
 	const show_prediction_btn = () => {
-		if (classes.length === 0) return
-		set_predictions((prev) => [
-			...prev,
-			{
-				id: 'p_' + Math.random().toString(36).substr(2, 9),
-				type: 'bbox',
-				classId: (classes[Math.floor(Math.random() * classes.length)] ?? classes[0]!).id,
-				x: 10 + Math.random() * 50,
-				y: 10 + Math.random() * 50,
-				w: 10 + Math.random() * 20,
-				h: 10 + Math.random() * 20,
-				confidence: 0.7 + Math.random() * 0.25
-			}
-		])
-		set_is_showing_predictions(true)
+		set_selected_model_id(undefined)
+		set_is_model_selector_open(true)
 	}
+
+	const handle_run_inference = useCallback(
+		async (model_id?: number) => {
+			if (!image_url) return
+			const captured_image_url = image_url
+
+			if (model_id === -1) {
+				handle_sam_auto_segment(
+					captured_image_url,
+					active_class,
+					set_is_running_segmentation,
+					set_is_model_selector_open,
+					set_annotations,
+					set_selected_ann_id,
+					set_active_tool,
+					() => captured_image_url === image_url_ref.current
+				)
+				return
+			}
+
+			set_is_running_inference(true)
+			set_is_model_selector_open(false)
+			try {
+				const results = await run_inference(captured_image_url, model_id)
+				if (captured_image_url !== image_url_ref.current) return
+				const current_classes = classes
+				let updated_classes = [...current_classes]
+
+				const new_predictions: Prediction[] = results.map((r) => {
+					let class_id = updated_classes.find(
+						(c) => c.name.toLowerCase() === r.class_name.toLowerCase()
+					)?.id
+
+					if (!class_id) {
+						const new_class = class_create(r.class_name, updated_classes)
+						updated_classes = [...updated_classes, new_class]
+						class_id = new_class.id
+					}
+
+					return {
+						id: 'p_' + Math.random().toString(36).substr(2, 9),
+						type: 'bbox' as const,
+						classId: class_id,
+						x: r.x,
+						y: r.y,
+						w: r.w,
+						h: r.h,
+						confidence: r.confidence
+					}
+				})
+
+				if (updated_classes.length > current_classes.length) {
+					set_classes(updated_classes)
+				}
+				set_predictions(new_predictions)
+				set_is_showing_predictions(true)
+			} catch (err) {
+				console.error('Inference failed:', err)
+			} finally {
+				set_is_running_inference(false)
+			}
+		},
+		[image_url, classes, active_class]
+	)
+
+	const handle_segment = useCallback(
+		(pos: { x: number; y: number }, image: HTMLImageElement) => {
+			if (!image_url) return
+			handle_segment_click(
+				image_url,
+				pos,
+				image,
+				selected_prediction_id,
+				predictions,
+				active_class,
+				set_annotations,
+				set_selected_ann_id,
+				set_active_tool,
+				set_is_running_segmentation,
+				() => image_url === image_url_ref.current
+			)
+		},
+		[
+			image_url,
+			active_class,
+			selected_prediction_id,
+			predictions,
+			set_annotations,
+			set_selected_ann_id,
+			set_active_tool
+		]
+	)
 
 	const get_class_color = (id: string) => theme_get_class_color(classes, id)
 	const get_class_name = (id: string) => theme_get_class_name(classes, id)
@@ -499,14 +709,9 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		offset,
 		brush_size,
 		brush_opacity,
-		all_images,
-		project_id,
-		current_index,
 		text_muted,
 		text_heading,
-		border_subtle,
-		bg_panel,
-		navigate
+		handle_segment
 	)
 
 	return (
@@ -579,6 +784,19 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
 				>
+					{is_processing && (
+						<div
+							className="absolute inset-0 bg-black/20 z-50 flex items-center justify-center"
+							data-segmenting={is_running_segmentation}
+						>
+							<div
+								className={`flex items-center gap-2 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'} px-4 py-2 rounded-lg shadow-lg`}
+							>
+								<Loader2 size={20} className="animate-spin" />
+								<span className={`text-sm font-medium ${text_heading}`}>Processing...</span>
+							</div>
+						</div>
+					)}
 					{canvas}
 				</div>
 
@@ -657,6 +875,31 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				</div>
 			</div>
 
+			{stable_images.length > 1 && (
+				<div
+					className={`h-16 border-t ${border_subtle} ${bg_panel} flex items-center gap-2 px-4 overflow-x-auto shrink-0 w-full`}
+				>
+					{stable_images.map((img, idx) => (
+						<button
+							key={img.id}
+							onClick={() => {
+								set_predictions([])
+								set_is_showing_predictions(false)
+								set_selected_prediction_id(undefined)
+								navigate(`/projects/${project_id}/annotation/${img.id}`, { replace: true })
+							}}
+							className={`shrink-0 w-14 h-12 rounded-md border-2 overflow-hidden transition-all ${
+								idx === current_index
+									? 'border-blue-500 ring-1 ring-blue-500/30'
+									: `${border_subtle} hover:border-blue-400/50`
+							}`}
+						>
+							<img src={img.file_url} alt={img.file_name} className="w-full h-full object-cover" />
+						</button>
+					))}
+				</div>
+			)}
+
 			<div
 				className={`h-8 border-t ${border_subtle} ${bg_panel} flex items-center justify-between px-3 text-[11px] shrink-0 z-10 box-border`}
 			>
@@ -674,6 +917,21 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 					<button className="hover:text-blue-500 font-medium">Shortcuts</button>
 				</div>
 			</div>
+
+			{render_model_selection_dialog(
+				is_model_selector_open,
+				custom_models,
+				selected_model_id,
+				set_selected_model_id,
+				() => handle_run_inference(selected_model_id),
+				() => set_is_model_selector_open(false),
+				is_processing,
+				text_muted,
+				text_heading,
+				bg_panel,
+				border_subtle,
+				bg_hover
+			)}
 		</div>
 	)
 }

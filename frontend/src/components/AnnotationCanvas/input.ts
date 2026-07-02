@@ -19,7 +19,8 @@ export function handle_mouse_down_logic(
 	set_drawing_start: (p: { x: number; y: number }) => void,
 	set_drawing_rect: (r: { x: number; y: number; w: number; h: number }) => void,
 	set_drawing_mask_lines: (fn: (prev: MaskLine[]) => MaskLine[]) => void,
-	brush_size: number
+	brush_size: number,
+	on_segment_click?: (pos: { x: number; y: number }, image: HTMLImageElement) => void
 ) {
 	if (active_tool === 'select') {
 		set_selected_ann_id(undefined)
@@ -39,6 +40,8 @@ export function handle_mouse_down_logic(
 				zoom_level,
 				active_tool
 			)
+	} else if (active_tool === 'segment' && image) {
+		on_segment_click?.(pos, image)
 	}
 }
 
