@@ -275,8 +275,9 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	} = use_annotation_image(project_id, imageId)
 
 	const image_url = current_image?.file_url
-	const image_url_ref = useRef(image_url)
-	image_url_ref.current = image_url
+	const api_image_url = current_image?.original_file_url ?? current_image?.file_url
+	const image_url_ref = useRef(api_image_url)
+	image_url_ref.current = api_image_url
 	const is_loading_image = is_loading_images
 
 	const [is_saving, set_is_saving] = useState(false)
@@ -591,8 +592,8 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 
 	const handle_run_inference = useCallback(
 		async (model_id?: number) => {
-			if (!image_url) return
-			const captured_image_url = image_url
+			if (!api_image_url) return
+			const captured_image_url = api_image_url
 
 			if (model_id === -1) {
 				handle_sam_auto_segment(
@@ -650,14 +651,14 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				set_is_running_inference(false)
 			}
 		},
-		[image_url, classes, active_class]
+		[api_image_url, classes, active_class]
 	)
 
 	const handle_segment = useCallback(
 		(pos: { x: number; y: number }, image: HTMLImageElement) => {
-			if (!image_url) return
+			if (!api_image_url) return
 			handle_segment_click(
-				image_url,
+				api_image_url,
 				pos,
 				image,
 				selected_prediction_id,
@@ -667,11 +668,11 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				set_selected_ann_id,
 				set_active_tool,
 				set_is_running_segmentation,
-				() => image_url === image_url_ref.current
+				() => api_image_url === image_url_ref.current
 			)
 		},
 		[
-			image_url,
+			api_image_url,
 			active_class,
 			selected_prediction_id,
 			predictions,
