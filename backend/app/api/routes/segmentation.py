@@ -61,7 +61,7 @@ def start_segmentation_train(
         project_id=project_id,
         dataset_id=body.dataset_id,
         name=body.name,
-        model_type=body.model_type,
+        task_type="segment",
         epochs=body.epochs,
         status="queued",
     )
@@ -78,7 +78,7 @@ def start_segmentation_train(
         classes=[c.model_dump() for c in body.classes],
         epochs=body.epochs,
         google_access_token=body.google_access_token,
-        model_type=body.model_type,
+        task_type="segment",
     )
     start_training_background(cfg)
 

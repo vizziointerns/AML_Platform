@@ -33,6 +33,13 @@ def _ensure_table(db: Session) -> None:
         db.commit()
     except Exception:
         pass
+    try:
+        db.execute(
+            text("ALTER TABLE training_runs RENAME COLUMN model_type TO task_type")
+        )
+        db.commit()
+    except Exception:
+        pass
 
 
 def _row_to_out(row: TrainingRun) -> TrainingRunOut:
@@ -40,12 +47,20 @@ def _row_to_out(row: TrainingRun) -> TrainingRunOut:
         metrics_val = row.metrics
     except Exception:
         metrics_val = None
+
+    if row.task_type not in ("detect", "segment"):
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=400, detail=f"Invalid task_type in DB: {row.task_type}"
+        )
+
     return TrainingRunOut(
         id=row.id,
         project_id=row.project_id,
         dataset_id=row.dataset_id,
         name=row.name,
-        model_type=row.model_type,
+        task_type=row.task_type,
         epochs=row.epochs,
         status=row.status,
         accuracy=row.accuracy,
@@ -100,7 +115,7 @@ def create_training_run(
         project_id=project_id,
         dataset_id=body.dataset_id,
         name=body.name,
-        model_type=body.model_type,
+        task_type=body.task_type,
         epochs=body.epochs,
         status="queued",
     )
@@ -171,6 +186,7 @@ def start_training(
         classes=[c.model_dump() for c in body.classes],
         epochs=row.epochs,
         google_access_token=body.google_access_token,
+        task_type=row.task_type,
     )
     start_training_background(cfg)
 

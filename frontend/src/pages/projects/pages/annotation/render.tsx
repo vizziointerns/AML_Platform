@@ -27,7 +27,7 @@ import type { Annotation, Prediction, ClassInfo, LayerActionSet, Mode } from './
 export interface ModelOption {
 	id: number
 	name: string
-	model_type: string
+	task_type: string
 	accuracy: number | undefined
 }
 
@@ -957,7 +957,7 @@ export function render_model_selection_dialog(
 									<div>
 										<div className={`text-sm font-medium ${text_heading}`}>{model.name}</div>
 										<div className={`text-xs ${text_muted}`}>
-											{model.model_type}
+											{model.task_type}
 											{model.accuracy !== undefined
 												? ` • Acc: ${(model.accuracy * 100).toFixed(1)}%`
 												: ''}

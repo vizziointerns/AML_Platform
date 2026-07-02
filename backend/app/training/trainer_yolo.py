@@ -280,7 +280,7 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
             encoding="utf-8",
         )
 
-        model = YOLO(f"{cfg.model_type}.pt")
+        model = YOLO("yolo11n.pt")
 
         last_reported = -1
 

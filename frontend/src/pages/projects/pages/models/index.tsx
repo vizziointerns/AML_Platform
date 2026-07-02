@@ -1,38 +1,38 @@
 import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Box, Plus, Search, Filter, Cpu } from 'lucide-react'
+import { use_project_store } from '../../../../store/projectStore'
 
-interface ModelInfo {
-	id: string
-	name: string
-	task_type: string
-	description: string
-	status: string
-}
-
-const SUPPORTED_MODELS: ModelInfo[] = [
-	{
-		id: 'yolo',
-		name: 'YOLO',
-		task_type: 'Object Detection',
-		description: 'State-of-the-art, real-time object detection model.',
-		status: 'Available'
-	},
-	{
-		id: 'sam',
-		name: 'SAM',
-		task_type: 'Image Segmentation',
-		description: "Meta's foundation model for image segmentation.",
-		status: 'Available'
-	}
-]
+import { SUPPORTED_MODELS } from '../../../../constants/models'
+import { update_project } from '../../../../api/projects'
 
 export default function models_page({ is_dark_mode }: { is_dark_mode: boolean }) {
 	const [search_query, set_search_query] = useState('')
+	const [error, set_error] = useState<string | undefined>(undefined)
+	const navigate = useNavigate()
+	const { projectId: project_id } = useParams<{ projectId: string }>()
+	const { updateProject: update_project_store } = use_project_store()
 
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
+
+	const handle_select_model = async (model: (typeof SUPPORTED_MODELS)[0]) => {
+		if (!project_id) return
+		set_error(undefined)
+
+		try {
+			await update_project(project_id, { task_type: model.task_type })
+
+			update_project_store(project_id, { task_type: model.task_type })
+
+			navigate(`/projects/${project_id}/training`)
+		} catch (err) {
+			console.error('Failed to update task type', err)
+			set_error(err instanceof Error ? err.message : 'Failed to update task type')
+		}
+	}
 
 	const filtered = SUPPORTED_MODELS.filter(
 		(m) =>
@@ -84,6 +84,13 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 					</button>
 				</div>
 
+				{error && (
+					<div
+						className={`px-4 py-3 rounded-lg text-sm text-red-500 ${is_dark_mode ? 'bg-red-500/10' : 'bg-red-50'}`}
+					>
+						{error}
+					</div>
+				)}
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{filtered.map((model) => (
 						<div
@@ -122,7 +129,13 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 									{model.description}
 								</p>
 								<div className="flex items-center justify-end pt-3 border-t border-zinc-800/20">
-									<button className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium">
+									<button
+										onClick={(e) => {
+											e.preventDefault()
+											handle_select_model(model)
+										}}
+										className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+									>
 										Select Model
 									</button>
 								</div>

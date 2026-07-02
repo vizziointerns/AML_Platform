@@ -107,7 +107,7 @@ def test_sam_training() -> None:
         images=[{"id": image_id, "file_name": "dummy_img.jpg", "file_url": "mock_url"}],
         classes=[],
         epochs=1,
-        model_type="sam_vit_b",
+        task_type="segment",
     )
 
     db.close()

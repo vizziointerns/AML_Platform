@@ -1,4 +1,5 @@
 import type { Project, ProjectType, ProjectStatus } from '../store/projectStore'
+import type { TaskType } from '../constants/models'
 
 const PROJECT_TYPE_VALUES: readonly ProjectType[] = [
 	'Object Detection',
@@ -20,6 +21,7 @@ export interface DbProject {
 	description: string
 	type: string
 	status: string
+	task_type?: string
 	dataset_count: number
 	annotation_progress: number
 	members: string[]
@@ -43,6 +45,10 @@ export function map_project(db: DbProject): Project {
 		description: db.description,
 		type: project_type,
 		status: project_status,
+		task_type:
+			db.task_type === 'detect' || db.task_type === 'segment'
+				? (db.task_type as TaskType)
+				: undefined,
 		datasetCount: db.dataset_count,
 		annotationProgress: db.annotation_progress,
 		members: db.members ?? [],
