@@ -8,7 +8,7 @@ import { update_project } from '../../../../api/projects'
 
 export default function models_page({ is_dark_mode }: { is_dark_mode: boolean }) {
 	const [search_query, set_search_query] = useState('')
-	const [error, set_error] = useState<string | null>(null)
+	const [error, set_error] = useState<string | undefined>(undefined)
 	const navigate = useNavigate()
 	const { projectId: project_id } = useParams<{ projectId: string }>()
 	const { updateProject: update_project_store } = use_project_store()
@@ -20,7 +20,7 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 
 	const handle_select_model = async (model: (typeof SUPPORTED_MODELS)[0]) => {
 		if (!project_id) return
-		set_error(null)
+		set_error(undefined)
 
 		try {
 			await update_project(project_id, { task_type: model.task_type })
