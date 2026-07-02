@@ -95,7 +95,8 @@ function new_training_dialog({
 		console.warn('Invalid task type found:', task_type)
 	}
 
-	const effective_dataset_id = new_run_dataset_id || (datasets.length > 0 ? (datasets[0]?.id ?? '') : '')
+	const effective_dataset_id =
+		new_run_dataset_id || (datasets.length > 0 ? (datasets[0]?.id ?? '') : '')
 
 	if (!open) return undefined
 
@@ -846,7 +847,9 @@ function render_training_page(props: RenderTrainingProps) {
 				{render_training_header(props)}
 
 				{props.is_fetching_project && (
-					<div className={`mt-6 p-8 text-center border rounded-xl flex flex-col items-center justify-center ${border_subtle} ${bg_card}`}>
+					<div
+						className={`mt-6 p-8 text-center border rounded-xl flex flex-col items-center justify-center ${border_subtle} ${bg_card}`}
+					>
 						<Activity size={24} className={`animate-spin mb-2 ${text_muted}`} />
 						<p className={`text-sm ${text_muted}`}>Loading project configuration...</p>
 					</div>
@@ -903,7 +906,7 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 	const { projectId: project_id } = useParams<{ projectId: string }>()
 	const { datasets } = use_datasets(project_id ?? '')
 	const { updateProject: update_project_store } = use_project_store()
-	
+
 	const [task_type, set_task_type] = useState<TaskType | undefined>(undefined)
 	const [is_fetching_project, set_is_fetching_project] = useState(true)
 	const google_auth = use_google_auth()

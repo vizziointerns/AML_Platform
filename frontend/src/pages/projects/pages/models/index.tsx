@@ -17,18 +17,18 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 
-	const handle_select_model = async (model: typeof SUPPORTED_MODELS[0]) => {
+	const handle_select_model = async (model: (typeof SUPPORTED_MODELS)[0]) => {
 		console.info('click triggered', model)
 		if (!project_id) return
-		
+
 		try {
 			console.info('before Supabase call')
 			await update_project(project_id, { task_type: model.task_type })
 			console.info('after Supabase success')
-			
+
 			update_project_store(project_id, { task_type: model.task_type })
 			console.info('before navigation')
-			
+
 			navigate(`/projects/${project_id}/training`)
 		} catch (err) {
 			console.error('Failed to update task type', err)
