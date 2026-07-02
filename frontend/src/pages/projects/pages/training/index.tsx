@@ -712,6 +712,7 @@ interface RenderTrainingProps {
 	error: string | undefined
 	is_new_dialog_open: boolean
 	is_creating: boolean
+	is_fetching_project: boolean
 	deleting_id: number | undefined
 	stats: { active_jobs: number; avg_accuracy: string; avg_loss: string; total_hours: string }
 	set_is_new_dialog_open: (val: boolean) => void
@@ -823,7 +824,14 @@ function render_training_page(props: RenderTrainingProps) {
 			<div className="page-content">
 				{render_training_header(props)}
 
-				{!props.task_type && (
+				{props.is_fetching_project && (
+					<div className={`mt-6 p-8 text-center border rounded-xl flex flex-col items-center justify-center ${border_subtle} ${bg_card}`}>
+						<Activity size={24} className={`animate-spin mb-2 ${text_muted}`} />
+						<p className={`text-sm ${text_muted}`}>Loading project configuration...</p>
+					</div>
+				)}
+
+				{!props.task_type && !props.is_fetching_project && (
 					<div className={`mt-6 p-8 text-center border rounded-xl ${border_subtle} ${bg_card}`}>
 						<h3 className={`text-lg font-medium mb-2 ${text_heading}`}>No Model Selected</h3>
 						<p className={`text-sm mb-4 ${text_muted}`}>
@@ -867,9 +875,10 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 	const navigate = useNavigate()
 	const { projectId: project_id } = useParams<{ projectId: string }>()
 	const { datasets } = use_datasets(project_id ?? '')
-	const { projects } = use_project_store()
-	const project = projects.find((p) => p.id === project_id)
-	const task_type = project?.task_type as TaskType | undefined
+	const { updateProject: update_project_store } = use_project_store()
+	
+	const [task_type, set_task_type] = useState<TaskType | undefined>(undefined)
+	const [is_fetching_project, set_is_fetching_project] = useState(true)
 	const google_auth = use_google_auth()
 	const [runs, set_runs] = useState<TrainingRun[]>([])
 	const [is_loading, set_is_loading] = useState(true)
@@ -878,6 +887,44 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 	const [is_new_dialog_open, set_is_new_dialog_open] = useState(false)
 	const [is_creating, set_is_creating] = useState(false)
 	const [deleting_id, set_deleting_id] = useState<number | undefined>(undefined)
+
+	useEffect(() => {
+		if (!project_id) {
+			set_is_fetching_project(false)
+			return
+		}
+
+		let is_current = true
+		const fetch_project = async () => {
+			try {
+				const { data, error: err } = await supabase
+					.from('projects')
+					.select('task_type')
+					.eq('id', project_id)
+					.single()
+
+				if (!is_current) return
+
+				if (err) {
+					console.error('Failed to fetch project task type:', err)
+				} else if (data) {
+					set_task_type(data.task_type as TaskType)
+					update_project_store(project_id, { task_type: data.task_type as TaskType })
+				}
+			} catch (err) {
+				console.error(err)
+			} finally {
+				if (is_current) {
+					set_is_fetching_project(false)
+				}
+			}
+		}
+
+		fetch_project()
+		return () => {
+			is_current = false
+		}
+	}, [project_id, update_project_store])
 
 	const load_runs = useCallback(
 		async (show_loading = false) => {
@@ -941,6 +988,7 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 		error,
 		is_new_dialog_open,
 		is_creating,
+		is_fetching_project,
 		deleting_id,
 		stats,
 		set_is_new_dialog_open,
