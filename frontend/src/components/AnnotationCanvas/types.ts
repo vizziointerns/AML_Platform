@@ -1,4 +1,4 @@
-export type AnnotationTool = 'select' | 'pan' | 'bbox' | 'polygon' | 'brush' | 'eraser'
+export type AnnotationTool = 'select' | 'pan' | 'bbox' | 'polygon' | 'brush' | 'eraser' | 'segment'
 
 export interface MaskLine {
 	points: number[]
@@ -60,4 +60,5 @@ export interface AnnotationCanvasProps {
 	offset: { x: number; y: number }
 	brushSize?: number
 	brushOpacity?: number
+	onSegmentClick?: (pos: { x: number; y: number }, image: HTMLImageElement) => void
 }

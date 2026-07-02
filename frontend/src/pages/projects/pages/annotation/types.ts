@@ -1,4 +1,4 @@
-export type Mode = 'select' | 'pan' | 'bbox' | 'polygon' | 'brush' | 'eraser'
+export type Mode = 'select' | 'pan' | 'bbox' | 'polygon' | 'brush' | 'eraser' | 'segment'
 
 export interface Comment {
 	id: string
