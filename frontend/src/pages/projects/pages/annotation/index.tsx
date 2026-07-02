@@ -47,6 +47,80 @@ import { run_inference } from '../../../../api/inference'
 import { run_segmentation, run_auto_segmentation } from '../../../../api/segment'
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
 
+function render_properties_panel(
+	selected_ann_id: string | undefined,
+	annotations: Annotation[],
+	classes: ClassInfo[],
+	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	isDarkMode: boolean,
+	text_muted: string,
+	text_heading: string,
+	border_subtle: string,
+	selected_prediction_id: string | undefined,
+	predictions: Prediction[],
+	set_predictions: (fn: (prev: Prediction[]) => Prediction[]) => void,
+	set_selected_prediction_id: (id: string | undefined) => void,
+	set_selected_ann_id: (id: string | undefined) => void,
+	is_showing_predictions: boolean,
+	set_is_showing_predictions: (v: boolean) => void
+) {
+	if (selected_ann_id) {
+		return render_annotation_properties_panel(
+			selected_ann_id,
+			annotations,
+			classes,
+			set_annotations,
+			isDarkMode,
+			text_muted,
+			text_heading,
+			border_subtle
+		)
+	}
+	if (selected_prediction_id) {
+		return render_prediction_properties_panel(
+			selected_prediction_id,
+			predictions,
+			classes,
+			set_predictions,
+			set_annotations,
+			set_selected_prediction_id,
+			set_selected_ann_id,
+			isDarkMode,
+			text_muted
+		)
+	}
+	return render_image_properties_panel(
+		annotations,
+		predictions,
+		is_showing_predictions,
+		set_is_showing_predictions,
+		text_muted,
+		text_heading
+	)
+}
+
+function render_processing_overlay(
+	is_processing: boolean,
+	is_running_segmentation: boolean,
+	isDarkMode: boolean,
+	text_heading: string
+) {
+	if (!is_processing) return undefined
+	return (
+		<div
+			className="absolute inset-0 bg-black/20 z-50 flex items-center justify-center"
+			data-segmenting={is_running_segmentation}
+		>
+			<div
+				className={`flex items-center gap-2 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'} px-4 py-2 rounded-lg shadow-lg`}
+			>
+				<Loader2 size={20} className="animate-spin" />
+				<span className={`text-sm font-medium ${text_heading}`}>Processing...</span>
+			</div>
+		</div>
+	)
+}
+
 interface AnnotationStudioProps {
 	isDarkMode: boolean
 	imageId?: string
@@ -785,18 +859,11 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
 				>
-					{is_processing && (
-						<div
-							className="absolute inset-0 bg-black/20 z-50 flex items-center justify-center"
-							data-segmenting={is_running_segmentation}
-						>
-							<div
-								className={`flex items-center gap-2 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'} px-4 py-2 rounded-lg shadow-lg`}
-							>
-								<Loader2 size={20} className="animate-spin" />
-								<span className={`text-sm font-medium ${text_heading}`}>Processing...</span>
-							</div>
-						</div>
+					{render_processing_overlay(
+						is_processing,
+						is_running_segmentation,
+						isDarkMode,
+						text_heading
 					)}
 					{canvas}
 				</div>
@@ -822,37 +889,23 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 									: 'Image Properties'}
 						</h3>
 
-						{selected_ann_id
-							? render_annotation_properties_panel(
-									selected_ann_id,
-									annotations,
-									classes,
-									set_annotations,
-									isDarkMode,
-									text_muted,
-									text_heading,
-									border_subtle
-								)
-							: selected_prediction_id
-								? render_prediction_properties_panel(
-										selected_prediction_id,
-										predictions,
-										classes,
-										set_predictions,
-										set_annotations,
-										set_selected_prediction_id,
-										set_selected_ann_id,
-										isDarkMode,
-										text_muted
-									)
-								: render_image_properties_panel(
-										annotations,
-										predictions,
-										is_showing_predictions,
-										set_is_showing_predictions,
-										text_muted,
-										text_heading
-									)}
+						{render_properties_panel(
+							selected_ann_id,
+							annotations,
+							classes,
+							set_annotations,
+							isDarkMode,
+							text_muted,
+							text_heading,
+							border_subtle,
+							selected_prediction_id,
+							predictions,
+							set_predictions,
+							set_selected_prediction_id,
+							set_selected_ann_id,
+							is_showing_predictions,
+							set_is_showing_predictions
+						)}
 					</div>
 
 					{render_layers_panel(
