@@ -30,6 +30,8 @@ def inference_endpoint(body: InferenceRequest, db: Session = Depends(get_db)) ->
             raise HTTPException(status_code=404, detail="Model weights file not found")
         model_path = str(weights)
 
+    db.close()
+
     try:
         predictions = run_inference(body.image_url, model_path)
     except ValueError as err:

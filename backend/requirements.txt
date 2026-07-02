@@ -8,3 +8,5 @@ mypy
 pydantic
 httpx==0.28.1
 ultralytics==8.4.75
+sam2>=1.1.0
+opencv-python-headless

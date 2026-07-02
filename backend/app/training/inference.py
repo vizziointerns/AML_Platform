@@ -2,8 +2,9 @@ import ipaddress
 import logging
 import socket
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 
@@ -20,24 +21,29 @@ CHUNK_SIZE = 64 * 1024  # 64 KB
 MAX_REDIRECTS = 20
 
 
-def _is_private_host(hostname: str) -> bool:
+def _resolve_hostname(hostname: str) -> str:
+    """Resolve *hostname* to an IP string. Raises ``ValueError`` if the
+    address is private, loopback, link-local, or reserved, or if resolution
+    itself fails."""
     try:
         addr = ipaddress.ip_address(hostname)
-        return addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved
     except ValueError:
-        pass
-    try:
-        infos = socket.getaddrinfo(hostname, None)
+        try:
+            infos = socket.getaddrinfo(hostname, None)
+        except OSError as e:
+            raise ValueError(f"Could not resolve hostname: {hostname}") from e
         for _, _, _, _, sockaddr in infos:
             try:
                 addr = ipaddress.ip_address(sockaddr[0])
-                if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-                    return True
+                break
             except ValueError:
                 continue
-    except OSError:
-        return True
-    return False
+        else:
+            raise ValueError(f"Could not resolve hostname: {hostname}")
+
+    if not addr.is_global or addr.is_multicast:
+        raise ValueError(f"Access to non-public host not allowed: {addr}")
+    return str(addr)
 
 
 def _validate_image_url(url: str) -> None:
@@ -47,16 +53,31 @@ def _validate_image_url(url: str) -> None:
     hostname = parsed.hostname
     if not hostname:
         raise ValueError("URL missing hostname")
-    if _is_private_host(hostname):
-        raise ValueError("Access to private/reserved host not allowed")
+    _resolve_hostname(hostname)
 
 
-def _validate_redirect(response: httpx.Response) -> None:
-    if response.is_redirect:
-        location = response.headers.get("location")
-        if location:
-            redirect_url = urljoin(str(response.url), location)
-            _validate_image_url(redirect_url)
+def _make_pin_hook() -> Callable[[httpx.Request], None]:
+    """Return a ``request`` event hook that resolves and pins every
+    request's hostname so the TCP connection never re-resolves DNS."""
+    def pin_request(request: httpx.Request) -> None:
+        hostname = request.url.host
+        scheme = request.url.scheme
+        if scheme not in ALLOWED_SCHEMES:
+            raise ValueError(f"URL scheme not allowed: {scheme}")
+        if not hostname:
+            raise ValueError("URL missing hostname")
+        resolved = _resolve_hostname(hostname)
+        host_header = hostname
+        if request.url.port is not None:
+            host_header = f"{hostname}:{request.url.port}"
+        request.headers["Host"] = host_header
+        # For HTTPS, keep the original hostname in the URL so TLS/SNI
+        # uses the real domain name and certificate verification works.
+        # For plain HTTP, rewriting the URL host to the resolved IP
+        # prevents the TCP connection from re-resolving DNS (anti-rebinding).
+        if scheme != "https":
+            request.url = request.url.copy_with(host=resolved)
+    return pin_request
 
 
 def run_inference(image_url: str, model_path: str | None = None) -> list[InferredObject]:
@@ -68,21 +89,24 @@ def run_inference(image_url: str, model_path: str | None = None) -> list[Inferre
             timeout=60,
             follow_redirects=True,
             max_redirects=MAX_REDIRECTS,
-            event_hooks={"response": [_validate_redirect]},
+            event_hooks={"request": [_make_pin_hook()]},
         ) as client:
-            response = client.get(image_url)
-            response.raise_for_status()
+            try:
+                with client.stream("GET", image_url) as response:
+                    response.raise_for_status()
 
-            content_type = response.headers.get("content-type", "")
-            if not content_type.startswith(ALLOWED_MIME_PREFIXES):
-                raise ValueError(f"Invalid content type: {content_type}")
+                    content_type = response.headers.get("content-type", "")
+                    if not content_type.startswith(ALLOWED_MIME_PREFIXES):
+                        raise ValueError(f"Invalid content type: {content_type}")
 
-            total = 0
-            for chunk in response.iter_bytes(CHUNK_SIZE):
-                total += len(chunk)
-                if total > MAX_IMAGE_SIZE:
-                    raise ValueError(f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes")
-                tmp.write(chunk)
+                    total = 0
+                    for chunk in response.iter_bytes(CHUNK_SIZE):
+                        total += len(chunk)
+                        if total > MAX_IMAGE_SIZE:
+                            raise ValueError(f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes")
+                        tmp.write(chunk)
+            except httpx.HTTPError as e:
+                raise ValueError(str(e)) from e
         tmp.close()
 
         from ultralytics import YOLO  # type: ignore[attr-defined]
