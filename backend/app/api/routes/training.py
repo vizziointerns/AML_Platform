@@ -33,36 +33,46 @@ def _ensure_table(db: Session) -> None:
         db.commit()
     except Exception:
         pass
+    try:
+        db.execute(
+            text("ALTER TABLE training_runs RENAME COLUMN model_type TO task_type")
+        )
+        db.commit()
+    except Exception:
+        pass
 
 
 def _row_to_out(row: TrainingRun) -> TrainingRunOut:
-	try:
-		metrics_val = row.metrics
-	except Exception:
-		metrics_val = None
+    try:
+        metrics_val = row.metrics
+    except Exception:
+        metrics_val = None
 
-	if row.task_type not in ("detect", "segment"):
-		from fastapi import HTTPException
-		raise HTTPException(status_code=400, detail=f"Invalid task_type in DB: {row.task_type}")
+    if row.task_type not in ("detect", "segment"):
+        from fastapi import HTTPException
 
-	return TrainingRunOut(
-		id=row.id,
-		project_id=row.project_id,
-		dataset_id=row.dataset_id,
-		name=row.name,
-		task_type=row.task_type,
-		epochs=row.epochs,
-		status=row.status,
-		accuracy=row.accuracy,
-		loss=row.loss,
-		current_epoch=row.current_epoch,
-		duration=row.duration,
-		created_at=row.created_at,
-		started_at=row.started_at,
-		completed_at=row.completed_at,
-		error_message=row.error_message,
-		metrics=metrics_val,
-	)
+        raise HTTPException(
+            status_code=400, detail=f"Invalid task_type in DB: {row.task_type}"
+        )
+
+    return TrainingRunOut(
+        id=row.id,
+        project_id=row.project_id,
+        dataset_id=row.dataset_id,
+        name=row.name,
+        task_type=row.task_type,
+        epochs=row.epochs,
+        status=row.status,
+        accuracy=row.accuracy,
+        loss=row.loss,
+        current_epoch=row.current_epoch,
+        duration=row.duration,
+        created_at=row.created_at,
+        started_at=row.started_at,
+        completed_at=row.completed_at,
+        error_message=row.error_message,
+        metrics=metrics_val,
+    )
 
 
 @router.get("/training/{project_id}", response_model=TrainingRunListOut)
@@ -100,19 +110,19 @@ def get_training_run(
 def create_training_run(
     project_id: str, body: TrainingRunCreate, db: Session = Depends(get_db)
 ) -> TrainingRunOut:
-	_ensure_table(db)
-	row = TrainingRun(
-		project_id=project_id,
-		dataset_id=body.dataset_id,
-		name=body.name,
-		task_type=body.task_type,
-		epochs=body.epochs,
-		status="queued",
-	)
-	db.add(row)
-	db.commit()
-	db.refresh(row)
-	return _row_to_out(row)
+    _ensure_table(db)
+    row = TrainingRun(
+        project_id=project_id,
+        dataset_id=body.dataset_id,
+        name=body.name,
+        task_type=body.task_type,
+        epochs=body.epochs,
+        status="queued",
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _row_to_out(row)
 
 
 @router.patch("/training/{project_id}/{run_id}", response_model=TrainingRunOut)
@@ -176,6 +186,7 @@ def start_training(
         classes=[c.model_dump() for c in body.classes],
         epochs=row.epochs,
         google_access_token=body.google_access_token,
+        task_type=row.task_type,
     )
     start_training_background(cfg)
 

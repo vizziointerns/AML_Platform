@@ -490,18 +490,23 @@ async function perform_create(
 ) {
 	set_is_creating(true)
 	try {
-		const run = await create_training_run(project_id, payload)
 		const backend_classes = await fetch_classes(payload.dataset_id)
+		if (backend_classes.length === 0) {
+			throw new Error('No classes found. Create some classes in the annotation studio first.')
+		}
 		const class_payload = backend_classes.map((c, idx) => ({
 			id: c.id,
 			name: c.name,
 			index: idx
 		}))
 
-		const { data: image_rows } = await supabase
+		const { data: image_rows, error: image_err } = await supabase
 			.from('dataset_images')
 			.select('id, file_name, file_url, width, height')
 			.eq('dataset_id', payload.dataset_id)
+		if (image_err) {
+			throw new Error(`Failed to fetch dataset images: ${image_err.message}`)
+		}
 		const image_payload = (image_rows ?? []).map((img) => ({
 			id: img.id,
 			file_name: img.file_name ?? 'unknown',
@@ -510,11 +515,11 @@ async function perform_create(
 			height: img.height || 600
 		}))
 
-		if (class_payload.length === 0 || image_payload.length === 0) {
-			set_is_new_dialog_open(false)
-			load_runs(false)
-			return
+		if (image_payload.length === 0) {
+			throw new Error('No images found in the dataset.')
 		}
+
+		const run = await create_training_run(project_id, payload)
 		const token = await resolve_training_token(google_auth, image_payload)
 		if (!token) {
 			throw new Error(

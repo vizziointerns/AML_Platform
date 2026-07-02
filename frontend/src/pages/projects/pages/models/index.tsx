@@ -8,6 +8,7 @@ import { update_project } from '../../../../api/projects'
 
 export default function models_page({ is_dark_mode }: { is_dark_mode: boolean }) {
 	const [search_query, set_search_query] = useState('')
+	const [error, set_error] = useState<string | null>(null)
 	const navigate = useNavigate()
 	const { projectId: project_id } = useParams<{ projectId: string }>()
 	const { updateProject: update_project_store } = use_project_store()
@@ -18,20 +19,18 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 
 	const handle_select_model = async (model: (typeof SUPPORTED_MODELS)[0]) => {
-		console.info('click triggered', model)
 		if (!project_id) return
+		set_error(null)
 
 		try {
-			console.info('before Supabase call')
 			await update_project(project_id, { task_type: model.task_type })
-			console.info('after Supabase success')
 
 			update_project_store(project_id, { task_type: model.task_type })
-			console.info('before navigation')
 
 			navigate(`/projects/${project_id}/training`)
 		} catch (err) {
 			console.error('Failed to update task type', err)
+			set_error(err instanceof Error ? err.message : 'Failed to update task type')
 		}
 	}
 
@@ -85,6 +84,13 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 					</button>
 				</div>
 
+				{error && (
+					<div
+						className={`px-4 py-3 rounded-lg text-sm text-red-500 ${is_dark_mode ? 'bg-red-500/10' : 'bg-red-50'}`}
+					>
+						{error}
+					</div>
+				)}
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{filtered.map((model) => (
 						<div
