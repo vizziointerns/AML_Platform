@@ -59,6 +59,7 @@ def _validate_image_url(url: str) -> None:
 def _make_pin_hook() -> Callable[[httpx.Request], None]:
     """Return a ``request`` event hook that resolves and pins every
     request's hostname so the TCP connection never re-resolves DNS."""
+
     def pin_request(request: httpx.Request) -> None:
         hostname = request.url.host
         scheme = request.url.scheme
@@ -77,10 +78,13 @@ def _make_pin_hook() -> Callable[[httpx.Request], None]:
         # prevents the TCP connection from re-resolving DNS (anti-rebinding).
         if scheme != "https":
             request.url = request.url.copy_with(host=resolved)
+
     return pin_request
 
 
-def run_inference(image_url: str, model_path: str | None = None) -> list[InferredObject]:
+def run_inference(
+    image_url: str, model_path: str | None = None
+) -> list[InferredObject]:
     _validate_image_url(image_url)
 
     tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
@@ -103,7 +107,9 @@ def run_inference(image_url: str, model_path: str | None = None) -> list[Inferre
                     for chunk in response.iter_bytes(CHUNK_SIZE):
                         total += len(chunk)
                         if total > MAX_IMAGE_SIZE:
-                            raise ValueError(f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes")
+                            raise ValueError(
+                                f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes"
+                            )
                         tmp.write(chunk)
             except httpx.HTTPError as e:
                 raise ValueError(str(e)) from e

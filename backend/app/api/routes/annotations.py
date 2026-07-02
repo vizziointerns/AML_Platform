@@ -43,7 +43,9 @@ def _upsert_annotations_for_image(
             points_json = json.dumps([p.model_dump() for p in item.points])
         lines_json = None
         if item.lines is not None:
-            lines_json = json.dumps([line_data.model_dump() for line_data in item.lines])
+            lines_json = json.dumps(
+                [line_data.model_dump() for line_data in item.lines]
+            )
 
         if item.annotation_id in existing_map:
             row = existing_map[item.annotation_id]
@@ -165,7 +167,9 @@ def save_annotations_batch(
     db.commit()
 
     for dataset in body.datasets:
-        rows = db.query(Annotation).filter(Annotation.image_id == dataset.image_id).all()
+        rows = (
+            db.query(Annotation).filter(Annotation.image_id == dataset.image_id).all()
+        )
         results.append(AnnotationListOut(annotations=[_row_to_out(r) for r in rows]))
 
     return BatchAnnotationsOut(results=results)

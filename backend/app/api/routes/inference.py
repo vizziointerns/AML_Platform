@@ -14,7 +14,9 @@ router = APIRouter()
 
 
 @router.post("/inference", response_model=InferenceResponse)
-def inference_endpoint(body: InferenceRequest, db: Session = Depends(get_db)) -> InferenceResponse:
+def inference_endpoint(
+    body: InferenceRequest, db: Session = Depends(get_db)
+) -> InferenceResponse:
     model_path: str | None = None
     if body.model_id is not None:
         run = db.query(TrainingRun).filter(TrainingRun.id == body.model_id).first()
@@ -25,7 +27,12 @@ def inference_endpoint(body: InferenceRequest, db: Session = Depends(get_db)) ->
                 status_code=400,
                 detail="Model is not ready (training not completed)",
             )
-        weights = Path(__file__).resolve().parent.parent.parent.parent / "models" / str(body.model_id) / "best.pt"
+        weights = (
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "models"
+            / str(body.model_id)
+            / "best.pt"
+        )
         if not weights.exists():
             raise HTTPException(status_code=404, detail="Model weights file not found")
         model_path = str(weights)

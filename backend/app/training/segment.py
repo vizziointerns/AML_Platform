@@ -45,7 +45,9 @@ def _load_model() -> SAM2ImagePredictor:
         return predictor
 
 
-def _mask_to_polygons(mask: np.ndarray, min_area: int = 50) -> list[list[tuple[float, float]]]:
+def _mask_to_polygons(
+    mask: np.ndarray, min_area: int = 50
+) -> list[list[tuple[float, float]]]:
     contours, _ = cv2.findContours(
         (mask > 0).astype(np.uint8),
         cv2.RETR_EXTERNAL,
@@ -76,8 +78,12 @@ def run_segmentation(
 
         if prompt_type == "point":
             if len(prompt_data) != 2:
-                raise ValueError("prompt_data must have exactly 2 values for point prompt")
-            point_coords = np.array([[prompt_data[0], prompt_data[1]]], dtype=np.float32)
+                raise ValueError(
+                    "prompt_data must have exactly 2 values for point prompt"
+                )
+            point_coords = np.array(
+                [[prompt_data[0], prompt_data[1]]], dtype=np.float32
+            )
             point_labels = np.array([1], dtype=np.int32)
             masks, _, _ = predictor.predict(
                 point_coords=point_coords,
@@ -86,7 +92,9 @@ def run_segmentation(
             )
         elif prompt_type == "box":
             if len(prompt_data) != 4:
-                raise ValueError("prompt_data must have exactly 4 values for box prompt")
+                raise ValueError(
+                    "prompt_data must have exactly 4 values for box prompt"
+                )
             x1, y1, x2, y2 = prompt_data[:4]
             box = np.array([x1, y1, x2, y2], dtype=np.float32)
             masks, _, _ = predictor.predict(

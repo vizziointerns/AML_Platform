@@ -1,8 +1,6 @@
 import io
 import json
 import logging
-import os
-import tempfile
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
@@ -113,9 +111,7 @@ def export_yolo(
 
     image_ids = [img.id for img in body.images]
     all_annotations = (
-        db.query(Annotation)
-        .filter(Annotation.image_id.in_(image_ids))
-        .all()
+        db.query(Annotation).filter(Annotation.image_id.in_(image_ids)).all()
     )
     anns_by_image: dict[str, list[Annotation]] = {}
     for ann in all_annotations:
@@ -128,7 +124,10 @@ def export_yolo(
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for subset_name, subset_images in [("train", train_images), ("val", val_images)]:
+        for subset_name, subset_images in [
+            ("train", train_images),
+            ("val", val_images),
+        ]:
             for img in subset_images:
                 img_anns = anns_by_image.get(img.id, [])
 
@@ -150,7 +149,9 @@ def export_yolo(
                     nw = w_pct / 100.0
                     nh = h_pct / 100.0
 
-                    yolo_lines.append(f"{class_index} {cx:.6f} {cy:.6f} {nw:.6f} {nh:.6f}")
+                    yolo_lines.append(
+                        f"{class_index} {cx:.6f} {cy:.6f} {nw:.6f} {nh:.6f}"
+                    )
 
                 label_path = f"labels/{subset_name}/{Path(img.file_name).stem}.txt"
                 zf.writestr(label_path, "\n".join(yolo_lines))

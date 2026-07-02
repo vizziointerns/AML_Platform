@@ -13,7 +13,9 @@ MODEL_ID_TO_FILENAME = {
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Download a SAM 2.1 checkpoint into backend/models/")
+    parser = argparse.ArgumentParser(
+        description="Download a SAM 2.1 checkpoint into backend/models/"
+    )
     parser.add_argument(
         "--size",
         choices=list(MODEL_ID_TO_FILENAME.keys()),
@@ -35,6 +37,7 @@ def main() -> None:
     print(f"Downloading {repo_id}/{filename} ...")
     cached = hf_hub_download(repo_id=repo_id, filename=filename)
     import shutil
+
     shutil.copy2(cached, dest)
     print(f"Saved to: {dest}")
 

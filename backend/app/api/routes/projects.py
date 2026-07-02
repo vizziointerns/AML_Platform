@@ -32,7 +32,7 @@ def get_projects(
     stmt = sql_text(
         f'SELECT id, name, type, status, "datasetCount", "annotationProgress", '
         f'members, "lastUpdated", created_at '
-        f'FROM projects ORDER BY {col} {direction} LIMIT :lim'
+        f"FROM projects ORDER BY {col} {direction} LIMIT :lim"
     )
     rows = db.execute(stmt, {"lim": limit}).mappings().all()
     result: list[Project] = []
