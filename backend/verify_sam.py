@@ -1,24 +1,30 @@
 import os
-import sqlite3
 import json
+import sys
 import tempfile
 import torch
 import cv2
 import numpy as np
 
-# Ensure environment is set up for testing
-os.environ["DATABASE_URL"] = "sqlite:///./test_verify_sam.db"
+# Use a temporary database for idempotent runs
+_tmp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+_tmp_db.close()
+if os.path.exists(_tmp_db.name):
+    os.unlink(_tmp_db.name)
+os.environ["DATABASE_URL"] = f"sqlite:///{_tmp_db.name}"
 
-from app.db.base import Base
-from app.db.session import engine, SessionLocal
-from app.models.project import Project
-from app.models.segmentation import SegmentationMask
-from app.models.training import TrainingRun
-from app.training.trainer import TrainingConfig
-from app.training.trainer_sam import run_sam_training
+from app.db.base import Base  # noqa: E402
+from app.db.session import engine, SessionLocal  # noqa: E402
+from app.models.project import Project  # noqa: E402
+from app.models.segmentation import SegmentationMask  # noqa: E402
+from app.models.training import TrainingRun  # noqa: E402
+from app.training.trainer import TrainingConfig  # noqa: E402
+from app.training.trainer_sam import run_sam_training  # noqa: E402
 
-from typing import Any
-from pathlib import Path
+from typing import Any  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+
 def test_sam_training() -> None:
     # 1. Setup DB
     print("Setting up DB...")
@@ -29,7 +35,7 @@ def test_sam_training() -> None:
     project_id = "test_sam_project"
     project = Project(id=project_id, name="Test SAM Project", task_type="segment")
     db.merge(project)
-    
+
     # 3. Dummy Image
     print("Creating dummy images and masks...")
     temp_dir = tempfile.mkdtemp()
@@ -42,10 +48,11 @@ def test_sam_training() -> None:
     # We will use simple JSON format for RLE simulation
     mask_np = np.zeros((100, 100), dtype=np.uint8)
     mask_np[40:60, 40:60] = 1
-    
+
     # Simple binary mask to RLE using pycocotools if available, else fallback JSON
     try:
         from pycocotools import mask as maskUtils
+
         rle = maskUtils.encode(np.asfortranarray(mask_np))
         rle["counts"] = rle["counts"].decode("utf-8")
         mask_data = json.dumps(rle)
@@ -73,13 +80,21 @@ def test_sam_training() -> None:
         project_id=project_id,
         image_id=image_id,
         mask_data=mask_data,
-        bbox_prompt=bbox_prompt
+        bbox_prompt=bbox_prompt,
     )
     db.merge(mask_obj)
     db.commit()
 
     # Create TrainingRun
-    run = TrainingRun(id=9999, project_id=project_id, dataset_id="test_ds", name="test_run", model_type="sam_vit_b", epochs=1, status="queued")
+    run = TrainingRun(
+        id=9999,
+        project_id=project_id,
+        dataset_id="test_ds",
+        name="test_run",
+        model_type="sam_vit_b",
+        epochs=1,
+        status="queued",
+    )
     db.add(run)
     db.commit()
 
@@ -89,11 +104,7 @@ def test_sam_training() -> None:
         run_id=9999,
         project_id=project_id,
         dataset_id="test_ds",
-        images=[{
-            "id": image_id,
-            "file_name": "dummy_img.jpg",
-            "file_url": "mock_url"
-        }],
+        images=[{"id": image_id, "file_name": "dummy_img.jpg", "file_url": "mock_url"}],
         classes=[],
         epochs=1,
         model_type="sam_vit_b",
@@ -103,16 +114,19 @@ def test_sam_training() -> None:
 
     # Mock _download_image to just copy the dummy image
     import app.training.trainer_sam as t_sam
+
     def mock_download(img_dict: dict[str, Any], dest: Path, token: str | None) -> None:
         import shutil
+
         dest.mkdir(parents=True, exist_ok=True)
         shutil.copy2(img_path, dest / img_dict["file_name"])
-    
+
     setattr(t_sam, "_download_image", mock_download)
 
     # Mock load_sam_model to avoid downloading weights (403 Forbidden)
     def mock_load_sam(device: str) -> tuple[Any, Any]:
         from segment_anything import sam_model_registry, SamPredictor
+
         sam = sam_model_registry["vit_b"](checkpoint=None)
         sam.to(device=device)
         for param in sam.image_encoder.parameters():
@@ -133,16 +147,16 @@ def test_sam_training() -> None:
         print("Validating gradient flow...")
         decoder_has_grad = False
         for group in self.param_groups:
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is not None and p.requires_grad:
                     decoder_has_grad = True
                     break
-        
+
         if not decoder_has_grad:
             print("❌ mask_decoder has NO gradients!")
         else:
             print("✅ mask_decoder gradient flow is ACTIVE.")
-            
+
         return original_step(self, *args, **kwargs)
 
     setattr(torch.optim.AdamW, "step", hooked_step)
@@ -154,31 +168,39 @@ def test_sam_training() -> None:
     # 7. Check metrics
     db = SessionLocal()
     queried_run = db.query(TrainingRun).filter(TrainingRun.id == 9999).first()
-    if queried_run is not None:
-        if queried_run.error_message:
-            print(f"Run Error Message: {queried_run.error_message}")
-        if queried_run.metrics:
-            metrics = json.loads(queried_run.metrics)
-            print("Metrics Output:", metrics)
-            assert len(metrics) > 0, "No metrics were collected!"
-            assert "metric_type" in metrics[0] and metrics[0]["metric_type"] == "iou"
-            print("✅ Metrics validation passed.")
-    else:
-        print("❌ Run not found.")
+    assert queried_run is not None, "TrainingRun not found"
+    assert not queried_run.error_message, f"Run had error: {queried_run.error_message}"
+    assert queried_run.metrics is not None, "No metrics were collected"
+    metrics = json.loads(queried_run.metrics)
+    assert len(metrics) > 0, "No metrics were collected!"
+    assert "metric_type" in metrics[0] and metrics[0]["metric_type"] == "iou", (
+        "Metric type mismatch"
+    )
+    print("✅ Metrics validation passed.")
 
     db.close()
-    
+
     # 8. Check caching
-    cache_path = os.path.join(os.path.dirname(__file__), "cache", "sam_embeddings", f"{image_id}.pt")
-    if os.path.exists(cache_path):
-        print("✅ Embedding cache successfully written.")
-    else:
-        print("❌ Embedding cache missing.")
+    import hashlib
+
+    safe_id = hashlib.sha256(image_id.encode()).hexdigest()
+    cache_path = os.path.join(
+        os.path.dirname(__file__), "cache", "sam_embeddings", f"{safe_id}.pt"
+    )
+    assert os.path.exists(cache_path), "Embedding cache missing"
+    print("✅ Embedding cache successfully written.")
+
 
 if __name__ == "__main__":
     try:
         test_sam_training()
+        print("All checks passed.")
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         print(f"Test failed: {e}")
+        sys.exit(1)
+    finally:
+        if os.path.exists(_tmp_db.name):
+            os.unlink(_tmp_db.name)

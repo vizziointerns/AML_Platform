@@ -5,4 +5,11 @@ from app.models.annotation import Annotation as Annotation
 from app.models.project import Project as Project
 from app.models.segmentation import SegmentationMask as SegmentationMask
 
-__all__ = ["TrainingRun", "User", "ClassLabel", "Annotation", "Project", "SegmentationMask"]
+__all__ = [
+    "Annotation",
+    "ClassLabel",
+    "Project",
+    "SegmentationMask",
+    "TrainingRun",
+    "User",
+]

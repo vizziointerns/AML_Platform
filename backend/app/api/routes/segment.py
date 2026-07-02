@@ -34,7 +34,9 @@ def segment_endpoint(body: SegmentRequest) -> SegmentResponse:
                 response.raise_for_status()
                 for chunk in response.iter_bytes(CHUNK_SIZE):
                     if tmp.tell() + len(chunk) > MAX_IMAGE_SIZE:
-                        raise HTTPException(status_code=400, detail="Image exceeds maximum size")
+                        raise HTTPException(
+                            status_code=400, detail="Image exceeds maximum size"
+                        )
                     tmp.write(chunk)
         tmp.close()
 
@@ -44,7 +46,10 @@ def segment_endpoint(body: SegmentRequest) -> SegmentResponse:
             polygons = auto_segment(image)
         else:
             if body.prompt_data is None:
-                raise HTTPException(status_code=400, detail="prompt_data required when auto_mode is False")
+                raise HTTPException(
+                    status_code=400,
+                    detail="prompt_data required when auto_mode is False",
+                )
             polygons = run_segmentation(image, body.prompt_type, body.prompt_data)
 
         return SegmentResponse(polygons=polygons, class_name=body.class_name)

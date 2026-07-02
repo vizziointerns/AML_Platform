@@ -7,7 +7,6 @@ from app.db.session import get_db
 from app.models.class_label import ClassLabel
 from app.schemas.class_label import (
     ClassLabelCreate,
-    ClassLabelUpdate,
     ClassLabelListOut,
     ClassLabelOut,
     ClassLabelReorder,
@@ -78,11 +77,7 @@ def reorder_classes(
     db: Session = Depends(get_db),
 ) -> ClassLabelListOut:
     _ensure_table(db)
-    existing = (
-        db.query(ClassLabel)
-        .filter(ClassLabel.dataset_id == dataset_id)
-        .all()
-    )
+    existing = db.query(ClassLabel).filter(ClassLabel.dataset_id == dataset_id).all()
     existing_ids = {c.class_id for c in existing}
     body_ids = set(body.class_ids)
     if existing_ids != body_ids:

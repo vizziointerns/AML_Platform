@@ -10,12 +10,12 @@ from app.schemas.segmentation import (
 )
 
 __all__ = [
+    "PredictResponse",
     "Project",
+    "SegmentationClass",
+    "SegmentationImage",
     "SegmentationMaskBase",
     "SegmentationMaskCreate",
     "SegmentationMaskOut",
-    "SegmentationImage",
-    "SegmentationClass",
     "SegmentationTrainRequest",
-    "PredictResponse",
 ]

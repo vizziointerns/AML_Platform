@@ -6,7 +6,9 @@ class SegmentationMaskBase(BaseModel):
     project_id: str
     image_id: str
     mask_data: str  # COCO RLE encoded JSON/String
-    bbox_prompt: str  # JSON representation of [x1, y1, x2, y2] or [x_min, y_min, x_max, y_max]
+    bbox_prompt: (
+        str  # JSON representation of [x1, y1, x2, y2] or [x_min, y_min, x_max, y_max]
+    )
 
 
 class SegmentationMaskCreate(SegmentationMaskBase):

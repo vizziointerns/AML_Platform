@@ -22,7 +22,9 @@ def _create_engine() -> Engine:
 
 
 engine = _create_engine()
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
+SessionLocal = sessionmaker(
+    bind=engine, autoflush=False, autocommit=False, class_=Session
+)
 
 
 def get_db() -> Generator[Session, None, None]:
