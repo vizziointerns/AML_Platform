@@ -381,7 +381,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 						.map((r) => ({
 							id: r.id,
 							name: r.name,
-							model_type: r.model_type,
+							task_type: r.task_type,
 							accuracy: r.accuracy
 						}))
 				)
