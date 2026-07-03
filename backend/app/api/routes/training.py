@@ -198,13 +198,13 @@ def start_training(
         row.status = "Failed"
         row.error_message = f"Training module import error: {e}"
         db.commit()
-        raise HTTPException(status_code=500, detail=f"Training module not available: {e}")
+        raise HTTPException(status_code=500, detail=f"Training module not available: {e}") from e
     except Exception as e:
         logger.exception("Failed to start training background task")
         row.status = "Failed"
         row.error_message = f"Failed to start training: {e}"
         db.commit()
-        raise HTTPException(status_code=500, detail=f"Failed to start training: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start training: {e}") from e
 
     return _row_to_out(row)
 

@@ -191,7 +191,16 @@ def _annotations_to_masks(
         ann_data["segments"].append(rle)
 
         bx, by, bw, bh = ann.x / 100 * w_img, ann.y / 100 * h_img, ann.w / 100 * w_img, ann.h / 100 * h_img
-        ann_data["bbox"] = [int(bx), int(by), int(bx + bw), int(by + bh)]
+        new_box = [int(bx), int(by), int(bx + bw), int(by + bh)]
+        if ann_data["bbox"] is None:
+            ann_data["bbox"] = new_box
+        else:
+            ann_data["bbox"] = [
+                min(ann_data["bbox"][0], new_box[0]),
+                min(ann_data["bbox"][1], new_box[1]),
+                max(ann_data["bbox"][2], new_box[2]),
+                max(ann_data["bbox"][3], new_box[3]),
+            ]
 
     class _MaskProxy:
         __slots__ = ("mask_data", "bbox_prompt")
