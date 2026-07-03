@@ -21,6 +21,7 @@ from app.db.base import Base
 from app.db.session import SessionLocal
 from app.models.training import TrainingRun
 from app.models.segmentation import SegmentationMask
+from app.models.annotation import Annotation
 from app.training.trainer import (
     TrainingConfig,
     MODELS_DIR,
@@ -147,6 +148,73 @@ def _ensure_metrics_column(db: Session) -> None:
         pass
 
 
+def _annotations_to_masks(
+    db: Session,
+    project_id: str,
+    images: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build a masks_by_image dict from polygon annotations.
+
+    Returns a dict mapping image_id to a dummy object with ``mask_data``
+    (RLE JSON) and ``bbox_prompt`` (JSON ``[x1, y1, x2, y2]``) attributes.
+    """
+    image_ids = [img["id"] for img in images]
+    image_dims = {img["id"]: (img["width"], img["height"]) for img in images}
+
+    annotations = (
+        db.query(Annotation)
+        .filter(
+            Annotation.image_id.in_(image_ids),
+            Annotation.type == "polygon",
+        )
+        .all()
+    )
+
+    import cv2
+
+    masks_by_image: dict[str, dict[str, Any]] = {}
+    for ann in annotations:
+        ann_data: dict[str, Any] = masks_by_image.setdefault(ann.image_id, {"segments": [], "bbox": None})
+        points_raw = json.loads(ann.points) if ann.points else []
+        if not points_raw:
+            continue
+
+        w_img, h_img = image_dims.get(ann.image_id, (800, 600))
+        pts = np.array(
+            [[int(p["x"] / 100 * w_img), int(p["y"] / 100 * h_img)] for p in points_raw],
+            dtype=np.int32,
+        )
+        mask = np.zeros((h_img, w_img), dtype=np.uint8)
+        cv2.fillPoly(mask, [pts], 1)
+
+        rle = mask_to_rle(mask)
+        ann_data["segments"].append(rle)
+
+        bx, by, bw, bh = ann.x / 100 * w_img, ann.y / 100 * h_img, ann.w / 100 * w_img, ann.h / 100 * h_img
+        ann_data["bbox"] = [int(bx), int(by), int(bx + bw), int(by + bh)]
+
+    class _MaskProxy:
+        __slots__ = ("mask_data", "bbox_prompt")
+        def __init__(self, mask_data: str, bbox_prompt: str) -> None:
+            self.mask_data = mask_data
+            self.bbox_prompt = bbox_prompt
+
+    result: dict[str, Any] = {}
+    for img_id, data in masks_by_image.items():
+        if not data["segments"]:
+            continue
+        merged = data["segments"][0]
+        if len(data["segments"]) > 1:
+            decoded = [rle_to_mask(s) for s in data["segments"]]
+            merged_arr = np.logical_or.reduce(decoded).astype(np.uint8)
+            merged = mask_to_rle(merged_arr)
+        result[img_id] = _MaskProxy(
+            mask_data=json.dumps(merged),
+            bbox_prompt=json.dumps(data["bbox"]),
+        )
+    return result
+
+
 def cleanup_stale_cache() -> None:
     cache_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -189,13 +257,8 @@ def run_sam_training(cfg: TrainingConfig) -> None:
             _ensure_tables(db)
             _ensure_metrics_column(db)
 
-            # Fetch all segmentation masks for this project
-            all_masks = (
-                db.query(SegmentationMask)
-                .filter(SegmentationMask.project_id == cfg.project_id)
-                .all()
-            )
-            masks_by_image = {m.image_id: m for m in all_masks}
+            # Build masks from polygon annotations
+            masks_by_image = _annotations_to_masks(db, cfg.project_id, list(cfg.images))
 
             images = list(cfg.images)
             random.shuffle(images)
