@@ -39,7 +39,8 @@ def _create_assertion(info: dict[str, Any]) -> str:
         "iat": now,
         "exp": now + 3600,
     }
-    return jwt.encode(payload, info["private_key"], algorithm="RS256")
+    token: str = jwt.encode(payload, info["private_key"], algorithm="RS256")
+    return token
 
 
 def get_access_token() -> str:
