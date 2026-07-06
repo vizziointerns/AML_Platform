@@ -1,4 +1,4 @@
-# AML Platform (datature-clone)
+# AML Platform
 
 A computer vision platform — manage datasets, annotate images with AI-assisted tools, train YOLO/SAM models, and build ML workflows.
 
