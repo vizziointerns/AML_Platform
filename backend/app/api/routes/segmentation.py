@@ -21,6 +21,7 @@ from app.training.trainer import MODELS_DIR, TrainingConfig, start_training_back
 from app.training.sam_loader import load_sam_model
 from app.training.trainer_yolo import _validate_image_url, _extract_drive_file_id
 from app.training.trainer_sam import mask_to_rle
+from app.utils.google_service_account import get_auth_headers
 
 router = APIRouter()
 
@@ -77,7 +78,6 @@ def start_segmentation_train(
         images=[img.model_dump() for img in body.images],
         classes=[c.model_dump() for c in body.classes],
         epochs=body.epochs,
-        google_access_token=body.google_access_token,
         task_type="segment",
     )
     start_training_background(cfg)
@@ -107,16 +107,14 @@ def predict_segmentation(
     img_path = os.path.join(temp_dir, "temp_img.jpg")
 
     try:
-        if file_id and body.google_access_token:
+        if file_id:
             drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+            headers = get_auth_headers()
             with httpx.Client(timeout=60) as client:
                 with client.stream(
                     "GET",
                     drive_url,
-                    headers={
-                        "Authorization": f"Bearer {body.google_access_token}",
-                        "User-Agent": "Mozilla/5.0",
-                    },
+                    headers=headers,
                 ) as response:
                     response.raise_for_status()
                     total = 0

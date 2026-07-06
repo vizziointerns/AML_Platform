@@ -1,15 +1,15 @@
-# AML Platform
+# AML Platform (datature-clone)
 
-A computer vision platform — manage datasets, annotate images with AI-assisted tools, train YOLO models, and build ML workflows.
+A computer vision platform — manage datasets, annotate images with AI-assisted tools, train YOLO/SAM models, and build ML workflows.
 
 ## Tech Stack
 
 | Layer      | Stack                                                           |
 | ---------- | --------------------------------------------------------------- |
 | Frontend   | React 19, TypeScript, Vite 8, Tailwind CSS 4, Konva (canvas)   |
-| Backend    | Python 3.12+, FastAPI, SQLAlchemy, Alembic, Ultralytics (YOLO)   |
+| Backend    | Python 3.12+, FastAPI, SQLAlchemy, Alembic, Ultralytics (YOLO), SAM 2.1 |
 | Database   | SQLite (dev), PostgreSQL (prod), Supabase (auth + storage)      |
-| Storage    | Google Drive API (image upload), Supabase (metadata)            |
+| Storage    | Google Drive API (image upload, CDN thumbnails), Supabase       |
 | CI         | GitHub Actions — frontend (pnpm) + backend (pip)                |
 
 ## Prerequisites
@@ -95,7 +95,9 @@ Opens at `http://localhost:5173`.
 
 ## Environment Variables
 
-Copy `backend/.env.example` to `backend/.env`:
+### Backend (`backend/.env`)
+
+Copy from `backend/.env.example`:
 
 ```env
 APP_NAME=AML_Platform-backend
@@ -105,7 +107,16 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 DATABASE_URL=sqlite:///./dev.db
 ```
 
-Create a `frontend/.env.local` file:
+**Google Service Account** — required for the training pipeline to download images from Google Drive:
+
+| Option | Value |
+|--------|-------|
+| Inline JSON | `GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}` |
+| File path | `GOOGLE_SERVICE_ACCOUNT_KEY=./vizlabel-498314-d6b987d88174.json` |
+
+> The service account automates OAuth 2.0 token generation (30-min cached, auto-refreshed). See `backend/app/utils/google_service_account.py`.
+
+### Frontend (`frontend/.env.local`)
 
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -140,11 +151,18 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 
 ### Training Pipeline
 - **YOLO11n** model training via Ultralytics
+- **SAM 2.1** fine-tuning (mask decoder only, BCE + Dice loss)
 - Background thread with live progress (epoch count, accuracy, loss)
 - Per-epoch metrics chart (mAP50 accuracy + loss curve)
 - 70/15/15 train/val/test split (test held for evaluation)
 - Training cancellation support
 - Model weights saved locally (`backend/models/<run_id>/best.pt`)
+
+### AI Segmentation (SAM 2.1)
+- Interactive segmentation with point/box prompts via SAM 2.1
+- Automatic segmentation (full-image mask generation)
+- Thread-safe single-model inference
+- Mask data stored as COCO RLE in the backend database
 
 ### YOLO Export
 - Export annotations + images as a YOLO-format ZIP
@@ -173,10 +191,22 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 
 | Command                          | Description            |
 | -------------------------------- | ---------------------- |
-| `uvicorn app.main:app --reload`                        | Dev server (required for annotation & training) |
+| `uvicorn app.main:app --reload`  | Dev server (required for annotation & training) |
 | `mypy .`                         | Type check             |
 | `alembic upgrade head`           | Run migrations         |
 | `alembic revision --autogenerate -m "message"` | New migration |
+
+### Makefile (root)
+
+| Target            | Description                      |
+| ----------------- | -------------------------------- |
+| `lint-backend`    | Ruff check + MyPy                |
+| `format-backend`  | Ruff format                      |
+| `install-backend` | Create venv + install deps       |
+| `run-backend`     | Uvicorn dev server               |
+| `migrate-backend` | Alembic upgrade                  |
+| `db-up`           | Docker compose Postgres          |
+| `db-down`         | Docker compose stop              |
 
 ### Docker (Postgres)
 
@@ -198,6 +228,23 @@ docker compose down              # Stop Postgres
 | `deployment`             | DeploymentPage           | Model deployment (mock)                  |
 | `workflow`               | WorkflowBuilder          | Visual pipeline builder (React Flow)     |
 | `auth/*`                 | AuthFlow                 | Login, signup, onboarding, invite        |
+
+### Backend API
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/health` | Health check |
+| GET | `/api/projects` | List projects |
+| GET/POST/DELETE | `/api/annotations/{image_id}` | Image annotations CRUD |
+| POST | `/api/annotations/batch` | Batch annotation save |
+| GET/PUT | `/api/classes/{dataset_id}` | Class labels CRUD |
+| PUT | `/api/classes/{dataset_id}/reorder` | Reorder class indices |
+| GET/POST/PATCH/DELETE | `/api/training/{project_id}[/{run_id}]` | Training runs CRUD |
+| POST | `/api/training/{project_id}/{run_id}/start` | Start training |
+| GET | `/api/training/{project_id}/{run_id}/weights` | Download model weights |
+| POST | `/api/datasets/export/yolo` | YOLO format export |
+| POST | `/api/inference` | YOLO inference |
+| POST | `/api/segment` | SAM 2 segmentation |
 
 ## Database Schema
 

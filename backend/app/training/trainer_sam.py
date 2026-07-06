@@ -28,7 +28,7 @@ from app.training.trainer import (
     _cancelled_runs,
 )
 from app.training.sam_loader import load_sam_model
-from app.training.trainer_yolo import _download_image
+from app.training.trainer_yolo import _download_image  # noqa: F401
 
 try:
     from segment_anything.utils.transforms import ResizeLongestSide
@@ -222,7 +222,7 @@ def run_sam_training(cfg: TrainingConfig) -> None:
                     if img["id"] not in masks_by_image:
                         continue
                     try:
-                        _download_image(img, subset_dir, cfg.google_access_token)
+                        _download_image(img, subset_dir)
                         safe_name = Path(img["file_name"]).name
                         img_path_map[img["id"]] = str(subset_dir / safe_name)
                     except Exception as exc:

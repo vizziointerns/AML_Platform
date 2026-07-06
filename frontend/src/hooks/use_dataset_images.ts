@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../utils/supabase'
 import { resolve_image_urls } from '../utils/drive_image'
-import { use_google_auth } from './use_google_auth'
 
 export interface DatasetImage {
 	id: string
@@ -28,8 +27,6 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 	const [is_loading, set_is_loading] = useState(true)
 	const [error, set_error] = useState<string | undefined>()
 	const [refresh_counter, set_refresh_counter] = useState(0)
-	const google_auth = use_google_auth()
-	const blob_urls_ref = useRef<string[]>([])
 
 	/* re-fetch when datasets change (e.g. after upload) */
 	useEffect(() => {
@@ -96,10 +93,6 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 	)
 
 	useEffect(() => {
-		/* revoke previous blob URLs */
-		for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-		blob_urls_ref.current = []
-
 		if (!dataset_id) {
 			set_images([])
 			set_is_loading(false)
@@ -152,13 +145,9 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 
 			if (is_cancelled) return
 
-			blob_urls_ref.current = await resolve_image_urls(validated, google_auth.access_token)
+			await resolve_image_urls(validated)
 
-			if (is_cancelled) {
-				for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-				blob_urls_ref.current = []
-				return
-			}
+			if (is_cancelled) return
 
 			set_images(validated)
 			set_is_loading(false)
@@ -166,10 +155,8 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 
 		return () => {
 			is_cancelled = true
-			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-			blob_urls_ref.current = []
 		}
-	}, [dataset_id, refresh_counter, google_auth.access_token])
+	}, [dataset_id, refresh_counter])
 
 	return { images, is_loading, error, delete_images }
 }

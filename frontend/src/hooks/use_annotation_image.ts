@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 import { resolve_image_urls } from '../utils/drive_image'
-import { use_google_auth } from './use_google_auth'
 import { use_datasets } from './use_datasets'
 
 export interface AnnotationImageInfo {
@@ -31,20 +30,10 @@ export function use_annotation_image(
 	image_id: string | undefined
 ): UseAnnotationImageResult {
 	const navigate = useNavigate()
-	const google_auth = use_google_auth()
 	const { datasets, is_loading: is_loading_datasets } = use_datasets(project_id)
 	const [images, set_images] = useState<AnnotationImageInfo[]>([])
 	const [is_loading_images, set_is_loading_images] = useState(true)
 	const [error, set_error] = useState<string | undefined>(undefined)
-	const blob_urls_ref = useRef<string[]>([])
-	const stable_images_ref = useRef<AnnotationImageInfo[]>([])
-
-	useEffect(() => {
-		return () => {
-			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-			blob_urls_ref.current = []
-		}
-	}, [])
 
 	const dataset_id = datasets[0]?.id
 
@@ -82,16 +71,9 @@ export function use_annotation_image(
 
 			if (is_cancelled) return
 
-			const new_blob_urls = await resolve_image_urls(parsed, google_auth.access_token)
+			await resolve_image_urls(parsed)
 
-			if (is_cancelled) {
-				for (const url of new_blob_urls) URL.revokeObjectURL(url)
-				return
-			}
-
-			stable_images_ref.current = parsed.map((img) => ({ ...img }))
-			for (const url of blob_urls_ref.current) URL.revokeObjectURL(url)
-			blob_urls_ref.current = new_blob_urls
+			if (is_cancelled) return
 
 			set_images(parsed)
 			set_is_loading_images(false)
@@ -100,7 +82,7 @@ export function use_annotation_image(
 		return () => {
 			is_cancelled = true
 		}
-	}, [dataset_id, google_auth.access_token])
+	}, [dataset_id])
 
 	const current_index = useMemo(() => {
 		if (images.length === 0) return -1
@@ -134,7 +116,7 @@ export function use_annotation_image(
 
 	return {
 		images,
-		stable_images: stable_images_ref.current,
+		stable_images: images,
 		current_index,
 		current_image,
 		is_loading: is_loading_datasets || is_loading_images,
