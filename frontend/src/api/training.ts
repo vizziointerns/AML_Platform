@@ -110,11 +110,8 @@ export async function delete_training_run(project_id: string, run_id: number): P
 }
 
 export async function download_weights_url(project_id: string, run_id: number): Promise<string> {
-	const { data: blob } = await api_client.get<Blob>(`/training/${project_id}/${run_id}/weights`, {
-		responseType: 'blob'
-	})
-	const url = URL.createObjectURL(blob)
-	return url
+	const base_url = import.meta.env.VITE_API_BASE_URL ?? '/api'
+	return `${base_url}/training/${project_id}/${run_id}/weights`
 }
 
 export interface StartTrainingImage {

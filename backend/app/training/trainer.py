@@ -91,7 +91,9 @@ def start_training_background(cfg: TrainingConfig) -> None:
 
         handler = _run_yolo
     elif cfg.task_type == "segment":
-        handler = run_sam_training
+        from app.training.trainer_sam import run_sam_training as _run_sam
+
+        handler = _run_sam
     else:
         _update_run(
             cfg.run_id,
