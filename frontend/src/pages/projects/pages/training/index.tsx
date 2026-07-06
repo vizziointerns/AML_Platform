@@ -373,7 +373,8 @@ function table_row({
 	text_heading,
 	text_muted,
 	deleting_id,
-	on_delete
+	on_delete,
+	on_error
 }: {
 	run: TrainingRun
 	is_dark_mode: boolean
@@ -382,6 +383,7 @@ function table_row({
 	text_muted: string
 	deleting_id: number | undefined
 	on_delete: (id: number) => void
+	on_error: (msg: string) => void
 }) {
 	const pct = run.epochs > 0 ? Math.round((run.current_epoch / run.epochs) * 100) : 0
 	const bar_color = progress_bar_color(run.status)
@@ -421,14 +423,17 @@ function table_row({
 						{run.status === 'Completed' && (
 							<button
 								onClick={async () => {
-									const url = await download_weights_url(run.project_id, run.id)
-									const a = document.createElement('a')
-									a.href = url
-									a.download = `model_${run.id}_best.pt`
-									document.body.appendChild(a)
-									a.click()
-									document.body.removeChild(a)
-									setTimeout(() => URL.revokeObjectURL(url), 5000)
+									try {
+										const url = await download_weights_url(run.project_id, run.id)
+										const a = document.createElement('a')
+										a.href = url
+										a.download = `model_${run.id}_best.pt`
+										document.body.appendChild(a)
+										a.click()
+										document.body.removeChild(a)
+									} catch (err) {
+										on_error(err instanceof Error ? err.message : 'Download failed')
+									}
 								}}
 								className="p-1.5 rounded-md text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
 								title="Download model weights"
@@ -602,12 +607,14 @@ function training_runs_table({
 	runs,
 	is_dark_mode,
 	deleting_id,
-	handle_delete
+	handle_delete,
+	handle_error
 }: {
 	runs: TrainingRun[]
 	is_dark_mode: boolean
 	deleting_id: number | undefined
 	handle_delete: (id: number) => void
+	handle_error: (msg: string) => void
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
@@ -650,7 +657,8 @@ function training_runs_table({
 									text_heading,
 									text_muted,
 									deleting_id,
-									on_delete: handle_delete
+									on_delete: handle_delete,
+									on_error: handle_error
 								})}
 								{(run.status === 'Running' || run.status === 'Completed') &&
 									training_chart(run, is_dark_mode)}
@@ -710,6 +718,7 @@ interface RenderTrainingProps {
 	is_loading: boolean
 	is_exporting: boolean
 	error: string | undefined
+	set_error: (err: string | undefined) => void
 	is_new_dialog_open: boolean
 	is_creating: boolean
 	is_fetching_project: boolean
@@ -813,7 +822,8 @@ function render_training_page_content(props: RenderTrainingProps) {
 					runs: props.runs,
 					is_dark_mode: props.is_dark_mode,
 					deleting_id: props.deleting_id,
-					handle_delete: props.handle_delete
+					handle_delete: props.handle_delete,
+					handle_error: props.set_error
 				})}
 		</>
 	)
@@ -1002,6 +1012,7 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 		is_loading,
 		is_exporting,
 		error,
+		set_error,
 		is_new_dialog_open,
 		is_creating,
 		is_fetching_project,

@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger(__name__)
 from fastapi.responses import FileResponse
 from sqlalchemy import inspect, Table, text
 from sqlalchemy.orm import Session
@@ -187,7 +190,20 @@ def start_training(
         epochs=row.epochs,
         task_type=row.task_type,
     )
-    start_training_background(cfg)
+    try:
+        start_training_background(cfg)
+    except ImportError as e:
+        logger.exception("Failed to import training module")
+        row.status = "Failed"
+        row.error_message = f"Training module import error: {e}"
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Training module not available: {e}") from e
+    except Exception as e:
+        logger.exception("Failed to start training background task")
+        row.status = "Failed"
+        row.error_message = f"Failed to start training: {e}"
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Failed to start training: {e}") from e
 
     return _row_to_out(row)
 

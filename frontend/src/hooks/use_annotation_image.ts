@@ -8,6 +8,7 @@ export interface AnnotationImageInfo {
 	id: string
 	file_url: string
 	file_name: string
+	original_file_url?: string
 }
 
 export interface UseAnnotationImageResult {
@@ -66,7 +67,8 @@ export function use_annotation_image(
 			const parsed = (data ?? []).map((row) => ({
 				id: row.id,
 				file_url: row.file_url,
-				file_name: row.file_name ?? 'Unknown'
+				file_name: row.file_name ?? 'Unknown',
+				original_file_url: row.file_url
 			}))
 
 			if (is_cancelled) return
