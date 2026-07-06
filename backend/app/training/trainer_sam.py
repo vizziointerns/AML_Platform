@@ -294,7 +294,7 @@ def run_sam_training(cfg: TrainingConfig) -> None:
                     if img["id"] not in masks_by_image:
                         continue
                     try:
-                        _download_image(img, subset_dir, cfg.google_access_token)
+                        _download_image(img, subset_dir)
                         safe_name = Path(img["file_name"]).name
                         img_path_map[img["id"]] = str(subset_dir / safe_name)
                     except Exception as exc:

@@ -91,10 +91,30 @@ def _make_validate_url_hook() -> Any:
     return validate_request
 
 
+def _download_drive_file(file_id: str, dest_path: Path) -> None:
+    from app.utils.google_service_account import get_auth_headers
+
+    drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+    headers = get_auth_headers()
+    MAX_IMAGE_SIZE = 10 * 1024 * 1024
+    CHUNK_SIZE = 64 * 1024
+    with httpx.Client(timeout=60) as client:
+        with client.stream("GET", drive_url, headers=headers) as response:
+            response.raise_for_status()
+            total = 0
+            with open(dest_path, "wb") as f:
+                for chunk in response.iter_bytes(CHUNK_SIZE):
+                    total += len(chunk)
+                    if total > MAX_IMAGE_SIZE:
+                        raise ValueError(
+                            f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes"
+                        )
+                    f.write(chunk)
+
+
 def _download_image(
     img: dict[str, Any],
     dest: Path,
-    google_access_token: str | None,
 ) -> None:
     file_url = img["file_url"]
     safe_name = _sanitize_filename(img["file_name"])
@@ -109,29 +129,8 @@ def _download_image(
         _extract_drive_file_id(file_url) if "drive.google.com" in file_url else None
     )
 
-    if file_id and google_access_token:
-        drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
-        MAX_IMAGE_SIZE = 10 * 1024 * 1024
-        CHUNK_SIZE = 64 * 1024
-        with httpx.Client(timeout=60) as client:
-            with client.stream(
-                "GET",
-                drive_url,
-                headers={
-                    "Authorization": f"Bearer {google_access_token}",
-                    "User-Agent": "Mozilla/5.0",
-                },
-            ) as response:
-                response.raise_for_status()
-                total = 0
-                with open(dest_path, "wb") as f:
-                    for chunk in response.iter_bytes(CHUNK_SIZE):
-                        total += len(chunk)
-                        if total > MAX_IMAGE_SIZE:
-                            raise ValueError(
-                                f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes"
-                            )
-                        f.write(chunk)
+    if file_id:
+        _download_drive_file(file_id, dest_path)
     else:
         MAX_IMAGE_SIZE = 10 * 1024 * 1024
         CHUNK_SIZE = 64 * 1024
@@ -253,7 +252,7 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
                 label_path.write_text("\n".join(yolo_lines), encoding="utf-8")
 
                 try:
-                    _download_image(img, img_dir, cfg.google_access_token)
+                    _download_image(img, img_dir)
                 except Exception as exc:
                     print(f"Warning: failed to download {img['file_name']}: {exc}")
 

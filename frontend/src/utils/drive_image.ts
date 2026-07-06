@@ -10,52 +10,30 @@ export function extract_file_id(file_url: string): string | undefined {
 }
 
 export function is_drive_url(file_url: string): boolean {
-	return file_url.includes('drive.google.com') || file_url.includes('googleapis.com/drive')
+	return (
+		file_url.includes('drive.google.com') ||
+		file_url.includes('googleapis.com/drive') ||
+		file_url.includes('drive.usercontent.google.com')
+	)
 }
 
-async function resolve_drive_api(
-	file_id: string,
-	access_token: string
-): Promise<string | undefined> {
-	try {
-		const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${file_id}?alt=media`, {
-			headers: { Authorization: `Bearer ${access_token}` }
-		})
-		if (!resp.ok) return undefined
-		const blob = await resp.blob()
-		return URL.createObjectURL(blob)
-	} catch {
-		return undefined
-	}
-}
-
-export async function resolve_drive_file(
-	file_url: string,
-	access_token: string | undefined
-): Promise<string> {
+export async function resolve_drive_file(file_url: string): Promise<string> {
 	if (!is_drive_url(file_url)) return file_url
 
 	const file_id = extract_file_id(file_url)
 	if (!file_id) return file_url
 
-	if (access_token) {
-		const blob_url = await resolve_drive_api(file_id, access_token)
-		if (blob_url) return blob_url
-	}
-
 	return `https://drive.google.com/thumbnail?id=${file_id}&sz=w1000`
 }
 
-export async function resolve_image_urls(
-	images: { file_url: string }[],
-	access_token: string | undefined
-): Promise<string[]> {
-	const created_blobs: string[] = []
+export async function resolve_image_urls(images: { file_url: string }[]): Promise<string[]> {
+	const resolved: string[] = []
 	for (const img of images) {
-		if (!is_drive_url(img.file_url)) continue
-		const resolved = await resolve_drive_file(img.file_url, access_token)
-		if (resolved !== img.file_url) created_blobs.push(resolved)
-		img.file_url = resolved
+		const resolved_url = await resolve_drive_file(img.file_url)
+		if (resolved_url !== img.file_url) {
+			img.file_url = resolved_url
+			resolved.push(resolved_url)
+		}
 	}
-	return created_blobs
+	return resolved
 }

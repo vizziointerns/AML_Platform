@@ -54,7 +54,6 @@ class TrainingClassInfo(BaseModel):
 class TrainingStartPayload(BaseModel):
     images: list[TrainingImageInfo]
     classes: list[TrainingClassInfo]
-    google_access_token: str | None = None
 
 
 class TrainingRunListOut(BaseModel):
