@@ -28,7 +28,7 @@ from app.training.trainer import (
     _cancelled_runs,
 )
 from app.training.sam_loader import load_sam_model
-from app.training.trainer_yolo import _download_image  # noqa: F401
+from app.training.trainer_yolo import _download_image
 
 try:
     from segment_anything.utils.transforms import ResizeLongestSide

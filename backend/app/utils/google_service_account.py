@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from threading import Lock
+from typing import Any, cast
 
 import httpx
 import jwt
@@ -16,7 +17,7 @@ _token_cache: dict[str, str] = {}
 _cache_lock = Lock()
 
 
-def _load_service_account_info() -> dict:
+def _load_service_account_info() -> dict[str, Any]:
     raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
     if not raw:
         raise RuntimeError(
@@ -24,12 +25,12 @@ def _load_service_account_info() -> dict:
             "Set it to the JSON content or file path of your Google Service Account key."
         )
     if raw.startswith("{"):
-        return json.loads(raw)
+        return cast("dict[str, Any]", json.loads(raw))
     with open(raw) as f:
-        return json.load(f)
+        return cast("dict[str, Any]", json.load(f))
 
 
-def _create_assertion(info: dict) -> str:
+def _create_assertion(info: dict[str, Any]) -> str:
     now = int(time.time())
     payload = {
         "iss": info["client_email"],
@@ -60,12 +61,13 @@ def get_access_token() -> str:
             },
         )
         resp.raise_for_status()
-        data = resp.json()
-        token = data["access_token"]
+        data: dict[str, Any] = resp.json()
+        token: str = data["access_token"]
+        expires_in: int = data.get("expires_in", 3600)
 
     with _cache_lock:
         _token_cache["token"] = token
-        _token_cache["expires_at"] = str(time.time() + 1800)
+        _token_cache["expires_at"] = str(time.time() + expires_in * 0.8)
 
     return token
 

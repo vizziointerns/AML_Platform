@@ -244,7 +244,7 @@ docker compose down              # Stop Postgres
 | GET | `/api/training/{project_id}/{run_id}/weights` | Download model weights |
 | POST | `/api/datasets/export/yolo` | YOLO format export |
 | POST | `/api/inference` | YOLO inference |
-| POST | `/api/segment` | SAM 2 segmentation |
+| POST | `/api/segmentation/{project_id}/predict` | SAM 2.1 prediction |
 
 ## Database Schema
 

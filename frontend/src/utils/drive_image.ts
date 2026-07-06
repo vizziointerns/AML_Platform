@@ -6,8 +6,6 @@ export function extract_file_id(file_url: string): string | undefined {
 	}
 	const match = file_url.match(/[?&]id=([^&?]+)/)
 	if (match) return match[1]
-	const uc_match = file_url.match(/\/uc\?id=([^&?]+)/)
-	if (uc_match) return uc_match[1]
 	return undefined
 }
 
