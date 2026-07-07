@@ -6,9 +6,12 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 export function use_cog_background(
 	url: string | undefined,
 	palette: PaletteName,
-	band: number
+	band: number,
+	file_name?: string
 ): string | undefined {
-	if (!url || !is_tiff_url(url)) return url
+	if (!url) return undefined
+	const is_tiff = is_tiff_url(url) || (file_name ? is_tiff_url(file_name) : false)
+	if (!is_tiff) return url
 
 	const params = new URLSearchParams({
 		url,

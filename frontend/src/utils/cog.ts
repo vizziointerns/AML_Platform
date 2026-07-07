@@ -165,6 +165,12 @@ type TypedArray =
 	| Float64Array
 
 export function is_tiff_url(url: string): boolean {
-	const ext = url.split('?')[0]!.toLowerCase()
-	return ext.endsWith('.tif') || ext.endsWith('.tiff')
+	const base = url.split('?')[0]!.toLowerCase()
+	if (base.endsWith('.tif') || base.endsWith('.tiff')) return true
+	const name_match = url.match(/[?&]name=([^&]+)/)
+	if (name_match) {
+		const decoded = decodeURIComponent(name_match[1]!).toLowerCase()
+		return decoded.endsWith('.tif') || decoded.endsWith('.tiff')
+	}
+	return false
 }

@@ -591,12 +591,18 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	const [bg_opacity, set_bg_opacity] = useState(100)
 
 	const image_url = current_image?.file_url
-	const api_image_url = current_image?.original_file_url ?? current_image?.file_url
+	const image_name = current_image?.file_name
+	const api_image_url = current_image?.original_file_url ?? image_url
 	const image_url_ref = useRef(api_image_url)
 	image_url_ref.current = api_image_url
 	const is_loading_image = is_loading_images
 
-	const display_image_url = use_cog_background(image_url, bg_palette as PaletteName, bg_band)
+	const display_image_url = use_cog_background(
+		image_url,
+		bg_palette as PaletteName,
+		bg_band,
+		image_name
+	)
 
 	const {
 		history,

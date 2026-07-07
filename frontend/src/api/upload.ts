@@ -1,6 +1,5 @@
 import type { UploadFile } from '../components/Uploader/types'
 import { supabase } from '../utils/supabase'
-import { ensure_dataset_drive_folder, get_user_folder_id } from '../utils/google_drive'
 
 export type UploadProgressCallback = (progress: number, loaded: number, total: number) => void
 export type UploadCompleteCallback = () => void
@@ -10,13 +9,6 @@ export interface UploadCallbacks {
 	on_progress: UploadProgressCallback
 	on_complete: UploadCompleteCallback
 	on_error: UploadErrorCallback
-}
-
-export interface DriveUploadResult {
-	drive_file_id: string
-	file_name: string
-	file_size: number
-	mime_type: string
 }
 
 const STORAGE_BUCKET = 'dataset-images'
@@ -103,6 +95,10 @@ interface DatasetDriveInfo {
 	drive_folder_id?: string
 }
 
+function get_api_base(): string {
+	return import.meta.env.VITE_API_BASE_URL ?? '/api'
+}
+
 async function get_project_drive_info(project_id: string): Promise<ProjectDriveInfo> {
 	const { data, error } = await supabase
 		.from('projects')
@@ -131,173 +127,31 @@ async function get_dataset_drive_info(dataset_id: string): Promise<DatasetDriveI
 	return data as DatasetDriveInfo
 }
 
-async function ensure_upload_folder(
-	access_token: string,
-	dataset_id: string,
-	project_id: string | undefined
-): Promise<string> {
-	const user_folder_id = await get_user_folder_id(access_token)
-	const dataset = await get_dataset_drive_info(dataset_id)
-	const resolved_project_id = project_id ?? dataset.project_id
-	const project = await get_project_drive_info(resolved_project_id)
-
-	const ensured = await ensure_dataset_drive_folder({
-		access_token,
-		project_name: project.name,
-		dataset_name: dataset.name,
-		existing_project_folder_id: project.drive_folder_id,
-		existing_dataset_folder_id: dataset.drive_folder_id,
-		user_folder_id
-	})
-
-	if (!project.drive_folder_id) {
-		const { error: project_err } = await supabase
-			.from('projects')
-			.update({ drive_folder_id: ensured.project_folder_id })
-			.eq('id', resolved_project_id)
-
-		if (project_err) {
-			console.error('Failed to update project drive folder ID:', project_err)
-		}
+async function fetch_upload_names(
+	dataset_id: string | undefined,
+	_project_id: string | undefined
+): Promise<{ project_name: string; dataset_name: string; resolved_project_id: string }> {
+	if (!dataset_id) {
+		return { project_name: '', dataset_name: '', resolved_project_id: _project_id ?? '' }
 	}
-
-	if (!dataset.drive_folder_id) {
-		const { error: dataset_err } = await supabase
-			.from('datasets')
-			.update({ drive_folder_id: ensured.dataset_folder_id })
-			.eq('id', dataset.id)
-
-		if (dataset_err) {
-			console.error('Failed to update dataset drive folder ID:', dataset_err)
-		}
+	let project_name = ''
+	let dataset_name = ''
+	let resolved_project_id = _project_id ?? ''
+	try {
+		const dataset_info = await get_dataset_drive_info(dataset_id)
+		dataset_name = dataset_info.name
+		resolved_project_id = dataset_info.project_id
+		const project_info = await get_project_drive_info(resolved_project_id)
+		project_name = project_info.name
+	} catch {
+		// Backend will upload without folder hierarchy
 	}
-
-	return ensured.dataset_folder_id
-}
-
-async function start_resumable_session(
-	access_token: string,
-	file_name: string,
-	mime_type: string,
-	parent_folder_id: string
-): Promise<string> {
-	const resp = await fetch(
-		'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
-		{
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${access_token}`,
-				'Content-Type': 'application/json; charset=UTF-8',
-				'X-Upload-Content-Type': mime_type
-			},
-			body: JSON.stringify({
-				name: file_name,
-				parents: [parent_folder_id]
-			})
-		}
-	)
-
-	if (!resp.ok) {
-		let message = `Failed to create upload session (${resp.status})`
-		try {
-			const err = await resp.json()
-			message = err.error?.message ?? message
-		} catch {
-			/* ignore */
-		}
-		throw new Error(message)
-	}
-
-	const location = resp.headers.get('Location')
-	if (!location) {
-		throw new Error('No upload session URL returned')
-	}
-
-	return location
-}
-
-async function upload_file_to_drive(
-	file: UploadFile,
-	access_token: string,
-	parent_folder_id: string,
-	controller: AbortController,
-	callbacks: UploadCallbacks
-): Promise<DriveUploadResult> {
-	const session_url = await start_resumable_session(
-		access_token,
-		file.name,
-		file.file.type || 'application/octet-stream',
-		parent_folder_id
-	)
-
-	const xhr = new XMLHttpRequest()
-	controller.signal.addEventListener('abort', () => xhr.abort())
-
-	return new Promise<DriveUploadResult>((resolve, reject) => {
-		xhr.upload.addEventListener('progress', (e) => {
-			if (e.lengthComputable) {
-				const progress = Math.round((e.loaded / e.total) * 100)
-				callbacks.on_progress(progress, e.loaded, e.total)
-			}
-		})
-
-		xhr.addEventListener('load', () => {
-			if (xhr.status === 200 || xhr.status === 201) {
-				let drive_file_id = ''
-				let file_name = ''
-				try {
-					const response = JSON.parse(xhr.responseText)
-					drive_file_id = response.id ?? ''
-					file_name = response.name ?? ''
-				} catch {
-					/* malformed JSON fallback */
-				}
-				resolve({
-					drive_file_id: drive_file_id || xhr.responseText.slice(0, 64),
-					file_name: file_name || file.name,
-					file_size: file.size,
-					mime_type: file.file.type
-				})
-			} else {
-				let message = `Google Drive upload failed (${xhr.status})`
-				try {
-					const err = JSON.parse(xhr.responseText)
-					message = err.error?.message ?? message
-				} catch {
-					/* ignore parse error */
-				}
-				reject(new Error(message))
-			}
-		})
-
-		xhr.addEventListener('error', () => {
-			reject(new Error('Network error during Google Drive upload'))
-		})
-
-		xhr.addEventListener('abort', () => {
-			reject(new DOMException('Aborted', 'AbortError'))
-		})
-
-		xhr.open('PUT', session_url)
-		xhr.setRequestHeader('Content-Type', file.file.type || 'application/octet-stream')
-		xhr.send(file.file)
-	})
-}
-
-async function make_drive_file_public(file_id: string, access_token: string): Promise<void> {
-	await fetch(`https://www.googleapis.com/drive/v3/files/${file_id}/permissions`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${access_token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ role: 'reader', type: 'anyone' })
-	})
+	return { project_name, dataset_name, resolved_project_id }
 }
 
 export async function upload_to_drive_and_save(
 	file: UploadFile,
-	access_token: string,
+	_access_token: string,
 	dataset_id: string | undefined,
 	_project_id: string | undefined,
 	callbacks: UploadCallbacks
@@ -306,27 +160,58 @@ export async function upload_to_drive_and_save(
 	active_uploads.set(file.id, controller)
 
 	try {
-		let parent_folder_id: string | undefined
-		if (dataset_id) {
-			parent_folder_id = await ensure_upload_folder(access_token, dataset_id, _project_id)
-		}
-		if (!parent_folder_id) {
-			throw new Error('No dataset folder available for Google Drive upload')
-		}
+		const { project_name, dataset_name } = await fetch_upload_names(dataset_id, _project_id)
+		const api_base = get_api_base()
 
-		const result = await upload_file_to_drive(
-			file,
-			access_token,
-			parent_folder_id,
-			controller,
-			callbacks
+		// Send file as raw body — metadata in query params.
+		// Backend streams chunks to Drive as they arrive (concurrent upload).
+		const params = new URLSearchParams({ file_name: file.name })
+		if (project_name) params.set('project_name', project_name)
+		if (dataset_name) params.set('dataset_name', dataset_name)
+
+		const xhr = new XMLHttpRequest()
+		controller.signal.addEventListener('abort', () => xhr.abort())
+
+		const result = await new Promise<{ drive_file_id: string; file_url: string }>(
+			(resolve, reject) => {
+				xhr.upload.addEventListener('progress', (e) => {
+					if (e.lengthComputable) {
+						const raw = Math.round((e.loaded / e.total) * 100)
+						callbacks.on_progress(Math.min(raw, 95), e.loaded, e.total)
+					}
+				})
+				xhr.addEventListener('load', function () {
+					if (this.status === 200 || this.status === 201) {
+						try {
+							const response = JSON.parse(this.responseText)
+							resolve({
+								drive_file_id: response.drive_file_id ?? '',
+								file_url: response.file_url ?? ''
+							})
+						} catch {
+							reject(new Error('Invalid response from server'))
+						}
+					} else {
+						let message = `Upload failed (${this.status})`
+						try {
+							const err = JSON.parse(this.responseText)
+							message = err.detail ?? message
+						} catch {
+							/* ignore */
+						}
+						reject(new Error(message))
+					}
+				})
+				xhr.addEventListener('error', () => reject(new Error('Network error during upload')))
+				xhr.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+				xhr.open('POST', `${api_base}/upload/drive?${params}`)
+				xhr.setRequestHeader('Content-Type', file.file.type || 'application/octet-stream')
+				xhr.send(file.file)
+			}
 		)
 
-		await make_drive_file_public(result.drive_file_id, access_token).catch(() => {})
-
 		if (dataset_id) {
-			const drive_url = `https://drive.google.com/uc?id=${result.drive_file_id}`
-			await save_image_metadata(dataset_id, result.file_name, drive_url, result.file_size)
+			await save_image_metadata(dataset_id, file.name, result.file_url, file.size)
 		}
 
 		callbacks.on_complete()

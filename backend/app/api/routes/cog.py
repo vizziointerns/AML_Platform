@@ -15,7 +15,11 @@ from fastapi.responses import Response
 from PIL import Image
 import tifffile
 
+from app.utils.google_drive_auth import get_drive_access_token
+
 router = APIRouter()
+
+DRIVE_FILES_API = "https://www.googleapis.com/drive/v3/files"
 
 CACHE_DIR = Path(__file__).parent.parent.parent.parent / "cache" / "cog"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -107,12 +111,38 @@ async def _ensure_cached(url: str) -> Path:
     cache_path = _cache_path(url)
     if cache_path.exists():
         return cache_path
+
     async with httpx.AsyncClient(follow_redirects=True, timeout=300) as client:
-        response = await client.get(url)
+        if "drive.google.com" in url or "googleapis.com/drive" in url:
+            file_id = _extract_drive_id(url)
+            if file_id:
+                access_token = get_drive_access_token()
+                drive_url = f"{DRIVE_FILES_API}/{file_id}?alt=media"
+                response = await client.get(
+                    drive_url,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+            else:
+                response = await client.get(url)
+        else:
+            response = await client.get(url)
         response.raise_for_status()
         _evict_cache_if_needed()
         cache_path.write_bytes(response.content)
     return cache_path
+
+
+def _extract_drive_id(url: str) -> str | None:
+    import re
+    match = re.search(r"[?&]id=([^&?]+)", url)
+    if match:
+        return match.group(1)
+    if "googleapis.com/drive" in url:
+        parts = url.split("/")
+        for i, part in enumerate(parts):
+            if part == "files" and i + 1 < len(parts):
+                return parts[i + 1].split("?")[0]
+    return None
 
 
 def _read_band(
