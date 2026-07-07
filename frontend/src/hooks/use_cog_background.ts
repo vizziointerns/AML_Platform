@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { render_cog_to_canvas, is_tiff_url } from '../utils/cog'
+import type { PaletteName } from '../utils/colormaps'
 
 export function use_cog_background(
 	url: string | undefined,
-	palette: string,
+	palette: PaletteName,
 	band: number,
 	opacity: number
 ): string | undefined {
@@ -21,37 +22,33 @@ export function use_cog_background(
 		const canvas = document.createElement('canvas')
 
 		;(async () => {
-			await render_cog_to_canvas(url, canvas, {
-				id: 'cog-bg',
-				url,
-				name: 'background',
-				visible: true,
-				opacity,
-				band,
-				palette: palette as
-					| 'grayscale'
-					| 'jet'
-					| 'hot'
-					| 'coolwarm'
-					| 'viridis'
-					| 'plasma'
-					| 'inferno'
-					| 'turbo',
-				composite_mode: 'single'
-			})
+			try {
+				await render_cog_to_canvas(url, canvas, {
+					id: 'cog-bg',
+					url,
+					name: 'background',
+					visible: true,
+					opacity,
+					band,
+					palette,
+					composite_mode: 'single'
+				})
 
-			if (id !== fetch_id_ref.current) return
+				if (id !== fetch_id_ref.current) return
 
-			canvas.toBlob((blob) => {
-				if (blob && id === fetch_id_ref.current) {
-					const blob_url = URL.createObjectURL(blob)
-					if (prev_blob_ref.current?.startsWith('blob:')) {
-						URL.revokeObjectURL(prev_blob_ref.current)
+				canvas.toBlob((blob) => {
+					if (blob && id === fetch_id_ref.current) {
+						const blob_url = URL.createObjectURL(blob)
+						if (prev_blob_ref.current?.startsWith('blob:')) {
+							URL.revokeObjectURL(prev_blob_ref.current)
+						}
+						prev_blob_ref.current = blob_url
+						set_result_url(blob_url)
 					}
-					prev_blob_ref.current = blob_url
-					set_result_url(blob_url)
-				}
-			}, 'image/png')
+				}, 'image/png')
+			} catch {
+				console.error('Failed to render COG background:', url)
+			}
 		})()
 	}, [url, palette, band, opacity])
 

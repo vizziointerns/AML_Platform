@@ -21,7 +21,7 @@ export interface CogMetadata {
 	no_data?: number
 }
 
-let pending_render = 0
+const pending_renders = new WeakMap<HTMLCanvasElement, number>()
 
 export async function load_cog_metadata(url: string): Promise<CogMetadata> {
 	const tiff = await fromUrl(url, { allowFullFile: false })
@@ -98,44 +98,59 @@ export async function render_cog_to_canvas(
 	canvas: HTMLCanvasElement,
 	config: CogLayerConfig
 ): Promise<void> {
-	const render_id = ++pending_render
+	const render_id = (pending_renders.get(canvas) ?? 0) + 1
+	pending_renders.set(canvas, render_id)
 
-	const tiff = await fromUrl(url, { allowFullFile: false })
-	const image = await tiff.getImage()
-	const width = image.getWidth()
-	const height = image.getHeight()
+	try {
+		const tiff = await fromUrl(url, { allowFullFile: false })
+		const image = await tiff.getImage()
+		const full_width = image.getWidth()
+		const full_height = image.getHeight()
 
-	if (render_id !== pending_render) return
+		if (render_id !== pending_renders.get(canvas)) return
 
-	canvas.width = width
-	canvas.height = height
+		const max_pixels = 2048
+		const scale = Math.min(1, max_pixels / full_width, max_pixels / full_height)
+		const width = Math.round(full_width * scale)
+		const height = Math.round(full_height * scale)
 
-	const raster = await image.readRasters({
-		samples: [config.band],
-		interleave: false
-	})
+		canvas.width = width
+		canvas.height = height
 
-	if (render_id !== pending_render) return
+		const raster = await image.readRasters({
+			samples: [config.band],
+			interleave: false,
+			width,
+			height
+		})
 
-	const band_data = raster as unknown as TypedArray
-	if (!band_data) return
+		if (render_id !== pending_renders.get(canvas)) return
 
-	let min = config.min
-	let max = config.max
+		const raster_arr = raster as unknown as TypedArray[]
+		const band_data = raster_arr[0]
+		if (!band_data) return
 
-	if (min === undefined || max === undefined) {
-		const stats = compute_min_max(band_data)
-		if (min === undefined) min = stats.min
-		if (max === undefined) max = stats.max
+		let min = config.min
+		let max = config.max
+
+		if (min === undefined || max === undefined) {
+			const stats = compute_min_max(band_data)
+			min ??= stats.min
+			max ??= stats.max
+		}
+
+		const palette = get_palette(config.palette)
+		const ctx = canvas.getContext('2d')!
+		const image_data = ctx.createImageData(width, height)
+
+		fill_pixels(image_data.data, band_data, palette, min, max)
+
+		ctx.putImageData(image_data, 0, 0)
+	} catch (error) {
+		console.error('Failed to render COG:', url, error)
+		pending_renders.delete(canvas)
+		throw error
 	}
-
-	const palette = get_palette(config.palette)
-	const ctx = canvas.getContext('2d')!
-	const image_data = ctx.createImageData(width, height)
-
-	fill_pixels(image_data.data, band_data, palette, min, max)
-
-	ctx.putImageData(image_data, 0, 0)
 }
 
 type TypedArray =

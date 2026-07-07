@@ -309,7 +309,7 @@ export default function annotation_canvas({
 				{cog_layers
 					.filter((l) => l.visible)
 					.map((layer_config) => (
-						<Layer key={layer_config.id} opacity={layer_config.opacity / 100} listening={false}>
+						<Layer key={layer_config.id} listening={false}>
 							<CogLayerComponent config={layer_config} />
 						</Layer>
 					))}

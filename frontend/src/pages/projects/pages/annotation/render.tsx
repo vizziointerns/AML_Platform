@@ -27,6 +27,8 @@ import {
 } from 'lucide-react'
 import type { Annotation, Prediction, ClassInfo, LayerActionSet, Mode } from './types'
 import type { CogLayerInfo } from '../../../../components/AnnotationCanvas/types'
+import { PALETTE_NAMES } from '../../../../utils/colormaps'
+import type { PaletteName } from '../../../../utils/colormaps'
 
 export interface ModelOption {
 	id: number
@@ -404,6 +406,29 @@ export function render_layers_panel(
 	)
 }
 
+const PALETTE_LABELS: Record<PaletteName, string> = {
+	grayscale: 'Grayscale',
+	jet: 'Jet',
+	hot: 'Hot',
+	coolwarm: 'Coolwarm',
+	viridis: 'Viridis',
+	plasma: 'Plasma',
+	inferno: 'Inferno',
+	turbo: 'Turbo'
+}
+
+function render_palette_select(value: string, on_change: (v: string) => void, select_cls: string) {
+	return (
+		<select value={value} onChange={(e) => on_change(e.target.value)} className={select_cls}>
+			{PALETTE_NAMES.map((name) => (
+				<option key={name} value={name}>
+					{PALETTE_LABELS[name]}
+				</option>
+			))}
+		</select>
+	)
+}
+
 export function render_satellite_layer_item(
 	layer: CogLayerInfo,
 	on_update: (id: string, patch: Partial<CogLayerInfo>) => void,
@@ -466,22 +491,11 @@ export function render_satellite_layer_item(
 					className={input_cls}
 				/>
 				<span className={`text-[10px] ${text_muted} ml-1`}>Palette</span>
-				<select
-					value={layer.palette}
-					onChange={(e) =>
-						on_update(layer.id, { palette: e.target.value as CogLayerInfo['palette'] })
-					}
-					className={`${select_cls} flex-1`}
-				>
-					<option value="grayscale">Grayscale</option>
-					<option value="jet">Jet</option>
-					<option value="hot">Hot</option>
-					<option value="coolwarm">Coolwarm</option>
-					<option value="viridis">Viridis</option>
-					<option value="plasma">Plasma</option>
-					<option value="inferno">Inferno</option>
-					<option value="turbo">Turbo</option>
-				</select>
+				{render_palette_select(
+					layer.palette,
+					(v) => on_update(layer.id, { palette: v as CogLayerInfo['palette'] }),
+					`${select_cls} flex-1`
+				)}
 			</div>
 		</div>
 	)
@@ -530,20 +544,7 @@ export function render_bg_raster_controls(
 					className={input_cls}
 				/>
 				<span className={`text-[10px] ${text_muted} ml-1`}>Palette</span>
-				<select
-					value={palette}
-					onChange={(e) => on_palette_change(e.target.value)}
-					className={`${select_cls} flex-1`}
-				>
-					<option value="grayscale">Grayscale</option>
-					<option value="jet">Jet</option>
-					<option value="hot">Hot</option>
-					<option value="coolwarm">Coolwarm</option>
-					<option value="viridis">Viridis</option>
-					<option value="plasma">Plasma</option>
-					<option value="inferno">Inferno</option>
-					<option value="turbo">Turbo</option>
-				</select>
+				{render_palette_select(palette, on_palette_change, `${select_cls} flex-1`)}
 			</div>
 		</div>
 	)

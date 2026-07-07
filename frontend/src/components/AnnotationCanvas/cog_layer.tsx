@@ -19,28 +19,32 @@ export function cog_layer_component({ config }: CogLayerProps) {
 		const render_id = ++render_ref.current
 
 		;(async () => {
-			if (!canvas_ref.current) {
-				canvas_ref.current = document.createElement('canvas')
+			try {
+				if (!canvas_ref.current) {
+					canvas_ref.current = document.createElement('canvas')
+				}
+				const canvas = canvas_ref.current
+
+				await render_cog_to_canvas(config.url, canvas, {
+					id: config.id,
+					url: config.url,
+					name: config.name,
+					visible: config.visible,
+					opacity: config.opacity,
+					band: config.band,
+					palette: config.palette,
+					min: config.min,
+					max: config.max,
+					composite_mode: config.composite_mode
+				})
+
+				if (render_id !== render_ref.current) return
+
+				set_size({ width: canvas.width, height: canvas.height })
+				set_is_loaded(true)
+			} catch {
+				console.error('Failed to render COG layer:', config.url)
 			}
-			const canvas = canvas_ref.current
-
-			await render_cog_to_canvas(config.url, canvas, {
-				id: config.id,
-				url: config.url,
-				name: config.name,
-				visible: config.visible,
-				opacity: config.opacity,
-				band: config.band,
-				palette: config.palette,
-				min: config.min,
-				max: config.max,
-				composite_mode: config.composite_mode
-			})
-
-			if (render_id !== render_ref.current) return
-
-			set_size({ width: canvas.width, height: canvas.height })
-			set_is_loaded(true)
 		})()
 	}, [config.url, config.band, config.palette, config.min, config.max, config.visible])
 

@@ -31,7 +31,7 @@ export function use_annotation_history() {
 				if (new_history.length > 50) new_history.shift()
 				return new_history
 			})
-			set_history_step((prev) => Math.min(prev + 1, 50))
+			set_history_step((prev) => Math.min(prev + 1, 49))
 		},
 		[history_step]
 	)

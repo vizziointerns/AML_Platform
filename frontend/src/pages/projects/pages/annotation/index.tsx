@@ -53,6 +53,7 @@ import { use_cog_layers } from '../../../../hooks/use_cog_layers'
 import { use_cog_background } from '../../../../hooks/use_cog_background'
 import { use_annotation_history } from '../../../../hooks/use_annotation_history'
 import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
+import type { PaletteName } from '../../../../utils/colormaps'
 
 function render_right_properties_panel(
 	is_cog_project: boolean,
@@ -287,10 +288,12 @@ function fetch_dataset_classes_effect(
 	set_classes: React.Dispatch<React.SetStateAction<ClassInfo[]>>,
 	set_active_class: React.Dispatch<React.SetStateAction<string>>,
 	classes_fetched: React.MutableRefObject<boolean>
-) {
-	if (!dataset_id) return
+): (() => void) | undefined {
+	if (!dataset_id) return undefined
+	let is_cancelled = false
 	fetch_classes(dataset_id)
 		.then((backend_classes) => {
+			if (is_cancelled) return
 			if (backend_classes.length > 0) {
 				classes_fetched.current = true
 				set_classes(backend_classes)
@@ -302,6 +305,9 @@ function fetch_dataset_classes_effect(
 		.catch(() => {
 			/* fall back to localStorage */
 		})
+	return () => {
+		is_cancelled = true
+	}
 }
 
 function save_classes_backend_effect(
@@ -590,7 +596,12 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	image_url_ref.current = api_image_url
 	const is_loading_image = is_loading_images
 
-	const display_image_url = use_cog_background(image_url, bg_palette, bg_band, bg_opacity)
+	const display_image_url = use_cog_background(
+		image_url,
+		bg_palette as PaletteName,
+		bg_band,
+		bg_opacity
+	)
 
 	const {
 		history,
@@ -648,7 +659,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	const classes_fetched = useRef(false)
 
 	useEffect(() => {
-		fetch_dataset_classes_effect(dataset_id, set_classes, set_active_class, classes_fetched)
+		return fetch_dataset_classes_effect(dataset_id, set_classes, set_active_class, classes_fetched)
 	}, [dataset_id])
 
 	useEffect(() => {
@@ -760,6 +771,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		window.addEventListener('keydown', on_key_down)
 		return () => window.removeEventListener('keydown', on_key_down)
 	}, [
+		imageId,
 		selected_ann_id,
 		selected_prediction_id,
 		undo,
@@ -1070,9 +1082,10 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				selected_model_id,
 				set_selected_model_id,
 				() => {
+					if (!api_image_url) return
 					if (selected_model_id === -1) {
 						handle_sam_auto_segment(
-							api_image_url ?? '',
+							api_image_url,
 							active_class,
 							set_is_running_segmentation,
 							set_is_model_selector_open,
