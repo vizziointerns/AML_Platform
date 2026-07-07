@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import httpx
 import numpy as np
@@ -15,11 +15,47 @@ from fastapi.responses import Response
 from PIL import Image
 import tifffile
 
-from app.utils.google_drive_auth import get_drive_access_token
+from app.utils.google_drive_auth import async_get_drive_access_token
 
 router = APIRouter()
 
 DRIVE_FILES_API = "https://www.googleapis.com/drive/v3/files"
+
+_ALLOWED_DOWNLOAD_HOSTS: set[str] = {
+    "drive.google.com",
+    "docs.google.com",
+    "googleapis.com",
+    "lh3.googleusercontent.com",
+    "ssl.gstatic.com",
+}
+
+
+def _assert_allowed_url(url: str) -> None:
+    """Reject URLs that could enable SSRF.
+
+    Only allows Google-hosted endpoints and rejects private/local IPs.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https",):
+        raise ValueError(f"Only HTTPS URLs are allowed: {url}")
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"Could not parse host from URL: {url}")
+    if not any(allowed in host for allowed in _ALLOWED_DOWNLOAD_HOSTS):
+        raise ValueError(f"URL host not in allowed list: {host}")
+    import socket
+
+    try:
+        addr_info = socket.getaddrinfo(host, 443)
+    except Exception as exc:
+        raise ValueError(f"Could not resolve host: {host}") from exc
+    for _family, _type, _proto, _canonname, sockaddr in addr_info:
+        ip: str = cast(str, sockaddr[0])
+        if ip.startswith("127.") or ip == "::1" or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("192.168.") or ip == "0.0.0.0":
+            raise ValueError(f"Resolved to private IP, rejected: {ip}")
+
 
 CACHE_DIR = Path(__file__).parent.parent.parent.parent / "cache" / "cog"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -112,18 +148,17 @@ async def _ensure_cached(url: str) -> Path:
     if cache_path.exists():
         return cache_path
 
-    async with httpx.AsyncClient(follow_redirects=True, timeout=300) as client:
-        if "drive.google.com" in url or "googleapis.com/drive" in url:
-            file_id = _extract_drive_id(url)
-            if file_id:
-                access_token = get_drive_access_token()
-                drive_url = f"{DRIVE_FILES_API}/{file_id}?alt=media"
-                response = await client.get(
-                    drive_url,
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-            else:
-                response = await client.get(url)
+    _assert_allowed_url(url)
+
+    async with httpx.AsyncClient(follow_redirects=False, timeout=300) as client:
+        file_id = _extract_drive_id(url)
+        if file_id:
+            access_token = await async_get_drive_access_token()
+            drive_url = f"{DRIVE_FILES_API}/{file_id}?alt=media"
+            response = await client.get(
+                drive_url,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
         else:
             response = await client.get(url)
         response.raise_for_status()
@@ -161,6 +196,8 @@ def _read_band(
         data = page_raw.asarray()
         if data is None:
             raise ValueError(f"Failed to read band {band} from {cache_path}")
+        if data.ndim > 2:
+            data = data[..., 0]
         h, w = data.shape[:2]
         return data.astype(np.float64), w, h
 
@@ -248,7 +285,8 @@ async def cog_render(
     w = max(1, round(orig_w * scale_factor))
     h = max(1, round(orig_h * scale_factor))
     if scale_factor < 1.0:
-        img_pil = Image.fromarray(band_data.astype(np.float32))
+        resize_data = band_data[..., 0] if band_data.ndim > 2 else band_data
+        img_pil = Image.fromarray(resize_data.astype(np.float32))
         img_pil = img_pil.resize((w, h), LANCZOS)
         band_data = np.array(img_pil, dtype=np.float64)
     actual_min = min_val if min_val is not None else float(band_data.min())
@@ -329,27 +367,39 @@ async def cog_convert(file: UploadFile = File(...)) -> dict[str, Any]:
                     tile=(256, 256),
                     metadata={"band": i},
                 )
+        content_hash = hashlib.sha256(content).hexdigest()[:16]
+        output_filename = f"{content_hash}.tif"
         output_dir = _ensure_dir(
             os.path.join(
                 os.path.dirname(__file__), "..", "..", "..", "converted"
             )
         )
-        filename_hash = hashlib.sha256(
-            file.filename.encode()
-        ).hexdigest()[:16]
-        output_path = output_dir / f"{filename_hash}.tif"
+        output_path = output_dir / output_filename
         shutil.move(cog_path, output_path)
+        serve_url = f"/api/cog/files/{output_filename}"
         return {
-            "url": str(output_path),
+            "url": serve_url,
             "filename": file.filename,
             "status": "converted",
         }
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"COG conversion failed: {e}"
-        )
+        ) from e
     finally:
         if os.path.exists(tmp.name):
             os.unlink(tmp.name)
         if os.path.exists(tmp.name.replace(".tif", "_cog.tif")):
             os.unlink(tmp.name.replace(".tif", "_cog.tif"))
+
+
+@router.get("/cog/files/{filename}")
+async def serve_converted_file(filename: str) -> Response:
+    output_dir = _ensure_dir(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "converted")
+    )
+    file_path = output_dir / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    content = file_path.read_bytes()
+    return Response(content, media_type="image/tiff")

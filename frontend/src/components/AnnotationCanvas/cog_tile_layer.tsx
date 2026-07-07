@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Image as KonvaImage } from 'react-konva'
 import type { CogLayerInfo } from './types'
 
@@ -32,40 +32,30 @@ export function cog_tile_layer_component({ config, viewport }: CogTileLayerProps
 	const [loaded_tiles, set_loaded_tiles] = useState<Record<string, HTMLImageElement>>({})
 	const loading_ref = useRef<Set<string>>(new Set())
 
-	const z = Math.max(
-		0,
-		Math.ceil(
-			Math.log2(
-				Math.max(
-					config.url.length > 0 ? 1 : 1,
-					viewport.width / TILE_SIZE,
-					viewport.height / TILE_SIZE
-				)
-			)
-		)
-	)
+	const tile_info = useMemo(() => {
+		const base_dim = Math.max(viewport.width / TILE_SIZE, viewport.height / TILE_SIZE)
+		const z = Math.max(0, Math.ceil(Math.log2(base_dim)))
+		const total = 2 ** z
+		const tile_w = viewport.width / total
+		const tile_h = viewport.height / total
 
-	const visible_tiles: { z: number; x: number; y: number; px: number; py: number }[] = []
-	const total = 2 ** z
-	const tile_w = viewport.width / total
-	const tile_h = viewport.height / total
+		const start_x = Math.max(0, Math.floor(viewport.x / tile_w))
+		const end_x = Math.min(total - 1, Math.ceil((viewport.x + viewport.width) / tile_w))
+		const start_y = Math.max(0, Math.floor(viewport.y / tile_h))
+		const end_y = Math.min(total - 1, Math.ceil((viewport.y + viewport.height) / tile_h))
 
-	const start_x = Math.max(0, Math.floor(viewport.x / tile_w))
-	const end_x = Math.min(total - 1, Math.ceil((viewport.x + viewport.width) / tile_w))
-	const start_y = Math.max(0, Math.floor(viewport.y / tile_h))
-	const end_y = Math.min(total - 1, Math.ceil((viewport.y + viewport.height) / tile_h))
-
-	for (let tx = start_x; tx <= end_x; tx++) {
-		for (let ty = start_y; ty <= end_y; ty++) {
-			visible_tiles.push({
-				z,
-				x: tx,
-				y: ty,
-				px: tx * tile_w,
-				py: ty * tile_h
-			})
+		const tiles: { z: number; x: number; y: number; px: number; py: number }[] = []
+		for (let tx = start_x; tx <= end_x; tx++) {
+			for (let ty = start_y; ty <= end_y; ty++) {
+				tiles.push({ z, x: tx, y: ty, px: tx * tile_w, py: ty * tile_h })
+			}
 		}
-	}
+		return { z, tiles }
+	}, [viewport.x, viewport.y, viewport.width, viewport.height])
+
+	const { z, tiles: visible_tiles } = tile_info
+
+	const config_key = `${config.url}|${config.band}|${config.palette}|${config.min}|${config.max}`
 
 	useEffect(() => {
 		const current_loading = new Set(loading_ref.current)
@@ -99,7 +89,7 @@ export function cog_tile_layer_component({ config, viewport }: CogTileLayerProps
 			}
 			return next
 		})
-	}, [z])
+	}, [z, config_key])
 
 	if (!config.visible) return undefined
 

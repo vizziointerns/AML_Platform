@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import time
+import webbrowser
 from threading import Lock
 from typing import Any, cast
 
@@ -29,7 +30,7 @@ def _find_client_secret() -> dict[str, Any]:
     if not matches:
         raise RuntimeError(
             "No client_secret_*.json file found in backend/. "
-            "Download it from Google Cloud Console → Credentials."
+            "Download it from Google Cloud Console \u2192 Credentials."
         )
     with open(matches[0]) as f:
         data = cast("dict[str, Any]", json.load(f))
@@ -53,10 +54,32 @@ def get_auth_url() -> str:
     )
 
 
-def exchange_code(code: str) -> dict[str, Any]:
+def interactive_auth() -> dict[str, Any]:
+    """Run the OAuth consent flow in the browser and return the token.
+
+    Opens a browser for the user to authorize, then reads the returned code
+    from stdin and exchanges it for tokens.
+    """
+    url = get_auth_url()
+    print("Opening browser for Google Drive authorization...")
+    print(f"If the browser doesn't open, visit:\n{url}\n")
+    webbrowser.open(url)
+    code = input("Paste the authorization code here and press Enter: ").strip()
+    if not code:
+        raise RuntimeError("No authorization code provided")
+    import asyncio
+
+    token = asyncio.run(_async_exchange_code(code))
+    save_token(token)
+    print("\u2713 Google Drive authorization complete!")
+    print(f"  Token saved to {TOKEN_PATH}")
+    return token
+
+
+async def _async_exchange_code(code: str) -> dict[str, Any]:
     client_info = _find_client_secret()
-    with httpx.Client() as client:
-        resp = client.post(
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
             TOKEN_URL,
             data={
                 "code": code,
@@ -83,11 +106,11 @@ def _load_token() -> dict[str, Any] | None:
     return None
 
 
-def _refresh_access_token(
+async def _async_refresh_access_token(
     refresh_token: str, client_info: dict[str, Any]
 ) -> dict[str, Any]:
-    with httpx.Client() as client:
-        resp = client.post(
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
             TOKEN_URL,
             data={
                 "client_id": client_info["client_id"],
@@ -100,7 +123,8 @@ def _refresh_access_token(
         return cast(dict[str, Any], resp.json())
 
 
-def get_drive_access_token() -> str:
+async def async_get_drive_access_token() -> str:
+    """Async version — used by request handlers."""
     with _cache_lock:
         cached = _token_cache.get("access_token")
         expires_at = _token_cache.get("expires_at")
@@ -111,11 +135,16 @@ def get_drive_access_token() -> str:
     if token_data and "refresh_token" in token_data:
         client_info = _find_client_secret()
         try:
-            new_token = _refresh_access_token(
+            new_token = await _async_refresh_access_token(
                 token_data["refresh_token"], client_info
             )
-        except Exception:
+        except httpx.HTTPStatusError:
             logger.warning("OAuth refresh failed, falling back to service account")
+            from app.utils.google_service_account import get_access_token
+
+            return get_access_token()
+        except httpx.RequestError as exc:
+            logger.warning("OAuth refresh network error: %s", exc)
             from app.utils.google_service_account import get_access_token
 
             return get_access_token()
@@ -136,3 +165,10 @@ def get_drive_access_token() -> str:
     from app.utils.google_service_account import get_access_token
 
     return get_access_token()
+
+
+def get_drive_access_token() -> str:
+    """Sync version for non-async contexts (e.g. training)."""
+    import asyncio
+
+    return asyncio.run(async_get_drive_access_token())

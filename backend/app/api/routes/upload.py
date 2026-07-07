@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 from urllib.parse import quote as _url_quote
 
@@ -8,7 +9,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from app.core.config import settings
-from app.utils.google_drive_auth import get_drive_access_token
+from app.utils.google_drive_auth import async_get_drive_access_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -118,19 +121,6 @@ async def _ensure_folder_hierarchy(
     return dataset_folder_id
 
 
-async def _make_file_public(access_token: str, file_id: str) -> None:
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            f"{DRIVE_FILES_API}/{file_id}/permissions",
-            params=_drive_params(),
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json",
-            },
-            json={"role": "reader", "type": "anyone"},
-        )
-
-
 @router.post("/upload/drive")
 async def upload_to_drive(
     request: Request,
@@ -150,8 +140,12 @@ async def upload_to_drive(
 
     mime_type = request.headers.get("content-type", "application/octet-stream")
 
+    content_length = request.headers.get("content-length")
+    if not content_length:
+        raise HTTPException(status_code=411, detail="Content-Length header is required")
+
     try:
-        access_token = get_drive_access_token()
+        access_token = await async_get_drive_access_token()
 
         parent_folder_id = await _ensure_folder_hierarchy(
             access_token,
@@ -183,11 +177,10 @@ async def upload_to_drive(
                 )
 
         # Stream the incoming request body directly to Drive
-        # (chunks forwarded as they arrive from the browser)
-        put_headers: dict[str, str] = {"Content-Type": mime_type}
-        content_length = request.headers.get("content-length")
-        if content_length:
-            put_headers["Content-Length"] = content_length
+        put_headers: dict[str, str] = {
+            "Content-Type": mime_type,
+            "Content-Length": content_length,
+        }
 
         async with httpx.AsyncClient() as client:
             put_resp = await client.put(
@@ -197,8 +190,6 @@ async def upload_to_drive(
             )
             put_resp.raise_for_status()
             drive_file_id = cast(str, put_resp.json()["id"])
-
-        await _make_file_public(access_token, drive_file_id)
 
         drive_url = (
             f"https://drive.google.com/uc?id={drive_file_id}"
@@ -217,8 +208,8 @@ async def upload_to_drive(
             err_body = e.response.json()
             detail = err_body.get("error", {}).get("message", detail)
         except Exception:
-            pass
-        raise HTTPException(status_code=e.response.status_code, detail=detail)
+            logger.exception("Failed to parse Drive error response body")
+        raise HTTPException(status_code=e.response.status_code, detail=detail) from e
 
 
 @router.post("/upload/drive/create-dataset-folder")
@@ -228,7 +219,7 @@ async def create_dataset_folder(
 ) -> dict[str, str]:
     """Create the folder hierarchy on Drive for a new dataset."""
     try:
-        access_token = get_drive_access_token()
+        access_token = await async_get_drive_access_token()
         dataset_folder_id = await _ensure_folder_hierarchy(
             access_token, project_name, dataset_name
         )
@@ -243,13 +234,13 @@ async def create_dataset_folder(
             err_body = e.response.json()
             detail = err_body.get("error", {}).get("message", detail)
         except Exception:
-            pass
-        raise HTTPException(status_code=e.response.status_code, detail=detail)
+            logger.exception("Failed to parse Drive error response body")
+        raise HTTPException(status_code=e.response.status_code, detail=detail) from e
 
 
 @router.get("/images/drive/{file_id}")
 async def proxy_drive_image(file_id: str) -> Response:
-    access_token = get_drive_access_token()
+    access_token = await async_get_drive_access_token()
     url = f"{DRIVE_FILES_API}/{file_id}?alt=media"
     async with httpx.AsyncClient() as client:
         resp = await client.get(
