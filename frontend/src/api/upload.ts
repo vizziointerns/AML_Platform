@@ -94,7 +94,13 @@ async function save_image_metadata(
 		p_file_size: file_size
 	})
 	if (rpc_err) {
-		console.error('Failed to increment dataset counts:', rpc_err.message)
+		const { error: retry_err } = await supabase.rpc('increment_dataset_counts', {
+			p_dataset_id: dataset_id,
+			p_file_size: file_size
+		})
+		if (retry_err) {
+			throw new Error(`Failed to increment dataset counts: ${retry_err.message}`)
+		}
 	}
 }
 
