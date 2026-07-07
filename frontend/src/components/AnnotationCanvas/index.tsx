@@ -3,6 +3,7 @@ import { Stage, Layer, Image as KonvaImage } from 'react-konva'
 import useImage from 'use-image'
 import type Konva from 'konva'
 import type { AnnotationCanvasProps, MaskLine } from './types'
+import { cog_layer_component as CogLayerComponent } from './cog_layer'
 import { finish_polygon_logic } from './polygon'
 import { handle_mouse_down_logic, handle_mouse_move_logic, handle_mouse_up_logic } from './input'
 import { render_mask_layer } from './brush'
@@ -15,6 +16,7 @@ import {
 
 export default function annotation_canvas({
 	imageUrl: image_url,
+	cogLayers: cog_layers = [],
 	annotations,
 	predictions,
 	collaborators = [],
@@ -303,6 +305,14 @@ export default function annotation_canvas({
 						/>
 					)}
 				</Layer>
+
+				{cog_layers
+					.filter((l) => l.visible)
+					.map((layer_config) => (
+						<Layer key={layer_config.id} opacity={layer_config.opacity / 100} listening={false}>
+							<CogLayerComponent config={layer_config} />
+						</Layer>
+					))}
 
 				{render_mask_layer(
 					image,

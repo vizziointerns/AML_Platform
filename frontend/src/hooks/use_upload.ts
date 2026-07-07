@@ -106,8 +106,11 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 
 	const process_files = useCallback((new_files: File[]) => {
 		const processed: UploadFile[] = new_files.map((f) => {
+			const is_image = f.type.startsWith('image/')
+			const is_zip = f.name.endsWith('.zip')
+			const is_tiff = /\.tiff?$/i.test(f.name)
 			let preview_url
-			if (f.type.startsWith('image/')) {
+			if (is_image) {
 				preview_url = URL.createObjectURL(f)
 			}
 			return {
@@ -117,11 +120,8 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 				size: f.size,
 				previewUrl: preview_url,
 				progress: 0,
-				status: f.type.startsWith('image/') || f.name.endsWith('.zip') ? 'pending' : 'error',
-				error:
-					!f.type.startsWith('image/') && !f.name.endsWith('.zip')
-						? 'Unsupported file format.'
-						: undefined
+				status: is_image || is_zip || is_tiff ? 'pending' : 'error',
+				error: !is_image && !is_zip && !is_tiff ? 'Unsupported file format.' : undefined
 			}
 		})
 		set_files((prev) => [...prev, ...processed])

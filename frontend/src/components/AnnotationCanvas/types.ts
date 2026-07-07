@@ -1,4 +1,19 @@
+import type { PaletteName } from '../../utils/colormaps'
+
 export type AnnotationTool = 'select' | 'pan' | 'bbox' | 'polygon' | 'brush' | 'eraser' | 'segment'
+
+export interface CogLayerInfo {
+	id: string
+	url: string
+	name: string
+	visible: boolean
+	opacity: number
+	band: number
+	palette: PaletteName
+	min?: number
+	max?: number
+	composite_mode: 'single'
+}
 
 export interface MaskLine {
 	points: number[]
@@ -40,6 +55,7 @@ export interface Collaborator {
 
 export interface AnnotationCanvasProps {
 	imageUrl: string
+	cogLayers?: CogLayerInfo[]
 	annotations: Annotation[]
 	predictions: Annotation[]
 	collaborators?: Collaborator[]

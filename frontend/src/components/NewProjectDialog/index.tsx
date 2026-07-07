@@ -16,7 +16,8 @@ const PROJECT_TYPES: ProjectType[] = [
 	'Keypoint Detection',
 	'OCR',
 	'Video Tracking',
-	'3D Vision'
+	'3D Vision',
+	'COG'
 ]
 
 async function save_to_supabase(

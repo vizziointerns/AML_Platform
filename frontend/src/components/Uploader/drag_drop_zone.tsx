@@ -53,7 +53,7 @@ export default function drag_drop_zone({
 			<input
 				type="file"
 				multiple
-				accept="image/*,.zip"
+				accept="image/*,.zip,.tif,.tiff"
 				className="hidden"
 				ref={file_input_ref}
 				onChange={on_file_change}
@@ -77,7 +77,8 @@ export default function drag_drop_zone({
 				Click to browse or drag and drop
 			</h3>
 			<p className={`text-sm ${text_muted} max-w-[300px] mb-6`}>
-				Support for JPG, PNG, WEBP, or ZIP archives containing images. Folders preserve hierarchy.
+				Support for JPG, PNG, WEBP, TIFF, or ZIP archives containing images. Folders preserve
+				hierarchy.
 			</p>
 
 			<div className="flex gap-3">
