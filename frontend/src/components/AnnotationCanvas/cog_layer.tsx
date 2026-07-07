@@ -1,60 +1,57 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Image as KonvaImage } from 'react-konva'
-import { render_cog_to_canvas } from '../../utils/cog'
 import type { CogLayerInfo } from './types'
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 interface CogLayerProps {
 	config: CogLayerInfo
 }
 
+function build_render_url(config: CogLayerInfo): string {
+	const params = new URLSearchParams({
+		url: config.url,
+		band: String(config.band),
+		palette: config.palette,
+		max_width: '2048',
+		max_height: '2048'
+	})
+	if (config.min !== undefined) params.set('min', String(config.min))
+	if (config.max !== undefined) params.set('max', String(config.max))
+	return `${API_BASE}/cog/render?${params}`
+}
+
 export function cog_layer_component({ config }: CogLayerProps) {
-	const canvas_ref = useRef<HTMLCanvasElement | undefined>(undefined)
-	const [is_loaded, set_is_loaded] = useState(false)
-	const [size, set_size] = useState({ width: 0, height: 0 })
-	const render_ref = useRef(0)
+	const [img, set_img] = useState<HTMLImageElement | undefined>(undefined)
+	const render_url = build_render_url(config)
 
 	useEffect(() => {
-		if (!config.visible) return
+		if (!config.visible) {
+			set_img(undefined)
+			return
+		}
+		let is_cancelled = false
+		const image = new window.Image()
+		image.crossOrigin = 'anonymous'
+		image.onload = () => {
+			if (!is_cancelled) set_img(image)
+		}
+		image.onerror = () => {
+			console.error('Failed to load COG layer render:', render_url)
+		}
+		image.src = render_url
+		return () => {
+			is_cancelled = true
+		}
+	}, [render_url, config.visible])
 
-		const render_id = ++render_ref.current
-
-		;(async () => {
-			try {
-				if (!canvas_ref.current) {
-					canvas_ref.current = document.createElement('canvas')
-				}
-				const canvas = canvas_ref.current
-
-				await render_cog_to_canvas(config.url, canvas, {
-					id: config.id,
-					url: config.url,
-					name: config.name,
-					visible: config.visible,
-					opacity: config.opacity,
-					band: config.band,
-					palette: config.palette,
-					min: config.min,
-					max: config.max,
-					composite_mode: config.composite_mode
-				})
-
-				if (render_id !== render_ref.current) return
-
-				set_size({ width: canvas.width, height: canvas.height })
-				set_is_loaded(true)
-			} catch {
-				console.error('Failed to render COG layer:', config.url)
-			}
-		})()
-	}, [config.url, config.band, config.palette, config.min, config.max, config.visible])
-
-	if (!config.visible || !is_loaded || size.width === 0) return undefined
+	if (!config.visible || !img) return undefined
 
 	return (
 		<KonvaImage
-			image={canvas_ref.current!}
-			width={size.width}
-			height={size.height}
+			image={img}
+			width={img.naturalWidth}
+			height={img.naturalHeight}
 			x={0}
 			y={0}
 			opacity={config.opacity / 100}
