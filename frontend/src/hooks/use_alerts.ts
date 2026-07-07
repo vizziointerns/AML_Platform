@@ -144,7 +144,7 @@ export function use_alerts(): UseAlertsResult {
 
 			const [training_results, { data: datasets_data }] = await Promise.all([
 				Promise.allSettled(project_ids.slice(0, 5).map((pid) => fetch_training_runs(pid))),
-				supabase.from('datasets').select('id, name, image_count').in('project_id', project_ids)
+				supabase.from('datasets').select('id, name').in('project_id', project_ids)
 			])
 
 			if (is_cancelled) return
@@ -156,9 +156,19 @@ export function use_alerts(): UseAlertsResult {
 						(r as PromiseFulfilledResult<Awaited<ReturnType<typeof fetch_training_runs>>>).value
 				)
 
-			const empty_datasets = (datasets_data ?? []).filter(
-				(d) => !d.image_count || d.image_count === 0
-			)
+			const ds_ids = (datasets_data ?? []).map((d) => d.id)
+			let empty_dataset_ids: Set<string>
+			if (ds_ids.length > 0) {
+				const { data: images } = await supabase
+					.from('dataset_images')
+					.select('dataset_id')
+					.in('dataset_id', ds_ids)
+				const non_empty = new Set((images ?? []).map((i) => i.dataset_id))
+				empty_dataset_ids = new Set(ds_ids.filter((id) => !non_empty.has(id)))
+			} else {
+				empty_dataset_ids = new Set()
+			}
+			const empty_datasets = (datasets_data ?? []).filter((d) => empty_dataset_ids.has(d.id))
 
 			const result: Alert[] = []
 			for (const check of [

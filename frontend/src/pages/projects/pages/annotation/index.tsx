@@ -530,9 +530,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 			const all_annotations = [...annotations, ...preds_as_annotations]
 			await save_annotations(imageId, all_annotations)
 			const class_ids = [...new Set(all_annotations.map((a) => a.classId).filter(Boolean))]
-			if (class_ids.length > 0) {
-				await save_image_class_labels(imageId, class_ids)
-			}
+			await save_image_class_labels(imageId, class_ids)
 			if (preds_as_annotations.length > 0) {
 				set_history((prev) => {
 					const updated = [...(prev[history_step] ?? []), ...preds_as_annotations]

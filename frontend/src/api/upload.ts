@@ -89,23 +89,12 @@ async function save_image_metadata(
 		throw new Error(`Failed to save image metadata: ${db_err.message}`)
 	}
 
-	const { data: ds, error: ds_err } = await supabase
-		.from('datasets')
-		.select('image_count, storage_bytes')
-		.eq('id', dataset_id)
-		.single()
-
-	if (!ds_err && ds) {
-		const { error: update_err } = await supabase
-			.from('datasets')
-			.update({
-				image_count: (ds.image_count ?? 0) + 1,
-				storage_bytes: (ds.storage_bytes ?? 0) + file_size
-			})
-			.eq('id', dataset_id)
-		if (update_err) {
-			console.error('Failed to update dataset counts:', update_err.message)
-		}
+	const { error: rpc_err } = await supabase.rpc('increment_dataset_counts', {
+		p_dataset_id: dataset_id,
+		p_file_size: file_size
+	})
+	if (rpc_err) {
+		console.error('Failed to increment dataset counts:', rpc_err.message)
 	}
 }
 

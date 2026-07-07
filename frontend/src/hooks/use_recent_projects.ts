@@ -95,7 +95,7 @@ export function use_recent_projects(limit = 4): UseRecentProjectsResult {
 			const counts = await enrich_project_counts(mapped.map((p) => p.id))
 
 			for (const proj of mapped) {
-				proj.datasetCount = counts.image_counts[proj.id] ?? proj.datasetCount
+				proj.datasetCount = counts.image_counts[proj.id] ?? 0
 				const total = proj.datasetCount
 				const annotated = counts.annotated_counts[proj.id] ?? 0
 				proj.annotationProgress = total > 0 ? Math.round((annotated / total) * 100) : 0

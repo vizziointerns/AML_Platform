@@ -46,7 +46,7 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 		}
 		set_error(undefined)
 		;(async () => {
-			const { data, error: err } = await supabase.rpc('get_dashboard_stats', { p_user_id: user.id })
+			const { data, error: err } = await supabase.rpc('get_dashboard_stats')
 
 			if (is_cancelled) return
 
@@ -112,16 +112,22 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 -- Supabase SQL to create the get_dashboard_stats RPC function.
 -- Run this in the Supabase SQL Editor:
 
-CREATE OR REPLACE FUNCTION get_dashboard_stats(p_user_id UUID)
+CREATE OR REPLACE FUNCTION get_dashboard_stats()
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
+  v_user_id UUID;
   result JSON;
 BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
   WITH user_projects AS (
-    SELECT id FROM projects WHERE user_id = p_user_id
+    SELECT id FROM projects WHERE user_id = v_user_id
   ),
   project_datasets AS (
     SELECT d.id FROM datasets d
@@ -149,4 +155,7 @@ BEGIN
   RETURN result;
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION get_dashboard_stats() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION get_dashboard_stats() TO authenticated;
 */

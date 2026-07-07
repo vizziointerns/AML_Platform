@@ -83,9 +83,13 @@ function user_menu_dropdown({
 			<div className={`h-px ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
 
 			<button
-				onClick={() => {
-					sign_out()
-					set_is_menu_open(false)
+				onClick={async () => {
+					try {
+						await sign_out()
+						set_is_menu_open(false)
+					} catch (error) {
+						console.error('Sign out failed:', error)
+					}
 				}}
 				className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
 					is_dark_mode
