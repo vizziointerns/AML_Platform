@@ -46,6 +46,15 @@ import { fetch_training_runs } from '../../../../api/training'
 import { run_inference } from '../../../../api/inference'
 import { run_segmentation, run_auto_segmentation } from '../../../../api/segment'
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
+import { supabase } from '../../../../utils/supabase'
+
+async function save_image_class_labels(imageId: string, class_ids: string[]) {
+	const { error } = await supabase.rpc('update_image_class_labels', {
+		p_image_id: imageId,
+		p_class_labels: class_ids
+	})
+	if (error) throw error
+}
 
 function render_properties_panel(
 	selected_ann_id: string | undefined,
@@ -520,6 +529,10 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 			const preds_as_annotations = predictions as Annotation[]
 			const all_annotations = [...annotations, ...preds_as_annotations]
 			await save_annotations(imageId, all_annotations)
+			const class_ids = [...new Set(all_annotations.map((a) => a.classId).filter(Boolean))]
+			if (class_ids.length > 0) {
+				await save_image_class_labels(imageId, class_ids)
+			}
 			if (preds_as_annotations.length > 0) {
 				set_history((prev) => {
 					const updated = [...(prev[history_step] ?? []), ...preds_as_annotations]
@@ -533,6 +546,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 			}
 			set_save_message('Saved')
 			setTimeout(() => set_save_message(undefined), 2000)
+			window.dispatchEvent(new CustomEvent('annotations-saved'))
 		} catch (err) {
 			console.error('Failed to save annotations:', err)
 			set_save_message('Save failed')
