@@ -9,4 +9,5 @@ export interface MockImage {
 	width: number
 	height: number
 	url: string
+	file_extension?: string
 }

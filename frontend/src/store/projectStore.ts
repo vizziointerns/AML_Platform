@@ -10,6 +10,7 @@ export type ProjectType =
 	| 'OCR'
 	| 'Video Tracking'
 	| '3D Vision'
+	| 'COG'
 export type ProjectStatus = 'Active' | 'Archived' | 'Draft' | 'Completed'
 
 export interface Project {

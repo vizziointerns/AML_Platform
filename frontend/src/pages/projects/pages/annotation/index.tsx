@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import AnnotationCanvas from '../../../../components/AnnotationCanvas'
 import type { Annotation, Prediction, Mode, ClassInfo } from './types'
+import type { Project } from '../../../../store/projectStore'
+import type { CogLayerInfo } from '../../../../components/AnnotationCanvas/types'
 import {
 	handle_mode_shortcut,
 	handle_brush_size_shortcut,
@@ -35,28 +37,76 @@ import {
 	render_prediction_properties_panel,
 	render_image_properties_panel,
 	render_layers_panel,
+	render_satellite_layers_panel,
+	render_bg_raster_controls,
 	render_top_toolbar,
 	render_left_panel,
 	render_model_selection_dialog,
 	type ModelOption
 } from './render'
-import { fetch_annotations, save_annotations } from '../../../../api/annotations'
 import { fetch_classes, save_classes_to_backend } from '../../../../api/classes'
 import { fetch_training_runs } from '../../../../api/training'
 import { run_inference } from '../../../../api/inference'
 import { run_segmentation, run_auto_segmentation } from '../../../../api/segment'
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
-import { supabase } from '../../../../utils/supabase'
+import { use_cog_layers } from '../../../../hooks/use_cog_layers'
+import { use_cog_background } from '../../../../hooks/use_cog_background'
+import { get_cog_thumbnail_url } from '../../../../utils/cog'
+import { use_annotation_history } from '../../../../hooks/use_annotation_history'
+import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
+import type { PaletteName } from '../../../../utils/colormaps'
 
-async function save_image_class_labels(imageId: string, class_ids: string[]) {
-	const { error } = await supabase.rpc('update_image_class_labels', {
-		p_image_id: imageId,
-		p_class_labels: class_ids
-	})
-	if (error) throw error
+function render_right_properties_panel(
+	is_cog_project: boolean,
+	selected_ann_id: string | undefined,
+	selected_prediction_id: string | undefined,
+	annotations: Annotation[],
+	classes: ClassInfo[],
+	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	isDarkMode: boolean,
+	text_muted: string,
+	text_heading: string,
+	border_subtle: string,
+	predictions: Prediction[],
+	set_predictions: (fn: (prev: Prediction[]) => Prediction[]) => void,
+	set_selected_prediction_id: (id: string | undefined) => void,
+	set_selected_ann_id: (id: string | undefined) => void,
+	is_showing_predictions: boolean,
+	set_is_showing_predictions: (v: boolean) => void
+) {
+	if (is_cog_project) return undefined
+	const properties_title = selected_ann_id
+		? 'Annotation Properties'
+		: selected_prediction_id
+			? 'Prediction Properties'
+			: 'Image Properties'
+	return (
+		<div className={`p-4 border-b ${border_subtle}`}>
+			<h3 className={`text-sm font-semibold tracking-tight mb-3 ${text_heading}`}>
+				{properties_title}
+			</h3>
+			{render_properties_content(
+				selected_ann_id,
+				annotations,
+				classes,
+				set_annotations,
+				isDarkMode,
+				text_muted,
+				text_heading,
+				border_subtle,
+				selected_prediction_id,
+				predictions,
+				set_predictions,
+				set_selected_prediction_id,
+				set_selected_ann_id,
+				is_showing_predictions,
+				set_is_showing_predictions
+			)}
+		</div>
+	)
 }
 
-function render_properties_panel(
+function render_properties_content(
 	selected_ann_id: string | undefined,
 	annotations: Annotation[],
 	classes: ClassInfo[],
@@ -134,6 +184,7 @@ interface AnnotationStudioProps {
 	isDarkMode: boolean
 	imageId?: string
 	projectId?: string
+	project?: Project
 }
 
 function handle_segment_click(
@@ -233,6 +284,140 @@ function handle_sam_auto_segment(
 		.finally(() => set_is_running_segmentation(false))
 }
 
+function fetch_dataset_classes_effect(
+	dataset_id: string | undefined,
+	set_classes: React.Dispatch<React.SetStateAction<ClassInfo[]>>,
+	set_active_class: React.Dispatch<React.SetStateAction<string>>,
+	classes_fetched: React.MutableRefObject<boolean>
+): (() => void) | undefined {
+	if (!dataset_id) return undefined
+	let is_cancelled = false
+	fetch_classes(dataset_id)
+		.then((backend_classes) => {
+			if (is_cancelled) return
+			if (backend_classes.length > 0) {
+				classes_fetched.current = true
+				set_classes(backend_classes)
+				set_active_class((prev) =>
+					backend_classes.some((c) => c.id === prev) ? prev : (backend_classes[0]?.id ?? '')
+				)
+			}
+		})
+		.catch(() => {
+			/* fall back to localStorage */
+		})
+	return () => {
+		is_cancelled = true
+	}
+}
+
+function save_classes_backend_effect(
+	dataset_id: string | undefined,
+	classes_fetched: React.MutableRefObject<boolean>,
+	classes: ClassInfo[],
+	save_backend_timeout: React.MutableRefObject<ReturnType<typeof setTimeout> | undefined>
+): (() => void) | undefined {
+	if (!dataset_id) return undefined
+	if (classes_fetched.current) {
+		classes_fetched.current = false
+		return undefined
+	}
+	if (classes.length === 0) return undefined
+	if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
+	save_backend_timeout.current = setTimeout(() => {
+		save_classes_to_backend(dataset_id, classes).catch(() => {
+			/* silently ignore */
+		})
+	}, 500)
+	return () => {
+		if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
+	}
+}
+
+function fetch_training_runs_effect(
+	project_id: string | undefined,
+	set_custom_models: React.Dispatch<React.SetStateAction<ModelOption[]>>
+): (() => void) | undefined {
+	if (!project_id) return undefined
+	set_custom_models([])
+	let is_cancelled = false
+	fetch_training_runs(project_id)
+		.then((runs) => {
+			if (is_cancelled) return
+			set_custom_models(
+				runs
+					.filter((r) => r.status === 'Completed')
+					.map((r) => ({
+						id: r.id,
+						name: r.name,
+						task_type: r.task_type,
+						accuracy: r.accuracy
+					}))
+			)
+		})
+		.catch(() => {
+			if (!is_cancelled) set_custom_models([])
+		})
+	return () => {
+		is_cancelled = true
+	}
+}
+
+function run_inference_handler(
+	api_image_url: string | undefined,
+	model_id: number | undefined,
+	image_url_ref: React.MutableRefObject<string | undefined>,
+	classes: ClassInfo[],
+	set_classes: React.Dispatch<React.SetStateAction<ClassInfo[]>>,
+	set_predictions: React.Dispatch<React.SetStateAction<Prediction[]>>,
+	set_is_showing_predictions: (v: boolean) => void,
+	set_is_running_inference: (v: boolean) => void,
+	set_is_model_selector_open: (v: boolean) => void
+) {
+	if (!api_image_url) return
+	const captured_image_url = api_image_url
+
+	set_is_running_inference(true)
+	set_is_model_selector_open(false)
+	run_inference(captured_image_url, model_id)
+		.then((results) => {
+			if (captured_image_url !== image_url_ref.current) return
+			const current_classes = classes
+			let updated_classes = [...current_classes]
+
+			const new_predictions: Prediction[] = results.map((r) => {
+				let class_id = updated_classes.find(
+					(c) => c.name.toLowerCase() === r.class_name.toLowerCase()
+				)?.id
+
+				if (!class_id) {
+					const new_class = class_create(r.class_name, updated_classes)
+					updated_classes = [...updated_classes, new_class]
+					class_id = new_class.id
+				}
+
+				return {
+					id: 'p_' + Math.random().toString(36).substr(2, 9),
+					type: 'bbox' as const,
+					classId: class_id,
+					x: r.x,
+					y: r.y,
+					w: r.w,
+					h: r.h,
+					confidence: r.confidence
+				}
+			})
+
+			if (updated_classes.length > current_classes.length) {
+				set_classes(updated_classes)
+			}
+			set_predictions(new_predictions)
+			set_is_showing_predictions(true)
+		})
+		.catch((err) => console.error('Inference failed:', err))
+		.finally(() => set_is_running_inference(false))
+}
+
 const tools = [
 	{ id: 'select' as Mode, icon: MousePointer2, label: 'Select (V)' },
 	{ id: 'pan' as Mode, icon: Hand, label: 'Pan (H)' },
@@ -269,6 +454,7 @@ function render_canvas_content(
 	brush_opacity: number,
 	text_muted: string,
 	text_heading: string,
+	cog_layers: CogLayerInfo[] = [],
 	on_segment_click?: (pos: { x: number; y: number }, image: HTMLImageElement) => void
 ) {
 	if (is_loading_image) {
@@ -302,6 +488,7 @@ function render_canvas_content(
 			{image_url && (
 				<AnnotationCanvas
 					imageUrl={image_url}
+					cogLayers={cog_layers}
 					annotations={annotations}
 					predictions={predictions}
 					showPredictions={is_showing_predictions}
@@ -329,7 +516,50 @@ function render_canvas_content(
 	)
 }
 
-export default function annotation_studio({ isDarkMode, imageId }: AnnotationStudioProps) {
+function handle_keyboard_shortcut(
+	e: KeyboardEvent,
+	handle_save: () => Promise<void>,
+	set_active_tool: (t: Mode) => void,
+	set_brush_size: (fn: (s: number) => number) => void,
+	set_zoom_level: (fn: (z: number) => number) => void,
+	selected_ann_id: string | undefined,
+	selected_prediction_id: string | undefined,
+	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
+	set_predictions: (fn: (prev: Prediction[]) => Prediction[]) => void,
+	set_selected_ann_id: (id: string | undefined) => void,
+	set_selected_prediction_id: (id: string | undefined) => void,
+	classes: ClassInfo[],
+	set_active_class: (id: string) => void,
+	undo: () => void,
+	redo: () => void
+) {
+	if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+	const key = e.key.toLowerCase()
+	if ((e.ctrlKey || e.metaKey) && key === 's') {
+		e.preventDefault()
+		void handle_save()
+		return
+	}
+	if (handle_mode_shortcut(key, set_active_tool, e)) return
+	if (handle_brush_size_shortcut(key, set_brush_size)) return
+	if (handle_zoom_level_shortcut(key, set_zoom_level)) return
+	if (
+		handle_delete_shortcut(
+			key,
+			selected_ann_id,
+			selected_prediction_id,
+			set_annotations,
+			set_predictions,
+			set_selected_ann_id,
+			set_selected_prediction_id
+		)
+	)
+		return
+	if (handle_class_shortcut(key, classes, set_active_class)) return
+	handle_undo_redo_shortcut(key, e, undo, redo)
+}
+
+export default function annotation_studio({ isDarkMode, imageId, project }: AnnotationStudioProps) {
 	const navigate = useNavigate()
 	const params = useParams()
 	const project_id = params.projectId
@@ -357,43 +587,48 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		has_prev
 	} = use_annotation_image(project_id, imageId)
 
+	const [bg_palette, set_bg_palette] = useState('grayscale')
+	const [bg_band, set_bg_band] = useState(0)
+	const [bg_opacity, set_bg_opacity] = useState(100)
+
 	const image_url = current_image?.file_url
-	const api_image_url = current_image?.original_file_url ?? current_image?.file_url
+	const image_name = current_image?.file_name
+	const api_image_url = current_image?.original_file_url ?? image_url
 	const image_url_ref = useRef(api_image_url)
 	image_url_ref.current = api_image_url
 	const is_loading_image = is_loading_images
 
-	const [is_saving, set_is_saving] = useState(false)
-	const [save_message, set_save_message] = useState<string | undefined>(undefined)
+	const display_image_url = use_cog_background(
+		image_url,
+		bg_palette as PaletteName,
+		bg_band,
+		image_name,
+		current_image?.file_extension
+	)
 
-	useEffect(() => {
-		if (!imageId || !image_url) return
+	const {
+		history,
+		set_history,
+		history_step,
+		set_history_step,
+		annotations,
+		predictions,
+		set_predictions,
+		is_showing_predictions,
+		set_is_showing_predictions,
+		selected_prediction_id,
+		set_selected_prediction_id,
+		is_saving,
+		save_message,
+		set_annotations,
+		undo,
+		redo,
+		handle_save
+	} = use_annotation_history()
 
-		let is_cancelled = false
+	const [selected_ann_id, set_selected_ann_id] = useState<string | undefined>(undefined)
 
-		fetch_annotations(imageId)
-			.then((loaded) => {
-				if (is_cancelled) return
-				if (loaded.length > 0) {
-					set_history([loaded])
-					set_history_step(0)
-					if (loaded[0]) {
-						set_selected_ann_id(loaded[0].id)
-					}
-				} else {
-					set_history([[]])
-					set_history_step(0)
-					set_selected_ann_id(undefined)
-				}
-			})
-			.catch((err) => {
-				if (!is_cancelled) console.error('Failed to load annotations:', err)
-			})
-
-		return () => {
-			is_cancelled = true
-		}
-	}, [imageId, image_url])
+	use_fetch_annotations(imageId, image_url, set_history, set_history_step, set_selected_ann_id)
 
 	const [left_width, set_left_width] = useState(240)
 	const [right_width, set_right_width] = useState(280)
@@ -407,26 +642,27 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	const [brush_size, set_brush_size] = useState(20)
 	const [brush_opacity, set_brush_opacity] = useState(100)
 
+	const is_cog_project = project?.type === 'COG'
+
+	const [is_satellite_layers_open, set_is_satellite_layers_open] = useState(true)
+	const {
+		cog_layers,
+		is_add_cog_open,
+		set_is_add_cog_open,
+		new_cog_url,
+		set_new_cog_url,
+		handle_add_cog_layer,
+		handle_update_cog_layer,
+		handle_remove_cog_layer
+	} = use_cog_layers()
+
 	const local_classes = useRef(load_classes())
 	const [classes, set_classes] = useState<ClassInfo[]>(local_classes.current)
 	const [active_class, set_active_class] = useState(local_classes.current[0]?.id ?? '')
 	const classes_fetched = useRef(false)
 
 	useEffect(() => {
-		if (!dataset_id) return
-		fetch_classes(dataset_id)
-			.then((backend_classes) => {
-				if (backend_classes.length > 0) {
-					classes_fetched.current = true
-					set_classes(backend_classes)
-					set_active_class((prev) =>
-						backend_classes.some((c) => c.id === prev) ? prev : (backend_classes[0]?.id ?? '')
-					)
-				}
-			})
-			.catch(() => {
-				/* fall back to localStorage */
-			})
+		return fetch_dataset_classes_effect(dataset_id, set_classes, set_active_class, classes_fetched)
 	}, [dataset_id])
 
 	useEffect(() => {
@@ -435,58 +671,13 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 
 	const save_backend_timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 	useEffect(() => {
-		if (!dataset_id) return
-		if (classes_fetched.current) {
-			classes_fetched.current = false
-			return
-		}
-		if (classes.length === 0) return
-		if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
-		save_backend_timeout.current = setTimeout(() => {
-			save_classes_to_backend(dataset_id, classes).catch(() => {
-				/* silently ignore */
-			})
-		}, 500)
-		return () => {
-			if (save_backend_timeout.current) clearTimeout(save_backend_timeout.current)
-		}
+		return save_classes_backend_effect(dataset_id, classes_fetched, classes, save_backend_timeout)
 	}, [classes, dataset_id])
 
 	useEffect(() => {
-		if (!project_id) return
-		set_custom_models([])
-		let is_cancelled = false
-		fetch_training_runs(project_id)
-			.then((runs) => {
-				if (is_cancelled) return
-				set_custom_models(
-					runs
-						.filter((r) => r.status === 'Completed')
-						.map((r) => ({
-							id: r.id,
-							name: r.name,
-							task_type: r.task_type,
-							accuracy: r.accuracy
-						}))
-				)
-			})
-			.catch(() => {
-				if (!is_cancelled) set_custom_models([])
-			})
-		return () => {
-			is_cancelled = true
-		}
+		return fetch_training_runs_effect(project_id, set_custom_models)
 	}, [project_id])
 
-	const [history, set_history] = useState<Annotation[][]>([[]])
-	const [history_step, set_history_step] = useState(0)
-	const annotations = history[history_step] ?? []
-
-	const [predictions, set_predictions] = useState<Prediction[]>([])
-	const [is_showing_predictions, set_is_showing_predictions] = useState(false)
-	const [selected_prediction_id, set_selected_prediction_id] = useState<string | undefined>(
-		undefined
-	)
 	const [is_model_selector_open, set_is_model_selector_open] = useState(false)
 	const [custom_models, set_custom_models] = useState<ModelOption[]>([])
 	const [selected_model_id, set_selected_model_id] = useState<number | undefined>(undefined)
@@ -500,69 +691,6 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		set_selected_prediction_id(undefined)
 	}, [imageId])
 
-	const set_annotations = useCallback(
-		(new_annotations_or_updater: Annotation[] | ((prev: Annotation[]) => Annotation[])) => {
-			set_history((prev) => {
-				const current = prev[history_step]
-				const new_annotations =
-					typeof new_annotations_or_updater === 'function'
-						? new_annotations_or_updater(current ?? [])
-						: new_annotations_or_updater
-
-				if (current === new_annotations) return prev
-
-				const new_history = prev.slice(0, history_step + 1)
-				new_history.push(new_annotations)
-				if (new_history.length > 50) new_history.shift()
-				return new_history
-			})
-			set_history_step((prev) => Math.min(prev + 1, 50))
-		},
-		[history_step]
-	)
-
-	const handle_save = useCallback(async () => {
-		if (!imageId || is_saving) return
-		set_is_saving(true)
-		set_save_message(undefined)
-		try {
-			const preds_as_annotations = predictions as Annotation[]
-			const all_annotations = [...annotations, ...preds_as_annotations]
-			await save_annotations(imageId, all_annotations)
-			const class_ids = [...new Set(all_annotations.map((a) => a.classId).filter(Boolean))]
-			await save_image_class_labels(imageId, class_ids)
-			if (preds_as_annotations.length > 0) {
-				set_history((prev) => {
-					const updated = [...(prev[history_step] ?? []), ...preds_as_annotations]
-					const copy = [...prev]
-					copy[history_step] = updated
-					return copy
-				})
-				set_predictions([])
-				set_is_showing_predictions(false)
-				set_selected_prediction_id(undefined)
-			}
-			set_save_message('Saved')
-			setTimeout(() => set_save_message(undefined), 2000)
-			window.dispatchEvent(new CustomEvent('annotations-saved'))
-		} catch (err) {
-			console.error('Failed to save annotations:', err)
-			set_save_message('Save failed')
-			setTimeout(() => set_save_message(undefined), 3000)
-		} finally {
-			set_is_saving(false)
-		}
-	}, [imageId, annotations, predictions, is_saving, history_step])
-
-	const undo = useCallback(() => {
-		set_history_step((prev) => Math.max(0, prev - 1))
-	}, [])
-
-	const redo = useCallback(() => {
-		set_history_step((prev) => Math.min(history.length - 1, prev + 1))
-	}, [history.length])
-
-	const [selected_ann_id, set_selected_ann_id] = useState<string | undefined>(undefined)
 	const [new_class_name, set_new_class_name] = useState('')
 	const [delete_class_id, set_delete_class_id] = useState<string | undefined>(undefined)
 	const [renaming_class_id, set_renaming_class_id] = useState<string | undefined>(undefined)
@@ -624,36 +752,30 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 	}, [handle_mouse_move_global, handle_mouse_up_global])
 
 	function on_key_down(e: KeyboardEvent) {
-		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-		const key = e.key.toLowerCase()
-		if ((e.ctrlKey || e.metaKey) && key === 's') {
-			e.preventDefault()
-			void handle_save()
-			return
-		}
-		if (handle_mode_shortcut(key, set_active_tool, e)) return
-		if (handle_brush_size_shortcut(key, set_brush_size)) return
-		if (handle_zoom_level_shortcut(key, set_zoom_level)) return
-		if (
-			handle_delete_shortcut(
-				key,
-				selected_ann_id,
-				selected_prediction_id,
-				set_annotations,
-				set_predictions,
-				set_selected_ann_id,
-				set_selected_prediction_id
-			)
+		handle_keyboard_shortcut(
+			e,
+			() => handle_save(imageId),
+			set_active_tool,
+			set_brush_size,
+			set_zoom_level,
+			selected_ann_id,
+			selected_prediction_id,
+			set_annotations,
+			set_predictions,
+			set_selected_ann_id,
+			set_selected_prediction_id,
+			classes,
+			set_active_class,
+			undo,
+			redo
 		)
-			return
-		if (handle_class_shortcut(key, classes, set_active_class)) return
-		handle_undo_redo_shortcut(key, e, undo, redo)
 	}
 
 	useEffect(() => {
 		window.addEventListener('keydown', on_key_down)
 		return () => window.removeEventListener('keydown', on_key_down)
 	}, [
+		imageId,
 		selected_ann_id,
 		selected_prediction_id,
 		undo,
@@ -676,68 +798,21 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		set_is_model_selector_open(true)
 	}
 
-	const handle_run_inference = useCallback(
-		async (model_id?: number) => {
-			if (!api_image_url) return
-			const captured_image_url = api_image_url
-
-			if (model_id === -1) {
-				handle_sam_auto_segment(
-					captured_image_url,
-					active_class,
-					set_is_running_segmentation,
-					set_is_model_selector_open,
-					set_annotations,
-					set_selected_ann_id,
-					set_active_tool,
-					() => captured_image_url === image_url_ref.current
-				)
-				return
-			}
-
-			set_is_running_inference(true)
-			set_is_model_selector_open(false)
-			try {
-				const results = await run_inference(captured_image_url, model_id)
-				if (captured_image_url !== image_url_ref.current) return
-				const current_classes = classes
-				let updated_classes = [...current_classes]
-
-				const new_predictions: Prediction[] = results.map((r) => {
-					let class_id = updated_classes.find(
-						(c) => c.name.toLowerCase() === r.class_name.toLowerCase()
-					)?.id
-
-					if (!class_id) {
-						const new_class = class_create(r.class_name, updated_classes)
-						updated_classes = [...updated_classes, new_class]
-						class_id = new_class.id
-					}
-
-					return {
-						id: 'p_' + Math.random().toString(36).substr(2, 9),
-						type: 'bbox' as const,
-						classId: class_id,
-						x: r.x,
-						y: r.y,
-						w: r.w,
-						h: r.h,
-						confidence: r.confidence
-					}
-				})
-
-				if (updated_classes.length > current_classes.length) {
-					set_classes(updated_classes)
-				}
-				set_predictions(new_predictions)
-				set_is_showing_predictions(true)
-			} catch (err) {
-				console.error('Inference failed:', err)
-			} finally {
-				set_is_running_inference(false)
-			}
+	const handle_run_inference_cb = useCallback(
+		(model_id?: number) => {
+			run_inference_handler(
+				api_image_url,
+				model_id,
+				image_url_ref,
+				classes,
+				set_classes,
+				set_predictions,
+				set_is_showing_predictions,
+				set_is_running_inference,
+				set_is_model_selector_open
+			)
 		},
-		[api_image_url, classes, active_class]
+		[api_image_url, classes, set_classes]
 	)
 
 	const handle_segment = useCallback(
@@ -776,7 +851,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		is_loading_image,
 		image_error,
 		is_empty,
-		image_url,
+		display_image_url,
 		annotations,
 		predictions,
 		is_showing_predictions,
@@ -798,6 +873,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 		brush_opacity,
 		text_muted,
 		text_heading,
+		cog_layers,
 		handle_segment
 	)
 
@@ -819,7 +895,7 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				bg_hover,
 				text_muted,
 				text_heading,
-				handle_save,
+				() => handle_save(imageId),
 				is_saving,
 				save_message,
 				handle_back,
@@ -892,33 +968,24 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 						}}
 					/>
 
-					<div className={`p-4 border-b ${border_subtle}`}>
-						<h3 className={`text-sm font-semibold tracking-tight mb-3 ${text_heading}`}>
-							{selected_ann_id
-								? 'Annotation Properties'
-								: selected_prediction_id
-									? 'Prediction Properties'
-									: 'Image Properties'}
-						</h3>
-
-						{render_properties_panel(
-							selected_ann_id,
-							annotations,
-							classes,
-							set_annotations,
-							isDarkMode,
-							text_muted,
-							text_heading,
-							border_subtle,
-							selected_prediction_id,
-							predictions,
-							set_predictions,
-							set_selected_prediction_id,
-							set_selected_ann_id,
-							is_showing_predictions,
-							set_is_showing_predictions
-						)}
-					</div>
+					{render_right_properties_panel(
+						is_cog_project,
+						selected_ann_id,
+						selected_prediction_id,
+						annotations,
+						classes,
+						set_annotations,
+						isDarkMode,
+						text_muted,
+						text_heading,
+						border_subtle,
+						predictions,
+						set_predictions,
+						set_selected_prediction_id,
+						set_selected_ann_id,
+						is_showing_predictions,
+						set_is_showing_predictions
+					)}
 
 					{render_layers_panel(
 						annotations,
@@ -937,6 +1004,35 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 						text_muted,
 						text_heading,
 						border_subtle
+					)}
+
+					{render_bg_raster_controls(
+						bg_palette,
+						set_bg_palette,
+						bg_band,
+						set_bg_band,
+						bg_opacity,
+						set_bg_opacity,
+						is_cog_project,
+						isDarkMode,
+						text_heading,
+						text_muted,
+						border_subtle
+					)}
+
+					{render_satellite_layers_panel(
+						cog_layers,
+						handle_update_cog_layer,
+						handle_remove_cog_layer,
+						() => set_is_add_cog_open(true),
+						is_satellite_layers_open,
+						set_is_satellite_layers_open,
+						is_cog_project,
+						isDarkMode,
+						text_heading,
+						text_muted,
+						border_subtle,
+						bg_hover
 					)}
 				</div>
 			</div>
@@ -960,7 +1056,11 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 									: `${border_subtle} hover:border-blue-400/50`
 							}`}
 						>
-							<img src={img.file_url} alt={img.file_name} className="w-full h-full object-cover" />
+							<img
+								src={get_cog_thumbnail_url(img.file_url, img.file_extension)}
+								alt={img.file_name}
+								className="w-full h-full object-cover"
+							/>
 						</button>
 					))}
 				</div>
@@ -989,7 +1089,23 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				custom_models,
 				selected_model_id,
 				set_selected_model_id,
-				() => handle_run_inference(selected_model_id),
+				() => {
+					if (!api_image_url) return
+					if (selected_model_id === -1) {
+						handle_sam_auto_segment(
+							api_image_url,
+							active_class,
+							set_is_running_segmentation,
+							set_is_model_selector_open,
+							set_annotations,
+							set_selected_ann_id,
+							set_active_tool,
+							() => api_image_url === image_url_ref.current
+						)
+					} else {
+						handle_run_inference_cb(selected_model_id)
+					}
+				},
 				() => set_is_model_selector_open(false),
 				is_processing,
 				text_muted,
@@ -997,6 +1113,58 @@ export default function annotation_studio({ isDarkMode, imageId }: AnnotationStu
 				bg_panel,
 				border_subtle,
 				bg_hover
+			)}
+
+			{is_add_cog_open && (
+				<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+					<div
+						className={`rounded-lg shadow-xl border ${border_subtle} ${bg_panel} w-full max-w-md p-6`}
+					>
+						<h2 className={`text-lg font-semibold mb-4 ${text_heading}`}>Add COG Layer</h2>
+						<p className={`text-xs ${text_muted} mb-3`}>
+							Enter the URL of a Cloud Optimized GeoTIFF to display as a raster layer.
+						</p>
+						<input
+							autoFocus
+							type="text"
+							value={new_cog_url}
+							onChange={(e) => set_new_cog_url(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === 'Enter' && new_cog_url.trim()) {
+									handle_add_cog_layer()
+								}
+								if (e.key === 'Escape') {
+									set_is_add_cog_open(false)
+									set_new_cog_url('')
+								}
+							}}
+							placeholder="https://example.com/layer.tif"
+							className={`w-full bg-transparent border rounded px-3 py-2 text-sm outline-none mb-4 ${
+								isDarkMode
+									? 'border-zinc-700 text-zinc-100 placeholder-zinc-500'
+									: 'border-zinc-300 text-zinc-900 placeholder-zinc-400'
+							}`}
+						/>
+						<div className="flex justify-end gap-3">
+							<button
+								onClick={() => {
+									set_is_add_cog_open(false)
+									set_new_cog_url('')
+								}}
+								className={`px-4 py-2 rounded-md text-sm font-medium border ${border_subtle} ${text_muted} ${bg_hover} transition-colors`}
+							>
+								Cancel
+							</button>
+							<button
+								onClick={handle_add_cog_layer}
+								disabled={!new_cog_url.trim()}
+								className="px-4 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								Add Layer
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	)

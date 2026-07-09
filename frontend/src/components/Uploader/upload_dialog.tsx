@@ -35,7 +35,6 @@ export default function upload_dialog({
 	error_files,
 	is_uploading,
 	pending_count,
-	google_auth,
 	datasets,
 	new_dataset_name,
 	on_new_dataset_name_change,
@@ -74,13 +73,6 @@ export default function upload_dialog({
 	error_files: number
 	is_uploading: boolean
 	pending_count: number
-	google_auth: {
-		is_authenticated: boolean
-		is_configured: boolean
-		is_loading: boolean
-		sign_in: () => void
-		error: string | undefined
-	}
 	datasets: { id: string; name: string }[]
 	new_dataset_name: string
 	on_new_dataset_name_change: (v: string) => void
@@ -99,8 +91,7 @@ export default function upload_dialog({
 			>
 				<CheckCircle2 size={18} />
 				<span className="text-sm font-medium">
-					All done — {total_files} file{total_files !== 1 ? 's' : ''}{' '}
-					{google_auth.is_authenticated ? 'uploaded to Google Drive' : 'uploaded'}
+					All done — {total_files} file{total_files !== 1 ? 's' : ''} uploaded to Google Drive
 				</span>
 			</div>
 		)
