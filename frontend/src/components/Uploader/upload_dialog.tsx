@@ -195,7 +195,6 @@ export default function upload_dialog({
 							is_dark_mode={is_dark_mode}
 							bg_drag={bg_drag}
 							bg_card={bg_card}
-							bg_subtle={bg_subtle}
 							border_subtle={border_subtle}
 							text_heading={text_heading}
 							text_muted={text_muted}

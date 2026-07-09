@@ -369,7 +369,6 @@ function progress_bar_color(status: string): string {
 function table_row({
 	run,
 	is_dark_mode,
-	bg_subtle,
 	text_heading,
 	text_muted,
 	deleting_id,
@@ -378,7 +377,6 @@ function table_row({
 }: {
 	run: TrainingRun
 	is_dark_mode: boolean
-	bg_subtle: string
 	text_heading: string
 	text_muted: string
 	deleting_id: number | undefined
@@ -390,7 +388,7 @@ function table_row({
 	const progress_bg = is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'
 	return (
 		<>
-			<tr className={`hover:${bg_subtle} transition-colors`}>
+			<tr className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors`}>
 				<td className="px-6 py-4">
 					<div className={`font-medium ${text_heading}`}>{run.name}</div>
 				</td>
@@ -653,7 +651,6 @@ function training_runs_table({
 								{table_row({
 									run,
 									is_dark_mode,
-									bg_subtle,
 									text_heading,
 									text_muted,
 									deleting_id,

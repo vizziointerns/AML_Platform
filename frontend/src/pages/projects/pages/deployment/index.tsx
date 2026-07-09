@@ -190,7 +190,7 @@ export default function deployment_page({ is_dark_mode }: { is_dark_mode: boolea
 							{filtered.map((dep) => (
 								<tr
 									key={dep.id}
-									className={`hover:${bg_subtle} transition-colors cursor-pointer group`}
+									className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer group`}
 								>
 									<td className="px-6 py-4">
 										<div className="flex items-center gap-3">

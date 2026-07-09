@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { CheckCircle2, X } from 'lucide-react'
 import AuthFlow from './pages/AuthFlow'
 import Uploader from './components/Uploader'
-import NewProjectDialog from './components/NewProjectDialog'
+import CreateProjectWizard from './components/CreateProjectWizard'
 import { APP_CONTEXT } from './contexts/app_context'
 import type { AppContextValue } from './contexts/app_context'
 import { auth_provider as AuthProvider, use_auth } from './contexts/auth_context'
@@ -138,7 +138,7 @@ function app_content() {
 								</div>
 							)}
 
-							<NewProjectDialog
+							<CreateProjectWizard
 								isOpen={is_new_project_open}
 								on_close={() => set_is_new_project_open(false)}
 								is_dark_mode={is_dark_mode}
