@@ -26,7 +26,7 @@ import {
 	Box
 } from 'lucide-react'
 import DeleteProjectDialog from '../../components/DeleteProjectDialog'
-import { generate_tiff_preview, tiff_data_url_to_file } from '../../utils/tiff'
+import { convert_tiff_to_png, tiff_data_url_to_file } from '../../utils/tiff'
 
 const TYPE_ICON: Record<string, typeof Crosshair> = {
 	'Object Detection': ScanLine,
@@ -533,12 +533,19 @@ export default function projects_view() {
 		show_toast(`Project renamed to "${new_name}"`)
 	}
 
-	const handle_toggle_pin = (id: string) => {
+	const handle_toggle_pin = async (id: string) => {
 		const project = projects.find((p) => p.id === id)
 		if (!project) return
 		const is_new_pinned = !project.isPinned
 		toggle_pin(id)
-		supabase.from('projects').update({ is_pinned: is_new_pinned }).eq('id', id)
+		const { error: pin_err } = await supabase
+			.from('projects')
+			.update({ is_pinned: is_new_pinned })
+			.eq('id', id)
+		if (pin_err) {
+			toggle_pin(id)
+			show_toast(`Failed to update pin: ${pin_err.message}`, 'error')
+		}
 	}
 
 	const handle_add_cover = (project_id: string) => {
@@ -553,9 +560,14 @@ export default function projects_view() {
 		let file_to_upload: File = file
 		const is_tiff = /\.tiff?$/i.test(file.name)
 		if (is_tiff) {
-			const preview_url = await generate_tiff_preview(file)
-			if (preview_url) {
-				file_to_upload = await tiff_data_url_to_file(preview_url, file.name)
+			try {
+				const png_data_url = await convert_tiff_to_png(file)
+				file_to_upload = await tiff_data_url_to_file(png_data_url, file.name)
+			} catch {
+				show_toast('Failed to convert TIFF cover to PNG', 'error')
+				e.target.value = ''
+				cover_project_id.current = undefined
+				return
 			}
 		}
 		const file_path = `${pid}/${Date.now()}-${file_to_upload.name}`
@@ -564,6 +576,8 @@ export default function projects_view() {
 			.upload(file_path, file_to_upload)
 		if (upload_err) {
 			show_toast(`Failed to upload cover: ${upload_err.message}`, 'error')
+			e.target.value = ''
+			cover_project_id.current = undefined
 			return
 		}
 		const {
@@ -575,11 +589,14 @@ export default function projects_view() {
 			.eq('id', pid)
 		if (db_err) {
 			show_toast(`Failed to save cover: ${db_err.message}`, 'error')
+			e.target.value = ''
+			cover_project_id.current = undefined
 			return
 		}
 		update_project(pid, { thumbnail: public_url })
 		show_toast('Cover photo added')
 		e.target.value = ''
+		cover_project_id.current = undefined
 	}
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'

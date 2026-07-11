@@ -19,7 +19,7 @@ import {
 	CheckCircle2
 } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
-import { generate_tiff_preview, tiff_data_url_to_file } from '../../utils/tiff'
+import { generate_tiff_preview, convert_tiff_to_png, tiff_data_url_to_file } from '../../utils/tiff'
 import { use_auth } from '../../contexts/auth_context'
 import { use_project_store, type ProjectType } from '../../store/projectStore'
 import type { UploadFile } from '../Uploader/types'
@@ -93,6 +93,7 @@ export default function create_project_wizard({
 	const [existing_datasets, set_existing_datasets] = useState<ExistingDataset[]>([])
 	const [is_datasets_loading, set_is_datasets_loading] = useState(false)
 	const [name_error, set_name_error] = useState('')
+	const [upload_error, set_upload_error] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
@@ -207,9 +208,11 @@ export default function create_project_wizard({
 			})
 		const rejected_count = files.length - processed.length
 		if (rejected_count > 0) {
-			set_name_error(
+			set_upload_error(
 				`${rejected_count} file(s) rejected. Only images, ZIP archives, and TIFF files are supported.`
 			)
+		} else {
+			set_upload_error('')
 		}
 		set_upload_items((prev) => [...prev, ...processed])
 		e.target.value = ''
@@ -253,9 +256,11 @@ export default function create_project_wizard({
 		let file_to_upload = cover_file
 		const is_tiff = /\.tiff?$/i.test(cover_file.name)
 		if (is_tiff) {
-			const preview_url = await generate_tiff_preview(cover_file)
-			if (preview_url) {
-				file_to_upload = await tiff_data_url_to_file(preview_url, cover_file.name)
+			try {
+				const png_data_url = await convert_tiff_to_png(cover_file)
+				file_to_upload = await tiff_data_url_to_file(png_data_url, cover_file.name)
+			} catch {
+				return ''
 			}
 		}
 		const cover_path = `${pid}/${Date.now()}-${file_to_upload.name}`
@@ -288,7 +293,7 @@ export default function create_project_wizard({
 			project_id: pid,
 			name: ds_name,
 			description: new_ds_desc.trim() || undefined,
-			status: 'Processing',
+			status: upload_items.length > 0 ? 'Processing' : 'Ready',
 			image_count: 0,
 			class_count: 0,
 			tags: [],
@@ -329,7 +334,7 @@ export default function create_project_wizard({
 	}
 
 	async function handle_post_create(resolved_option: string, pid: string) {
-		if (resolved_option === 'new' && upload_items.length > 0) {
+		if (resolved_option === 'new') {
 			await create_dataset_and_upload(pid)
 		} else if (resolved_option === 'existing' && selected_ds_id) {
 			const { error: link_err } = await supabase
@@ -416,6 +421,7 @@ export default function create_project_wizard({
 		set_upload_items([])
 		set_selected_ds_id(undefined)
 		set_name_error('')
+		set_upload_error('')
 		set_existing_datasets([])
 		set_is_saving(false)
 	}
@@ -639,6 +645,7 @@ export default function create_project_wizard({
 						hidden
 					/>
 				</div>
+				{upload_error && <p className="text-xs text-red-500">{upload_error}</p>}
 				{upload_items.length > 0 && (
 					<div className="space-y-1.5">
 						<p className={`text-xs font-medium ${text_muted}`}>

@@ -37,6 +37,7 @@ def _assert_allowed_url(url: str) -> None:
     Only allows Google-hosted endpoints and rejects private/local IPs.
     """
     from urllib.parse import urlparse
+    import ipaddress
 
     parsed = urlparse(url)
     if parsed.scheme not in ("https",):
@@ -44,7 +45,7 @@ def _assert_allowed_url(url: str) -> None:
     host = parsed.hostname
     if not host:
         raise ValueError(f"Could not parse host from URL: {url}")
-    if not any(allowed in host for allowed in _ALLOWED_DOWNLOAD_HOSTS):
+    if not any(host == allowed or host.endswith("." + allowed) for allowed in _ALLOWED_DOWNLOAD_HOSTS):
         raise ValueError(f"URL host not in allowed list: {host}")
     import socket
 
@@ -54,7 +55,8 @@ def _assert_allowed_url(url: str) -> None:
         raise ValueError(f"Could not resolve host: {host}") from exc
     for _family, _type, _proto, _canonname, sockaddr in addr_info:
         ip: str = cast(str, sockaddr[0])
-        if ip.startswith("127.") or ip == "::1" or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("192.168.") or ip == "0.0.0.0":
+        addr = ipaddress.ip_address(ip)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_unspecified:
             raise ValueError(f"Resolved to private IP, rejected: {ip}")
 
 
