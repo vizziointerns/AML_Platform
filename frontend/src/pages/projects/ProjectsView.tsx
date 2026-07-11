@@ -26,6 +26,7 @@ import {
 	Box
 } from 'lucide-react'
 import DeleteProjectDialog from '../../components/DeleteProjectDialog'
+import { generate_tiff_preview, tiff_data_url_to_file } from '../../utils/tiff'
 
 const TYPE_ICON: Record<string, typeof Crosshair> = {
 	'Object Detection': ScanLine,
@@ -549,10 +550,18 @@ export default function projects_view() {
 		const file = e.target.files?.[0]
 		if (!file || !cover_project_id.current) return
 		const pid = cover_project_id.current
-		const file_path = `${pid}/${Date.now()}-${file.name}`
+		let file_to_upload: File = file
+		const is_tiff = /\.tiff?$/i.test(file.name)
+		if (is_tiff) {
+			const preview_url = await generate_tiff_preview(file)
+			if (preview_url) {
+				file_to_upload = await tiff_data_url_to_file(preview_url, file.name)
+			}
+		}
+		const file_path = `${pid}/${Date.now()}-${file_to_upload.name}`
 		const { error: upload_err } = await supabase.storage
 			.from('project-covers')
-			.upload(file_path, file)
+			.upload(file_path, file_to_upload)
 		if (upload_err) {
 			show_toast(`Failed to upload cover: ${upload_err.message}`, 'error')
 			return
@@ -710,7 +719,7 @@ export default function projects_view() {
 			<input
 				type="file"
 				ref={file_input_ref}
-				accept="image/*"
+				accept="image/*,.tif,.tiff"
 				onChange={handle_cover_upload}
 				hidden
 			/>

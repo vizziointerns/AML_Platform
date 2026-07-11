@@ -13,13 +13,17 @@ import {
 	Trash2,
 	Check,
 	Loader2,
-	FileImage
+	FileImage,
+	AlertCircle,
+	FileArchive,
+	CheckCircle2
 } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
+import { generate_tiff_preview, tiff_data_url_to_file } from '../../utils/tiff'
 import { use_auth } from '../../contexts/auth_context'
 import { use_project_store, type ProjectType } from '../../store/projectStore'
 import type { UploadFile } from '../Uploader/types'
-import { upload_file } from '../../api/upload'
+import { upload_to_drive_and_save, cancel_all_uploads } from '../../api/upload'
 import { use_google_auth } from '../../hooks/use_google_auth'
 import { ensure_project_drive_folder, get_user_folder_id } from '../../utils/google_drive'
 
@@ -84,13 +88,12 @@ export default function create_project_wizard({
 	const [dataset_option, set_dataset_option] = useState<'skip' | 'new' | 'existing'>('skip')
 	const [new_ds_name, set_new_ds_name] = useState('')
 	const [new_ds_desc, set_new_ds_desc] = useState('')
-	const [upload_files, set_upload_files] = useState<File[]>([])
+	const [upload_items, set_upload_items] = useState<UploadFile[]>([])
 	const [selected_ds_id, set_selected_ds_id] = useState<string | undefined>(undefined)
 	const [existing_datasets, set_existing_datasets] = useState<ExistingDataset[]>([])
 	const [is_datasets_loading, set_is_datasets_loading] = useState(false)
 	const [name_error, set_name_error] = useState('')
 	const [is_saving, set_is_saving] = useState(false)
-	const [upload_progress, set_upload_progress] = useState(0)
 
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
@@ -159,9 +162,16 @@ export default function create_project_wizard({
 		const file = e.target.files?.[0]
 		if (!file) return
 		set_cover_file(file)
-		const reader = new FileReader()
-		reader.onload = () => set_cover_preview(reader.result as string)
-		reader.readAsDataURL(file)
+		const is_tiff = /\.tiff?$/i.test(file.name)
+		if (is_tiff) {
+			generate_tiff_preview(file).then((url) => {
+				if (url) set_cover_preview(url)
+			})
+		} else {
+			const reader = new FileReader()
+			reader.onload = () => set_cover_preview(reader.result as string)
+			reader.readAsDataURL(file)
+		}
 	}
 
 	function handle_cover_remove() {
@@ -171,12 +181,58 @@ export default function create_project_wizard({
 
 	function handle_files_select(e: React.ChangeEvent<HTMLInputElement>) {
 		const files = Array.from(e.target.files ?? [])
-		set_upload_files((prev) => [...prev, ...files])
+		const processed: UploadFile[] = files
+			.filter((f) => {
+				const is_image = f.type.startsWith('image/')
+				const is_zip = f.name.endsWith('.zip')
+				const is_tiff = /\.tiff?$/i.test(f.name)
+				return is_image || is_zip || is_tiff
+			})
+			.map((f) => {
+				const is_image = f.type.startsWith('image/')
+				const is_tiff = /\.tiff?$/i.test(f.name)
+				let preview_url: string | undefined
+				if (is_image && !is_tiff) {
+					preview_url = URL.createObjectURL(f)
+				}
+				return {
+					id: crypto.randomUUID(),
+					file: f,
+					name: f.name,
+					size: f.size,
+					previewUrl: preview_url,
+					progress: 0,
+					status: 'pending' as const
+				}
+			})
+		const rejected_count = files.length - processed.length
+		if (rejected_count > 0) {
+			set_name_error(
+				`${rejected_count} file(s) rejected. Only images, ZIP archives, and TIFF files are supported.`
+			)
+		}
+		set_upload_items((prev) => [...prev, ...processed])
 		e.target.value = ''
+
+		for (const item of processed) {
+			if (/\.tiff?$/i.test(item.name)) {
+				generate_tiff_preview(item.file).then((url) => {
+					if (url) {
+						set_upload_items((prev) =>
+							prev.map((f) => (f.id === item.id ? { ...f, previewUrl: url } : f))
+						)
+					}
+				})
+			}
+		}
 	}
 
-	function remove_upload_file(index: number) {
-		set_upload_files((prev) => prev.filter((_, i) => i !== index))
+	function remove_upload_file(id: string) {
+		set_upload_items((prev) => {
+			const file = prev.find((f) => f.id === id)
+			if (file?.previewUrl) URL.revokeObjectURL(file.previewUrl)
+			return prev.filter((f) => f.id !== id)
+		})
 	}
 
 	function handle_next() {
@@ -194,8 +250,18 @@ export default function create_project_wizard({
 
 	async function upload_cover_photo(pid: string): Promise<string> {
 		if (!cover_file) return ''
-		const cover_path = `${pid}/${Date.now()}-${cover_file.name}`
-		const { error } = await supabase.storage.from('project-covers').upload(cover_path, cover_file)
+		let file_to_upload = cover_file
+		const is_tiff = /\.tiff?$/i.test(cover_file.name)
+		if (is_tiff) {
+			const preview_url = await generate_tiff_preview(cover_file)
+			if (preview_url) {
+				file_to_upload = await tiff_data_url_to_file(preview_url, cover_file.name)
+			}
+		}
+		const cover_path = `${pid}/${Date.now()}-${file_to_upload.name}`
+		const { error } = await supabase.storage
+			.from('project-covers')
+			.upload(cover_path, file_to_upload)
 		if (error) return ''
 		return supabase.storage.from('project-covers').getPublicUrl(cover_path).data.publicUrl
 	}
@@ -230,24 +296,47 @@ export default function create_project_wizard({
 		})
 		if (error) throw new Error(error.message)
 
-		for (const [i, f] of upload_files.entries()) {
-			const wrapper: UploadFile = {
-				id: `${f.name}-${i}`,
-				name: f.name,
-				size: f.size,
-				file: f,
-				status: 'pending',
-				progress: 0
-			}
-			await upload_file(wrapper, ds_id, {
-				on_progress: () => {
-					set_upload_progress(Math.round(((i + 1) / upload_files.length) * 100))
+		for (const item of upload_items) {
+			set_upload_items((prev) =>
+				prev.map((f) => (f.id === item.id ? { ...f, status: 'uploading' as const } : f))
+			)
+
+			await upload_to_drive_and_save(item, '', ds_id, pid, {
+				on_progress: (progress) => {
+					set_upload_items((prev) => prev.map((f) => (f.id === item.id ? { ...f, progress } : f)))
 				},
-				on_complete: () => {},
+				on_complete: () => {
+					set_upload_items((prev) =>
+						prev.map((f) =>
+							f.id === item.id ? { ...f, status: 'success' as const, progress: 100 } : f
+						)
+					)
+				},
 				on_error: (msg) => {
-					throw new Error(msg)
+					set_upload_items((prev) =>
+						prev.map((f) => (f.id === item.id ? { ...f, status: 'error' as const, error: msg } : f))
+					)
 				}
 			})
+		}
+
+		window.dispatchEvent(new CustomEvent('datasets-changed'))
+		window.dispatchEvent(
+			new CustomEvent('upload-complete', {
+				detail: { completed: upload_items.length, total: upload_items.length }
+			})
+		)
+	}
+
+	async function handle_post_create(resolved_option: string, pid: string) {
+		if (resolved_option === 'new' && upload_items.length > 0) {
+			await create_dataset_and_upload(pid)
+		} else if (resolved_option === 'existing' && selected_ds_id) {
+			const { error: link_err } = await supabase
+				.from('datasets')
+				.update({ project_id: pid })
+				.eq('id', selected_ds_id)
+			if (link_err) console.error('Failed to link dataset:', link_err)
 		}
 	}
 
@@ -296,22 +385,10 @@ export default function create_project_wizard({
 				thumbnail: thumbnail_url
 			})
 
+			await handle_post_create(resolved_option, pid)
+
 			on_close()
 			navigate(`/projects/${pid}/dashboard`)
-
-			if (resolved_option === 'new') {
-				create_dataset_and_upload(pid).catch((err) => {
-					console.error('Background dataset creation failed:', err)
-				})
-			} else if (resolved_option === 'existing' && selected_ds_id) {
-				supabase
-					.from('datasets')
-					.update({ project_id: pid })
-					.eq('id', selected_ds_id)
-					.then(({ error }) => {
-						if (error) console.error('Failed to link dataset:', error)
-					})
-			}
 		} catch (err) {
 			set_name_error(err instanceof Error ? err.message : 'Failed to create project')
 			set_is_saving(false)
@@ -323,6 +400,10 @@ export default function create_project_wizard({
 	}
 
 	function reset_form() {
+		cancel_all_uploads(upload_items.map((f) => f.id))
+		for (const item of upload_items) {
+			if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+		}
 		set_step(1)
 		set_name('')
 		set_description('')
@@ -332,11 +413,11 @@ export default function create_project_wizard({
 		set_dataset_option('skip')
 		set_new_ds_name('')
 		set_new_ds_desc('')
-		set_upload_files([])
+		set_upload_items([])
 		set_selected_ds_id(undefined)
 		set_name_error('')
-		set_upload_progress(0)
 		set_existing_datasets([])
+		set_is_saving(false)
 	}
 
 	function step_indicator() {
@@ -498,7 +579,7 @@ export default function create_project_wizard({
 					<input
 						ref={cover_input_ref}
 						type="file"
-						accept="image/*"
+						accept="image/*,.tif,.tiff"
 						onChange={handle_cover_select}
 						hidden
 					/>
@@ -552,38 +633,124 @@ export default function create_project_wizard({
 					<input
 						ref={file_input_ref}
 						type="file"
-						accept="image/*"
+						accept="image/*,.zip,.tif,.tiff"
 						multiple
 						onChange={handle_files_select}
 						hidden
 					/>
 				</div>
-				{upload_files.length > 0 && (
+				{upload_items.length > 0 && (
 					<div className="space-y-1.5">
 						<p className={`text-xs font-medium ${text_muted}`}>
-							{upload_files.length} file{upload_files.length > 1 ? 's' : ''} selected
+							{upload_items.length} file{upload_items.length > 1 ? 's' : ''} selected
 						</p>
-						<div className="flex flex-wrap gap-2">
-							{upload_files.map((f, i) => (
-								<div
-									key={`${f.name}-${i}`}
-									className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border ${border_subtle} ${bg_subtle}`}
-								>
-									<FileImage size={14} className={text_muted} />
-									<span className={`text-xs truncate max-w-[120px] ${text_heading}`}>{f.name}</span>
-									<button
-										onClick={() => remove_upload_file(i)}
-										className="p-0.5 rounded hover:bg-red-500/20 text-zinc-500 hover:text-red-500 transition-colors"
-									>
-										<X size={12} />
-									</button>
-								</div>
-							))}
-						</div>
+						{render_upload_items()}
 					</div>
 				)}
 			</div>
 		)
+	}
+
+	function render_file_thumbnail(item: UploadFile) {
+		const is_zip = item.name.endsWith('.zip')
+		if (item.previewUrl) {
+			return <img src={item.previewUrl} alt={item.name} className="w-full h-full object-cover" />
+		}
+		if (is_zip) {
+			return <FileArchive size={18} className={text_muted} />
+		}
+		return <FileImage size={18} className={text_muted} />
+	}
+
+	function render_status_indicator(item: UploadFile) {
+		const is_uploading = item.status === 'uploading'
+		const is_error = item.status === 'error'
+		const is_success = item.status === 'success'
+
+		let color = 'text-zinc-500'
+		let label = 'Pending'
+		if (is_success) {
+			color = 'text-emerald-500'
+			label = 'Done'
+		} else if (is_error) {
+			color = 'text-red-500'
+			label = 'Failed'
+		} else if (is_uploading) {
+			color = 'text-blue-500'
+			label = `${item.progress}%`
+		}
+
+		return (
+			<div className="flex items-center gap-1.5 shrink-0">
+				{is_success && <CheckCircle2 size={14} className="text-emerald-500" />}
+				{is_error && <AlertCircle size={14} className="text-red-500" />}
+				<span className={`text-xs font-medium ${color}`}>{label}</span>
+			</div>
+		)
+	}
+
+	function render_file_item(item: UploadFile) {
+		const is_uploading = item.status === 'uploading'
+		const is_error = item.status === 'error'
+		const is_success = item.status === 'success'
+
+		return (
+			<div
+				key={item.id}
+				className={`group flex items-center gap-3 px-3 py-2.5 rounded-lg border ${border_subtle} ${bg_subtle}`}
+			>
+				<div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-zinc-800/30">
+					{render_file_thumbnail(item)}
+				</div>
+
+				<div className="flex-1 min-w-0 space-y-1">
+					<div className="flex items-center justify-between gap-2">
+						<span
+							className={`text-sm font-medium truncate ${is_success || is_error ? (is_success ? 'text-emerald-500' : 'text-red-500') : text_heading}`}
+						>
+							{item.name}
+						</span>
+						{render_status_indicator(item)}
+					</div>
+
+					<div className="flex items-center justify-between gap-2">
+						<span className={`text-xs ${text_muted}`}>{format_file_size(item.size)}</span>
+						{is_error && item.error && (
+							<span className="text-xs text-red-500 truncate max-w-[200px]">{item.error}</span>
+						)}
+					</div>
+
+					{(is_uploading || is_error) && (
+						<div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+							<div
+								className={`h-full rounded-full transition-all duration-300 ${is_error ? 'bg-red-500' : 'bg-blue-500'}`}
+								style={{ width: `${item.progress}%` }}
+							/>
+						</div>
+					)}
+				</div>
+
+				{!is_uploading && !is_success && (
+					<button
+						onClick={() => remove_upload_file(item.id)}
+						className="p-1 rounded hover:bg-red-500/20 text-zinc-500 hover:text-red-500 transition-colors shrink-0"
+					>
+						<X size={14} />
+					</button>
+				)}
+			</div>
+		)
+	}
+
+	function render_upload_items() {
+		return <div className="space-y-2">{upload_items.map((item) => render_file_item(item))}</div>
+	}
+
+	function format_file_size(bytes: number): string {
+		if (bytes === 0) return '0 B'
+		const sizes = ['B', 'KB', 'MB', 'GB']
+		const i = Math.floor(Math.log(bytes) / Math.log(1024))
+		return parseFloat((bytes / Math.pow(1024, i)).toFixed(1)) + ' ' + sizes[i]
 	}
 
 	function render_existing_dataset_list() {
@@ -699,7 +866,7 @@ export default function create_project_wizard({
 		<>
 			<div
 				className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-300"
-				onClick={on_close}
+				onClick={is_saving ? undefined : on_close}
 			/>
 			<div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
 				<div
@@ -715,8 +882,9 @@ export default function create_project_wizard({
 							</h2>
 						</div>
 						<button
-							className={`p-2 rounded-md ${hover_bg} transition-colors text-zinc-400`}
+							className={`p-2 rounded-md ${hover_bg} transition-colors text-zinc-400 disabled:opacity-30 disabled:cursor-not-allowed`}
 							onClick={on_close}
+							disabled={is_saving}
 						>
 							<X size={18} />
 						</button>
@@ -762,7 +930,7 @@ export default function create_project_wizard({
 										{is_saving ? (
 											<>
 												<Loader2 size={16} className="animate-spin" />
-												{upload_progress > 0 ? `Creating... ${upload_progress}%` : 'Creating...'}
+												Creating...
 											</>
 										) : (
 											<>
