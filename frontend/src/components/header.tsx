@@ -127,7 +127,9 @@ function header_actions(is_dark_mode: boolean, toggle_theme: () => void) {
 				</kbd>
 			</button>
 
-			<button className={`sm:hidden p-2 rounded-full ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}>
+			<button
+				className={`sm:hidden p-2 rounded-full ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}
+			>
 				<Search size={18} />
 			</button>
 
@@ -139,12 +141,18 @@ function header_actions(is_dark_mode: boolean, toggle_theme: () => void) {
 				{is_dark_mode ? <Sun size={18} /> : <Moon size={18} />}
 			</button>
 
-			<button className={`p-2 rounded-full relative transition-colors ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}>
+			<button
+				className={`p-2 rounded-full relative transition-colors ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}
+			>
 				<Bell size={18} />
-				<span className={`absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-blue-500 border ${is_dark_mode ? 'border-zinc-950' : 'border-white'}`} />
+				<span
+					className={`absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-blue-500 border ${is_dark_mode ? 'border-zinc-950' : 'border-white'}`}
+				/>
 			</button>
 
-			<div className={`w-px h-6 mx-1 hidden sm:block ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
+			<div
+				className={`w-px h-6 mx-1 hidden sm:block ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+			/>
 		</>
 	)
 }

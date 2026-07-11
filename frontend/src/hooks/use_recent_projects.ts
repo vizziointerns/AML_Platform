@@ -16,7 +16,9 @@ interface BulkStat {
 	annotation_progress: number
 }
 
-async function enrich_project_counts(project_ids: string[]): Promise<Record<string, { total: number; annotated_pct: number }>> {
+async function enrich_project_counts(
+	project_ids: string[]
+): Promise<Record<string, { total: number; annotated_pct: number }>> {
 	const counts: Record<string, { total: number; annotated_pct: number }> = {}
 	if (project_ids.length === 0) return counts
 

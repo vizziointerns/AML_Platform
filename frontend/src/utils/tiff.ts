@@ -105,8 +105,8 @@ function fill_rgb_pixels(
 	b_max: number
 ): void {
 	const r_range = r_max - r_min || 1
-	const g_range = (g_max - g_min) || 1
-	const b_range = (b_max - b_min) || 1
+	const g_range = g_max - g_min || 1
+	const b_range = b_max - b_min || 1
 	for (let i = 0; i < r_data.length; i++) {
 		const r = Math.round(((r_data[i] ?? 0 - r_min) / r_range) * 255)
 		const g = g_data ? Math.round(((g_data[i] ?? 0 - g_min) / g_range) * 255) : r
@@ -118,10 +118,7 @@ function fill_rgb_pixels(
 	}
 }
 
-export async function convert_tiff_to_png(
-	file: File,
-	max_dimension = 1024
-): Promise<string> {
+export async function convert_tiff_to_png(file: File, max_dimension = 1024): Promise<string> {
 	const buf = await new Promise<ArrayBuffer>((resolve, reject) => {
 		const reader = new FileReader()
 		reader.onload = () => resolve(reader.result as ArrayBuffer)
