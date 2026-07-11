@@ -179,7 +179,13 @@ export function is_tiff_url(url: string): boolean {
 
 export function get_cog_thumbnail_url(url: string, file_extension?: string): string {
 	if (file_extension === 'tif' || file_extension === 'tiff' || is_tiff_url(url)) {
-		const params = new URLSearchParams({ url, band: '0', palette: 'grayscale', max_width: '200', max_height: '200' })
+		const params = new URLSearchParams({
+			url,
+			band: '0',
+			palette: 'grayscale',
+			max_width: '200',
+			max_height: '200'
+		})
 		return `${API_BASE}/cog/render?${params}`
 	}
 	return url

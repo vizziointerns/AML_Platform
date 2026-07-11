@@ -51,11 +51,13 @@ def download_image_bytes(
         ) as client:
             with client.stream("GET", url) as response:
                 response.raise_for_status()
-                content = bytearray()
+                chunks: list[bytes] = []
+                total = 0
                 for chunk in response.iter_bytes(chunk_size):
-                    if len(content) + len(chunk) > max_size:
+                    if total + len(chunk) > max_size:
                         raise ValueError(
                             f"Image exceeds maximum size of {max_size} bytes"
                         )
-                    content.extend(chunk)
-                return bytes(content)
+                    chunks.append(chunk)
+                    total += len(chunk)
+                return b"".join(chunks)
