@@ -45,6 +45,7 @@ import {
 	type ModelOption
 } from './render'
 import { fetch_classes, save_classes_to_backend } from '../../../../api/classes'
+import { save_annotations } from '../../../../api/annotations'
 import { fetch_training_runs } from '../../../../api/training'
 import { run_inference } from '../../../../api/inference'
 import { run_segmentation, run_auto_segmentation } from '../../../../api/segment'
@@ -627,11 +628,9 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		selected_prediction_id,
 		set_selected_prediction_id,
 		is_saving,
+		set_is_saving,
 		save_message,
-		set_annotations,
-		undo,
-		redo,
-		handle_save
+		set_save_message
 	} = use_annotation_history()
 
 	const [selected_ann_id, set_selected_ann_id] = useState<string | undefined>(undefined)
@@ -760,7 +759,6 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		set_history_step((prev) => Math.min(history.length - 1, prev + 1))
 	}, [history.length])
 
-	const [selected_ann_id, set_selected_ann_id] = useState<string | undefined>(undefined)
 	const [new_class_name, set_new_class_name] = useState('')
 	const [delete_class_id, set_delete_class_id] = useState<string | undefined>(undefined)
 	const [renaming_class_id, set_renaming_class_id] = useState<string | undefined>(undefined)
@@ -824,7 +822,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	function on_key_down(e: KeyboardEvent) {
 		handle_keyboard_shortcut(
 			e,
-			() => handle_save(imageId),
+			handle_save,
 			set_active_tool,
 			set_brush_size,
 			set_zoom_level,
@@ -965,7 +963,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				bg_hover,
 				text_muted,
 				text_heading,
-				() => handle_save(imageId),
+				handle_save,
 				is_saving,
 				save_message,
 				handle_back,
