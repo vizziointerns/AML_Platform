@@ -57,6 +57,8 @@ async function save_image_class_labels(imageId: string, class_ids: string[]) {
 		p_class_labels: class_ids
 	})
 	if (error) throw error
+}
+
 import { use_cog_layers } from '../../../../hooks/use_cog_layers'
 import { use_cog_background } from '../../../../hooks/use_cog_background'
 import { use_annotation_history } from '../../../../hooks/use_annotation_history'
