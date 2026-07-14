@@ -10,7 +10,7 @@ import jwt
 
 logger = logging.getLogger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 _token_cache: dict[str, str] = {}
@@ -19,6 +19,10 @@ _cache_lock = Lock()
 
 def _load_service_account_info() -> dict[str, Any]:
     raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
+    if not raw:
+        from app.core.config import settings
+
+        raw = settings.google_service_account_key
     if not raw:
         raise RuntimeError(
             "GOOGLE_SERVICE_ACCOUNT_KEY not configured. "

@@ -1,38 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type { UploadFile } from '../components/Uploader/types'
-import { upload_file, upload_to_drive_and_save, cancel_all_uploads } from '../api/upload'
+import { upload_to_drive_and_save, cancel_all_uploads } from '../api/upload'
 import { supabase } from '../utils/supabase'
-import { use_google_auth } from './use_google_auth'
 import { use_datasets } from './use_datasets'
-import { ensure_new_dataset_drive_folder } from '../utils/google_drive'
-
-async function resolve_new_dataset_drive_folder_id(params: {
-	project_id: string | undefined
-	dataset_name: string
-	google_access_token: string | undefined
-}): Promise<string | undefined> {
-	const { project_id, dataset_name, google_access_token } = params
-
-	if (!project_id || !google_access_token) {
-		return undefined
-	}
-
-	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_name)
-}
 
 async function create_dataset_for_upload(params: {
 	project_id: string | undefined
 	dataset_id: string
 	dataset_name: string
 	dataset_description: string
-	google_access_token: string | undefined
 }): Promise<string | undefined> {
-	const { project_id, dataset_id, dataset_name, dataset_description, google_access_token } = params
-	const drive_folder_id = await resolve_new_dataset_drive_folder_id({
-		project_id,
-		dataset_name,
-		google_access_token
-	})
+	const { project_id, dataset_id, dataset_name, dataset_description } = params
 
 	const { data, error: err } = await supabase
 		.from('datasets')
@@ -45,8 +23,7 @@ async function create_dataset_for_upload(params: {
 			image_count: 0,
 			class_count: 0,
 			tags: [],
-			storage_bytes: 0,
-			drive_folder_id
+			storage_bytes: 0
 		})
 		.select('id')
 		.single()
@@ -87,7 +64,6 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 	}, [initial_dataset_id])
 	const file_input_ref = useRef<HTMLInputElement>(undefined!)
 	const folder_input_ref = useRef<HTMLInputElement>(undefined!)
-	const google_auth = use_google_auth()
 
 	const total_files = files.length
 	const completed_files = files.filter((f) => f.status === 'success').length
@@ -106,8 +82,11 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 
 	const process_files = useCallback((new_files: File[]) => {
 		const processed: UploadFile[] = new_files.map((f) => {
+			const is_image = f.type.startsWith('image/')
+			const is_zip = f.name.endsWith('.zip')
+			const is_tiff = /\.tiff?$/i.test(f.name)
 			let preview_url
-			if (f.type.startsWith('image/')) {
+			if (is_image) {
 				preview_url = URL.createObjectURL(f)
 			}
 			return {
@@ -117,11 +96,8 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 				size: f.size,
 				previewUrl: preview_url,
 				progress: 0,
-				status: f.type.startsWith('image/') || f.name.endsWith('.zip') ? 'pending' : 'error',
-				error:
-					!f.type.startsWith('image/') && !f.name.endsWith('.zip')
-						? 'Unsupported file format.'
-						: undefined
+				status: is_image || is_zip || is_tiff ? 'pending' : 'error',
+				error: !is_image && !is_zip && !is_tiff ? 'Unsupported file format.' : undefined
 			}
 		})
 		set_files((prev) => [...prev, ...processed])
@@ -212,8 +188,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			project_id,
 			dataset_id: crypto.randomUUID(),
 			dataset_name: trimmed_dataset_name,
-			dataset_description: new_dataset_description.trim(),
-			google_access_token: google_auth.is_authenticated ? google_auth.access_token : undefined
+			dataset_description: new_dataset_description.trim()
 		})
 
 		if (!created_dataset_id) {
@@ -222,7 +197,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 
 		resolved_dataset_id_ref.current = created_dataset_id
 		return created_dataset_id
-	}, [target_dataset, new_dataset_name, new_dataset_description, project_id, google_auth])
+	}, [target_dataset, new_dataset_name, new_dataset_description, project_id])
 
 	const start_upload = useCallback(async () => {
 		const pending_files = files.filter((f) => f.status === 'pending')
@@ -251,21 +226,11 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 		const uploads = pending_files.map((file) => {
 			const callbacks = make_callbacks(file)
 
-			if (google_auth.is_authenticated) {
-				return upload_to_drive_and_save(
-					file,
-					google_auth.access_token!,
-					dataset_id,
-					project_id,
-					callbacks
-				)
-			}
-
-			return upload_file(file, dataset_id, callbacks)
+			return upload_to_drive_and_save(file, '', dataset_id, project_id, callbacks)
 		})
 
 		await Promise.allSettled(uploads)
-	}, [files, target_dataset, google_auth, project_id, make_callbacks, resolve_dataset_id])
+	}, [files, target_dataset, project_id, make_callbacks, resolve_dataset_id])
 
 	const retry_upload = useCallback(
 		(id: string) => {
@@ -288,21 +253,11 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 						callbacks.on_error('No dataset selected. Select or create a dataset first.')
 						return
 					}
-					if (google_auth.is_authenticated) {
-						upload_to_drive_and_save(
-							file_to_upload!,
-							google_auth.access_token!,
-							ds_id,
-							project_id,
-							callbacks
-						)
-					} else {
-						upload_file(file_to_upload!, ds_id, callbacks)
-					}
+					upload_to_drive_and_save(file_to_upload!, '', ds_id, project_id, callbacks)
 				})
 			}
 		},
-		[google_auth, project_id, make_callbacks, resolve_dataset_id]
+		[project_id, make_callbacks, resolve_dataset_id]
 	)
 
 	const remove_file = useCallback((id: string) => {
@@ -369,7 +324,6 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 		remove_file,
 		clear_all,
 		close_and_clear,
-		google_auth,
 		datasets,
 		new_dataset_name,
 		set_new_dataset_name,

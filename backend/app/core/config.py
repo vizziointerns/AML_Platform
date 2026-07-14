@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     database_url: str = "sqlite:///./dev.db"
+    google_service_account_key: str = ""
+    google_drive_shared_drive_id: str = ""
 
     def cors_origin_list(self) -> list[str]:
         raw = self.cors_origins.strip()
