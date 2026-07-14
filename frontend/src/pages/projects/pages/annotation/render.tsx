@@ -246,7 +246,7 @@ export function render_annotation_layer_item(
 		<div
 			key={layer.id}
 			onClick={() => actions.set_selected_ann_id(layer.id)}
-			className={`w-full flex items-center justify-between p-2 rounded-md hover:${isDarkMode ? 'bg-zinc-900' : 'bg-zinc-100'} transition-colors group cursor-pointer border ${selected_ann_id === layer.id ? (isDarkMode ? 'border-zinc-700 bg-zinc-800' : 'border-zinc-300 bg-white') : 'border-transparent'}`}
+			className={`w-full flex items-center justify-between p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors group cursor-pointer border ${selected_ann_id === layer.id ? (isDarkMode ? 'border-zinc-700 bg-zinc-800' : 'border-zinc-300 bg-white') : 'border-transparent'}`}
 		>
 			<div className="flex items-center gap-3 overflow-hidden">
 				<div className="w-4 flex justify-center shrink-0">{type_icon}</div>
@@ -304,7 +304,7 @@ export function render_prediction_layer_item(
 		<div
 			key={layer.id}
 			onClick={() => set_selected_prediction_id(layer.id)}
-			className={`w-full flex items-center justify-between p-2 rounded-md hover:${isDarkMode ? 'bg-zinc-900' : 'bg-zinc-100'} transition-colors group cursor-pointer border ${selected_prediction_id === layer.id ? (isDarkMode ? 'border-zinc-700 bg-zinc-800' : 'border-zinc-300 bg-white') : 'border-dashed border-zinc-500/30'}`}
+			className={`w-full flex items-center justify-between p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors group cursor-pointer border ${selected_prediction_id === layer.id ? (isDarkMode ? 'border-zinc-700 bg-zinc-800' : 'border-zinc-300 bg-white') : 'border-dashed border-zinc-500/30'}`}
 		>
 			<div className="flex items-center gap-3 opacity-80">
 				<div className="w-4 flex justify-center text-zinc-400">{type_icon}</div>
@@ -349,7 +349,7 @@ export function render_layers_panel(
 		<div className="flex-1 flex flex-col min-h-0">
 			<button
 				onClick={() => set_is_layers_open(!is_layers_open)}
-				className={`flex items-center justify-between p-3 border-b ${border_subtle} hover:${isDarkMode ? 'bg-zinc-900' : 'bg-zinc-100'} transition-colors w-full text-left`}
+				className={`flex items-center justify-between p-3 border-b ${border_subtle} hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors w-full text-left`}
 			>
 				<div
 					className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${text_heading}`}
@@ -646,7 +646,7 @@ export function render_top_toolbar(
 					{on_back && (
 						<button
 							onClick={on_back}
-							className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+							className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100`}
 							title="Back to Datasets"
 						>
 							<ArrowLeft size={18} />
@@ -655,7 +655,7 @@ export function render_top_toolbar(
 					<button
 						onClick={undo}
 						disabled={history_step === 0}
-						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading} disabled:opacity-50 disabled:cursor-not-allowed`}
+						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed`}
 						title="Undo (Ctrl+Z)"
 					>
 						<Undo size={18} />
@@ -663,7 +663,7 @@ export function render_top_toolbar(
 					<button
 						onClick={redo}
 						disabled={history_step === history_length - 1}
-						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading} disabled:opacity-50 disabled:cursor-not-allowed`}
+						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed`}
 						title="Redo (Ctrl+Y)"
 					>
 						<Redo size={18} />
@@ -672,7 +672,7 @@ export function render_top_toolbar(
 					<button
 						onClick={on_save}
 						disabled={is_saving}
-						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:${text_heading} disabled:opacity-50`}
+						className={`p-1.5 rounded-md ${bg_hover} transition-colors ${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-50`}
 						title="Save (Ctrl+S)"
 					>
 						{is_saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -697,7 +697,7 @@ export function render_top_toolbar(
 					<button
 						onClick={on_prev}
 						disabled={!has_prev}
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_prev ? `${text_muted} hover:${text_heading}` : text_muted}`}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_prev ? `${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100` : text_muted}`}
 					>
 						<ChevronLeft size={16} />
 					</button>
@@ -714,7 +714,7 @@ export function render_top_toolbar(
 					<button
 						onClick={on_next}
 						disabled={!has_next}
-						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_next ? `${text_muted} hover:${text_heading}` : text_muted}`}
+						className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${has_next ? `${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100` : text_muted}`}
 					>
 						<ChevronRight size={16} />
 					</button>
@@ -724,7 +724,7 @@ export function render_top_toolbar(
 				<div className={`flex items-center rounded-md border ${border_subtle} overflow-hidden h-8`}>
 					<button
 						onClick={() => set_zoom_level((z) => Math.max(z - 0.5, 0.5))}
-						className={`px-2 h-full ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						className={`px-2 h-full ${bg_hover} transition-colors ${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100`}
 					>
 						<ZoomOut size={16} />
 					</button>
@@ -735,14 +735,14 @@ export function render_top_toolbar(
 					</div>
 					<button
 						onClick={() => set_zoom_level((z) => Math.min(z + 0.5, 10))}
-						className={`px-2 h-full ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+						className={`px-2 h-full ${bg_hover} transition-colors ${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100`}
 					>
 						<ZoomIn size={16} />
 					</button>
 				</div>
 				<button
 					onClick={center_image}
-					className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:${text_heading}`}
+					className={`p-1.5 rounded-md border ${border_subtle} ${bg_hover} transition-colors ${text_muted} hover:text-zinc-900 dark:hover:text-zinc-100`}
 					title="Fit to Screen"
 				>
 					<Maximize size={16} />

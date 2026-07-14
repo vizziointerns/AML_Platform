@@ -1,6 +1,8 @@
 import { fromUrl } from 'geotiff'
 import { get_palette, type PaletteName } from './colormaps'
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
+
 export interface CogLayerConfig {
 	id: string
 	url: string
@@ -173,4 +175,18 @@ export function is_tiff_url(url: string): boolean {
 		return decoded.endsWith('.tif') || decoded.endsWith('.tiff')
 	}
 	return false
+}
+
+export function get_cog_thumbnail_url(url: string, file_extension?: string): string {
+	if (file_extension === 'tif' || file_extension === 'tiff' || is_tiff_url(url)) {
+		const params = new URLSearchParams({
+			url,
+			band: '0',
+			palette: 'grayscale',
+			max_width: '200',
+			max_height: '200'
+		})
+		return `${API_BASE}/cog/render?${params}`
+	}
+	return url
 }

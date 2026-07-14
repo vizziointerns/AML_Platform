@@ -26,10 +26,18 @@ export function is_drive_url(file_url: string): boolean {
 	)
 }
 
-export async function resolve_drive_file(file_url: string, file_name?: string): Promise<string> {
+export async function resolve_drive_file(
+	file_url: string,
+	file_name?: string,
+	file_extension?: string
+): Promise<string> {
 	if (!is_drive_url(file_url)) return file_url
-	// TIFF files go through the COG pipeline — keep original URL
-	if (file_name && is_tiff_name(file_name)) return file_url
+	if (
+		(file_name && is_tiff_name(file_name)) ||
+		file_extension === 'tif' ||
+		file_extension === 'tiff'
+	)
+		return file_url
 
 	const file_id = extract_file_id(file_url)
 	if (!file_id) return file_url
@@ -38,11 +46,11 @@ export async function resolve_drive_file(file_url: string, file_name?: string): 
 }
 
 export async function resolve_image_urls(
-	images: { file_url: string; file_name?: string }[]
+	images: { file_url: string; file_name?: string; file_extension?: string }[]
 ): Promise<string[]> {
 	const resolved: string[] = []
 	for (const img of images) {
-		const resolved_url = await resolve_drive_file(img.file_url, img.file_name)
+		const resolved_url = await resolve_drive_file(img.file_url, img.file_name, img.file_extension)
 		if (resolved_url !== img.file_url) {
 			img.file_url = resolved_url
 			resolved.push(resolved_url)

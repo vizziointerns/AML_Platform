@@ -66,6 +66,7 @@ export function use_annotation_history() {
 				}
 				set_save_message('Saved')
 				setTimeout(() => set_save_message(undefined), 2000)
+				window.dispatchEvent(new CustomEvent('datasets-changed'))
 			} catch {
 				console.error('Failed to save annotations')
 				set_save_message('Save failed')

@@ -5,7 +5,6 @@ export default function drag_drop_zone({
 	is_dark_mode,
 	bg_drag,
 	bg_card,
-	bg_subtle,
 	border_subtle,
 	text_heading,
 	text_muted,
@@ -21,7 +20,6 @@ export default function drag_drop_zone({
 	is_dark_mode: boolean
 	bg_drag: string
 	bg_card: string
-	bg_subtle: string
 	border_subtle: string
 	text_heading: string
 	text_muted: string
@@ -84,13 +82,13 @@ export default function drag_drop_zone({
 			<div className="flex gap-3">
 				<button
 					onClick={() => file_input_ref.current?.click()}
-					className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:${bg_subtle} transition-colors ${text_heading}`}
+					className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${text_heading}`}
 				>
 					Browse Files
 				</button>
 				<button
 					onClick={() => folder_input_ref.current?.click()}
-					className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:${bg_subtle} transition-colors ${text_heading} flex items-center gap-2`}
+					className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${text_heading} flex items-center gap-2`}
 				>
 					<Folder size={16} /> Upload Folder
 				</button>

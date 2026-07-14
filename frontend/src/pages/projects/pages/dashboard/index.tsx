@@ -36,35 +36,41 @@ function render_stats_grid(
 	is_dark_mode: boolean
 ) {
 	const storage_gb = stats ? (stats.storage_bytes / (1024 * 1024 * 1024)).toFixed(1) : '0.0'
+	const total_images = (stats?.total_images ?? project.datasetCount ?? 0).toLocaleString()
+	const annotation_progress = stats?.annotation_progress ?? 0
+	const has_stats = stats !== undefined
+	const total_datasets = has_stats ? stats.total_datasets.toLocaleString() : '0'
+	const total_classes = has_stats ? stats.total_classes.toLocaleString() : '0'
+	const total_annotations = has_stats ? stats.total_annotations.toLocaleString() : '0'
 
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 			{stat_card({
 				label: 'Images',
-				value: (stats?.total_images ?? project.datasetCount ?? 0).toLocaleString(),
+				value: total_images,
 				icon: ImageIcon,
 				is_dark_mode
 			})}
 			{progress_card({
 				label: 'Annotation Progress',
-				value: project.annotationProgress ?? 0,
+				value: annotation_progress,
 				is_dark_mode
 			})}
 			{stat_card({
 				label: 'Datasets',
-				value: stats?.total_datasets?.toLocaleString() ?? '0',
+				value: total_datasets,
 				icon: Database,
 				is_dark_mode
 			})}
 			{stat_card({
 				label: 'Classes',
-				value: stats?.total_classes?.toLocaleString() ?? '0',
+				value: total_classes,
 				icon: Tags,
 				is_dark_mode
 			})}
 			{stat_card({
 				label: 'Annotations',
-				value: stats?.total_annotations?.toLocaleString() ?? '0',
+				value: total_annotations,
 				icon: PenTool,
 				is_dark_mode
 			})}

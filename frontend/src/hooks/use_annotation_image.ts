@@ -9,6 +9,7 @@ export interface AnnotationImageInfo {
 	file_url: string
 	file_name: string
 	original_file_url?: string
+	file_extension?: string
 }
 
 export interface UseAnnotationImageResult {
@@ -52,7 +53,7 @@ export function use_annotation_image(
 		;(async () => {
 			const { data, error: err } = await supabase
 				.from('dataset_images')
-				.select('id, file_url, file_name')
+				.select('id, file_url, file_name, file_extension')
 				.eq('dataset_id', dataset_id)
 				.order('uploaded_at', { ascending: true })
 
@@ -68,7 +69,8 @@ export function use_annotation_image(
 				id: row.id,
 				file_url: row.file_url,
 				file_name: row.file_name ?? 'Unknown',
-				original_file_url: row.file_url
+				original_file_url: row.file_url,
+				file_extension: row.file_extension ?? undefined
 			}))
 
 			if (is_cancelled) return

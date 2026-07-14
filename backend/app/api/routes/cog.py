@@ -15,6 +15,7 @@ from fastapi.responses import Response
 from PIL import Image
 import tifffile
 
+from app.utils.download import extract_drive_id
 from app.utils.google_drive_auth import async_get_drive_access_token
 
 router = APIRouter()
@@ -36,6 +37,7 @@ def _assert_allowed_url(url: str) -> None:
     Only allows Google-hosted endpoints and rejects private/local IPs.
     """
     from urllib.parse import urlparse
+    import ipaddress
 
     parsed = urlparse(url)
     if parsed.scheme not in ("https",):
@@ -43,7 +45,7 @@ def _assert_allowed_url(url: str) -> None:
     host = parsed.hostname
     if not host:
         raise ValueError(f"Could not parse host from URL: {url}")
-    if not any(allowed in host for allowed in _ALLOWED_DOWNLOAD_HOSTS):
+    if not any(host == allowed or host.endswith("." + allowed) for allowed in _ALLOWED_DOWNLOAD_HOSTS):
         raise ValueError(f"URL host not in allowed list: {host}")
     import socket
 
@@ -53,7 +55,8 @@ def _assert_allowed_url(url: str) -> None:
         raise ValueError(f"Could not resolve host: {host}") from exc
     for _family, _type, _proto, _canonname, sockaddr in addr_info:
         ip: str = cast(str, sockaddr[0])
-        if ip.startswith("127.") or ip == "::1" or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("192.168.") or ip == "0.0.0.0":
+        addr = ipaddress.ip_address(ip)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_unspecified:
             raise ValueError(f"Resolved to private IP, rejected: {ip}")
 
 
@@ -151,7 +154,7 @@ async def _ensure_cached(url: str) -> Path:
     _assert_allowed_url(url)
 
     async with httpx.AsyncClient(follow_redirects=False, timeout=300) as client:
-        file_id = _extract_drive_id(url)
+        file_id = extract_drive_id(url)
         if file_id:
             access_token = await async_get_drive_access_token()
             drive_url = f"{DRIVE_FILES_API}/{file_id}?alt=media"
@@ -165,19 +168,6 @@ async def _ensure_cached(url: str) -> Path:
         _evict_cache_if_needed()
         cache_path.write_bytes(response.content)
     return cache_path
-
-
-def _extract_drive_id(url: str) -> str | None:
-    import re
-    match = re.search(r"[?&]id=([^&?]+)", url)
-    if match:
-        return match.group(1)
-    if "googleapis.com/drive" in url:
-        parts = url.split("/")
-        for i, part in enumerate(parts):
-            if part == "files" and i + 1 < len(parts):
-                return parts[i + 1].split("?")[0]
-    return None
 
 
 def _read_band(

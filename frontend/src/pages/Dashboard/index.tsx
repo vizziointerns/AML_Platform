@@ -96,7 +96,9 @@ function render_training_chart(
 		<div className={`rounded-xl border p-6 flex flex-col ${card_classes}`}>
 			<div className="flex justify-between items-center mb-6">
 				<h3 className="font-semibold text-base tracking-tight">Model Training Performance</h3>
-				<button className={`p-1.5 rounded-md hover:${bg_subtle} text-zinc-400`}>
+				<button
+					className={`p-1.5 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-400`}
+				>
 					<MoreVertical size={18} />
 				</button>
 			</div>

@@ -50,12 +50,13 @@ export function cog_tile_layer_component({ config, viewport }: CogTileLayerProps
 				tiles.push({ z, x: tx, y: ty, px: tx * tile_w, py: ty * tile_h })
 			}
 		}
-		return { z, tiles }
+		return { z, tiles, tile_w, tile_h }
 	}, [viewport.x, viewport.y, viewport.width, viewport.height])
 
-	const { z, tiles: visible_tiles } = tile_info
+	const { z, tiles: visible_tiles, tile_w, tile_h } = tile_info
 
 	const config_key = `${config.url}|${config.band}|${config.palette}|${config.min}|${config.max}`
+	const tiles_key = visible_tiles.map((t) => `${t.z}/${t.x}/${t.y}`).join(',')
 
 	useEffect(() => {
 		const current_loading = new Set(loading_ref.current)
@@ -89,7 +90,7 @@ export function cog_tile_layer_component({ config, viewport }: CogTileLayerProps
 			}
 			return next
 		})
-	}, [z, config_key])
+	}, [z, config_key, tiles_key])
 
 	if (!config.visible) return undefined
 
@@ -105,8 +106,8 @@ export function cog_tile_layer_component({ config, viewport }: CogTileLayerProps
 						image={img}
 						x={tile.px}
 						y={tile.py}
-						width={TILE_SIZE}
-						height={TILE_SIZE}
+						width={tile_w}
+						height={tile_h}
 						opacity={config.opacity / 100}
 					/>
 				)

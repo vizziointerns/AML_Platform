@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.schemas.inference import InferredObject
+from app.utils.download import download_image_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 ALLOWED_SCHEMES = ("http", "https")
 ALLOWED_MIME_PREFIXES = ("image/",)
-MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
-CHUNK_SIZE = 64 * 1024  # 64 KB
-MAX_REDIRECTS = 20
+MAX_IMAGE_SIZE = 200 * 1024 * 1024  # 200 MB
 
 
 def _resolve_hostname(hostname: str) -> str:
@@ -89,30 +88,8 @@ def run_inference(
 
     tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
     try:
-        with httpx.Client(
-            timeout=60,
-            follow_redirects=True,
-            max_redirects=MAX_REDIRECTS,
-            event_hooks={"request": [_make_pin_hook()]},
-        ) as client:
-            try:
-                with client.stream("GET", image_url) as response:
-                    response.raise_for_status()
-
-                    content_type = response.headers.get("content-type", "")
-                    if not content_type.startswith(ALLOWED_MIME_PREFIXES):
-                        raise ValueError(f"Invalid content type: {content_type}")
-
-                    total = 0
-                    for chunk in response.iter_bytes(CHUNK_SIZE):
-                        total += len(chunk)
-                        if total > MAX_IMAGE_SIZE:
-                            raise ValueError(
-                                f"Image exceeds maximum size of {MAX_IMAGE_SIZE} bytes"
-                            )
-                        tmp.write(chunk)
-            except httpx.HTTPError as e:
-                raise ValueError(str(e)) from e
+        image_data = download_image_bytes(image_url, MAX_IMAGE_SIZE)
+        tmp.write(image_data)
         tmp.close()
 
         from ultralytics import YOLO  # type: ignore[attr-defined]

@@ -103,7 +103,11 @@ function build_items(
 }
 
 async function fetch_activity_data(user_id: string): Promise<FetchResult | undefined> {
-	const { data: projects } = await supabase.from('projects').select('id').eq('user_id', user_id)
+	const { data: projects } = await supabase
+		.from('projects')
+		.select('id')
+		.eq('user_id', user_id)
+		.order('last_updated', { ascending: false })
 
 	const project_ids = (projects ?? []).map((p) => p.id)
 	if (project_ids.length === 0) return undefined

@@ -7,10 +7,15 @@ export function use_cog_background(
 	url: string | undefined,
 	palette: PaletteName,
 	band: number,
-	file_name?: string
+	file_name?: string,
+	file_extension?: string
 ): string | undefined {
 	if (!url) return undefined
-	const is_tiff = is_tiff_url(url) || (file_name ? is_tiff_url(file_name) : false)
+	const is_tiff =
+		is_tiff_url(url) ||
+		(file_name ? is_tiff_url(file_name) : false) ||
+		file_extension === 'tif' ||
+		file_extension === 'tiff'
 	if (!is_tiff) return url
 
 	const params = new URLSearchParams({

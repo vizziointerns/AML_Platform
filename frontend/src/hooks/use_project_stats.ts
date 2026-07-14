@@ -7,6 +7,7 @@ export interface ProjectStats {
 	total_classes: number
 	total_datasets: number
 	storage_bytes: number
+	annotation_progress: number
 }
 
 export interface UseProjectStatsResult {
@@ -31,38 +32,15 @@ export function use_project_stats(project_id: string | undefined): UseProjectSta
 		set_is_loading(true)
 		set_error(undefined)
 		;(async () => {
-			const { data, error: err } = await supabase
-				.from('project_stats')
-				.select('*')
-				.eq('project_id', project_id)
-				.single()
+			const { data, error: err } = await supabase.rpc('get_project_stats', {
+				p_project_id: project_id
+			})
 
 			if (is_cancelled) return
 
 			if (err) {
-				if (
-					err.message?.includes('does not exist') ||
-					err.message?.includes('Could not find the table')
-				) {
-					set_stats({
-						total_images: 0,
-						total_annotations: 0,
-						total_classes: 0,
-						total_datasets: 0,
-						storage_bytes: 0
-					})
-				} else if (err.message?.includes('row')) {
-					set_stats({
-						total_images: 0,
-						total_annotations: 0,
-						total_classes: 0,
-						total_datasets: 0,
-						storage_bytes: 0
-					})
-				} else {
-					set_stats(undefined)
-					set_error(err.message)
-				}
+				set_stats(undefined)
+				set_error(err.message)
 				set_is_loading(false)
 				return
 			}
@@ -73,7 +51,8 @@ export function use_project_stats(project_id: string | undefined): UseProjectSta
 					total_annotations: data.total_annotations ?? 0,
 					total_classes: data.total_classes ?? 0,
 					total_datasets: data.total_datasets ?? 0,
-					storage_bytes: data.storage_bytes ?? 0
+					storage_bytes: data.storage_bytes ?? 0,
+					annotation_progress: data.annotation_progress ?? 0
 				})
 			}
 			set_is_loading(false)
@@ -88,42 +67,74 @@ export function use_project_stats(project_id: string | undefined): UseProjectSta
 }
 
 /*
--- Supabase SQL to create the project_stats table:
-CREATE TABLE project_stats (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  project_id UUID REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
-  total_images INTEGER DEFAULT 0,
-  total_annotations INTEGER DEFAULT 0,
-  total_classes INTEGER DEFAULT 0,
-  total_datasets INTEGER DEFAULT 0,
-  storage_bytes BIGINT DEFAULT 0,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(project_id)
-);
+-- Supabase SQL to create the get_project_stats RPC function.
+-- Run this in the Supabase SQL Editor:
 
--- Enable Row Level Security
-ALTER TABLE project_stats ENABLE ROW LEVEL SECURITY;
+DROP FUNCTION IF EXISTS get_project_stats(TEXT);
 
--- Create policy so users can only see their own project stats
-CREATE POLICY "Users can view their own project stats" ON project_stats
-  FOR SELECT USING (
-    project_id IN (
-      SELECT id FROM projects WHERE user_id = auth.uid()
-    )
-  );
-
--- Trigger to auto-create a stats row when a project is created
-CREATE OR REPLACE FUNCTION handle_new_project_stats()
-RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION get_project_stats(p_project_id TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  result JSON;
 BEGIN
-  INSERT INTO public.project_stats (project_id)
-  VALUES (NEW.id);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
 
-CREATE TRIGGER on_project_created_create_stats
-  AFTER INSERT ON projects
-  FOR EACH ROW
-  EXECUTE FUNCTION handle_new_project_stats();
+  IF NOT EXISTS (SELECT 1 FROM projects WHERE id = p_project_id AND user_id = v_user_id) THEN
+    RAISE EXCEPTION 'Project not found or access denied';
+  END IF;
+
+  WITH project_datasets AS (
+    SELECT id FROM datasets WHERE project_id = p_project_id
+  ),
+  image_stats AS (
+    SELECT
+      COUNT(*)::INT AS total_images,
+      COALESCE(SUM(file_size_bytes), 0)::BIGINT AS storage_bytes,
+      COUNT(*) FILTER (WHERE array_length(class_labels, 1) > 0)::INT AS annotated_images
+    FROM dataset_images
+    WHERE dataset_id IN (SELECT id FROM project_datasets)
+  ),
+  annotation_stats AS (
+    SELECT COUNT(*)::INT AS total_annotations
+    FROM dataset_images
+    WHERE dataset_id IN (SELECT id FROM project_datasets)
+      AND array_length(class_labels, 1) > 0
+  ),
+  class_stats AS (
+    SELECT COUNT(DISTINCT elem)::INT AS total_classes
+    FROM dataset_images,
+      LATERAL unnest(class_labels) AS elem
+    WHERE dataset_id IN (SELECT id FROM project_datasets)
+      AND array_length(class_labels, 1) > 0
+  )
+  SELECT json_build_object(
+    'total_datasets', (SELECT COUNT(*)::INT FROM project_datasets),
+    'total_images', COALESCE((SELECT total_images FROM image_stats), 0),
+    'total_annotations', COALESCE((SELECT total_annotations FROM annotation_stats), 0),
+    'total_classes', COALESCE((SELECT total_classes FROM class_stats), 0),
+    'storage_bytes', COALESCE((SELECT storage_bytes FROM image_stats), 0),
+    'annotation_progress', CASE
+      WHEN COALESCE((SELECT total_images FROM image_stats), 0) > 0
+      THEN ROUND(
+        (COALESCE((SELECT annotated_images FROM image_stats), 0)::NUMERIC /
+         (SELECT total_images FROM image_stats)::NUMERIC) * 100
+      )::INT
+      ELSE 0
+    END
+  ) INTO result;
+
+  RETURN result;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION get_project_stats(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION get_project_stats(TEXT) TO authenticated;
 */

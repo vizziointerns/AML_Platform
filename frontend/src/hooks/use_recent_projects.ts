@@ -10,45 +10,31 @@ export interface UseRecentProjectsResult {
 	error: string | undefined
 }
 
-interface EnrichedCounts {
-	image_counts: Record<string, number>
-	annotated_counts: Record<string, number>
+interface BulkStat {
+	project_id: string
+	total_images: number
+	annotation_progress: number
 }
 
-async function enrich_project_counts(project_ids: string[]): Promise<EnrichedCounts> {
-	const image_counts: Record<string, number> = {}
-	const annotated_counts: Record<string, number> = {}
+async function enrich_project_counts(
+	project_ids: string[]
+): Promise<Record<string, { total: number; annotated_pct: number }>> {
+	const counts: Record<string, { total: number; annotated_pct: number }> = {}
+	if (project_ids.length === 0) return counts
 
-	if (project_ids.length === 0) return { image_counts, annotated_counts }
+	const { data: bulk_stats } = await supabase.rpc('get_bulk_project_stats')
+	if (!Array.isArray(bulk_stats)) return counts
 
-	const { data: datasets } = await supabase
-		.from('datasets')
-		.select('id, project_id')
-		.in('project_id', project_ids)
-
-	const ds_to_project = new Map<string, string>()
-	for (const ds of datasets ?? []) {
-		ds_to_project.set(ds.id, ds.project_id)
-	}
-
-	const ds_ids = (datasets ?? []).map((d) => d.id)
-	if (ds_ids.length === 0) return { image_counts, annotated_counts }
-
-	const { data: images } = await supabase
-		.from('dataset_images')
-		.select('dataset_id, class_labels')
-		.in('dataset_id', ds_ids)
-
-	for (const img of images ?? []) {
-		const pid = ds_to_project.get(img.dataset_id)
-		if (!pid) continue
-		image_counts[pid] = (image_counts[pid] ?? 0) + 1
-		if (img.class_labels && img.class_labels.length > 0) {
-			annotated_counts[pid] = (annotated_counts[pid] ?? 0) + 1
+	for (const stat of bulk_stats as BulkStat[]) {
+		if (project_ids.includes(stat.project_id)) {
+			counts[stat.project_id] = {
+				total: stat.total_images,
+				annotated_pct: stat.annotation_progress
+			}
 		}
 	}
 
-	return { image_counts, annotated_counts }
+	return counts
 }
 
 export function use_recent_projects(limit = 4): UseRecentProjectsResult {
@@ -95,10 +81,9 @@ export function use_recent_projects(limit = 4): UseRecentProjectsResult {
 			const counts = await enrich_project_counts(mapped.map((p) => p.id))
 
 			for (const proj of mapped) {
-				proj.datasetCount = counts.image_counts[proj.id] ?? 0
-				const total = proj.datasetCount
-				const annotated = counts.annotated_counts[proj.id] ?? 0
-				proj.annotationProgress = total > 0 ? Math.round((annotated / total) * 100) : 0
+				const c = counts[proj.id]
+				proj.datasetCount = c?.total ?? 0
+				proj.annotationProgress = c?.annotated_pct ?? 0
 			}
 
 			set_projects(mapped)

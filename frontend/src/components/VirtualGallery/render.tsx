@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Check, Maximize, X, PenTool } from 'lucide-react'
 import type { MockImage } from './types'
+import { get_cog_thumbnail_url } from '../../utils/cog'
 
 export function gallery_image({
 	img,
@@ -57,7 +58,7 @@ export function gallery_image({
 					</div>
 				) : (
 					<img
-						src={img.url}
+						src={get_cog_thumbnail_url(img.url, img.file_extension)}
 						alt={`Img ${img.id}`}
 						loading="lazy"
 						onError={() => set_has_error(true)}

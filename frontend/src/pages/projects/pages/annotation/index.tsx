@@ -46,11 +46,17 @@ import {
 } from './render'
 import { fetch_classes, save_classes_to_backend } from '../../../../api/classes'
 import { save_annotations } from '../../../../api/annotations'
+import { supabase } from '../../../../utils/supabase'
 import { fetch_training_runs } from '../../../../api/training'
 import { run_inference } from '../../../../api/inference'
 import { run_segmentation, run_auto_segmentation } from '../../../../api/segment'
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
-import { supabase } from '../../../../utils/supabase'
+import { use_cog_layers } from '../../../../hooks/use_cog_layers'
+import { use_cog_background } from '../../../../hooks/use_cog_background'
+import { get_cog_thumbnail_url } from '../../../../utils/cog'
+import { use_annotation_history } from '../../../../hooks/use_annotation_history'
+import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
+import type { PaletteName } from '../../../../utils/colormaps'
 
 async function save_image_class_labels(imageId: string, class_ids: string[]) {
 	const { error } = await supabase.rpc('update_image_class_labels', {
@@ -59,12 +65,6 @@ async function save_image_class_labels(imageId: string, class_ids: string[]) {
 	})
 	if (error) throw error
 }
-
-import { use_cog_layers } from '../../../../hooks/use_cog_layers'
-import { use_cog_background } from '../../../../hooks/use_cog_background'
-import { use_annotation_history } from '../../../../hooks/use_annotation_history'
-import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
-import type { PaletteName } from '../../../../utils/colormaps'
 
 function render_right_properties_panel(
 	is_cog_project: boolean,
@@ -612,7 +612,8 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		image_url,
 		bg_palette as PaletteName,
 		bg_band,
-		image_name
+		image_name,
+		current_image?.file_extension
 	)
 
 	const {
@@ -945,7 +946,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		handle_segment
 	)
 
-	return (
+	const render_main_layout = () => (
 		<div
 			className={`flex flex-col h-full w-full overflow-hidden ${bg_main} animate-in fade-in duration-300 font-sans`}
 		>
@@ -1124,7 +1125,11 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 									: `${border_subtle} hover:border-blue-400/50`
 							}`}
 						>
-							<img src={img.file_url} alt={img.file_name} className="w-full h-full object-cover" />
+							<img
+								src={get_cog_thumbnail_url(img.file_url, img.file_extension)}
+								alt={img.file_name}
+								className="w-full h-full object-cover"
+							/>
 						</button>
 					))}
 				</div>
@@ -1232,4 +1237,6 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 			)}
 		</div>
 	)
+
+	return render_main_layout()
 }
