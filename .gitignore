@@ -12,3 +12,5 @@ backend/models/
 backend/yolo11n.pt
 backend/stderr.txt
 backend/stdout.txt
+backend/*.json
+backend/cache/

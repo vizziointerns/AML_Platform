@@ -188,7 +188,6 @@ def start_training(
         images=[img.model_dump() for img in body.images],
         classes=[c.model_dump() for c in body.classes],
         epochs=row.epochs,
-        google_access_token=body.google_access_token,
         task_type=row.task_type,
     )
     try:

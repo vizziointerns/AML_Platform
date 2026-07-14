@@ -9,7 +9,8 @@ const PROJECT_TYPE_VALUES: readonly ProjectType[] = [
 	'Keypoint Detection',
 	'OCR',
 	'Video Tracking',
-	'3D Vision'
+	'3D Vision',
+	'COG'
 ]
 
 const PROJECT_STATUS_VALUES: readonly ProjectStatus[] = ['Active', 'Archived', 'Draft', 'Completed']
@@ -46,7 +47,7 @@ export function map_project(db: DbProject): Project {
 		type: project_type,
 		status: project_status,
 		task_type:
-			db.task_type === 'detect' || db.task_type === 'segment'
+			db.task_type === 'detect' || db.task_type === 'segment' || db.task_type === 'cog'
 				? (db.task_type as TaskType)
 				: undefined,
 		datasetCount: db.dataset_count,

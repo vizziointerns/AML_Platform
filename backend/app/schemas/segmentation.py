@@ -41,7 +41,6 @@ class SegmentationTrainRequest(BaseModel):
     name: str
     model_type: str = "sam_vit_b"
     epochs: int = 50
-    google_access_token: str | None = None
     images: list[SegmentationImage]
     classes: list[SegmentationClass]
 
@@ -49,7 +48,6 @@ class SegmentationTrainRequest(BaseModel):
 class PredictRequest(BaseModel):
     image_url: str
     bbox: list[float]  # [x1, y1, x2, y2]
-    google_access_token: str | None = None
 
 
 class PredictResponse(BaseModel):

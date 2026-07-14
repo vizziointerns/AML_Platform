@@ -16,7 +16,8 @@ const PROJECT_TYPES: ProjectType[] = [
 	'Keypoint Detection',
 	'OCR',
 	'Video Tracking',
-	'3D Vision'
+	'3D Vision',
+	'COG'
 ]
 
 async function save_to_supabase(
@@ -27,12 +28,14 @@ async function save_to_supabase(
 	type_val: string,
 	drive_folder_id: string | undefined
 ): Promise<string | undefined> {
+	const task_type = type_val === 'COG' ? 'cog' : undefined
 	const { error: db_error } = await supabase.from('projects').insert({
 		id: project_id,
 		user_id,
 		name: name_val,
 		description: desc_val,
 		type: type_val,
+		task_type,
 		status: 'Active',
 		dataset_count: 0,
 		annotation_progress: 0,
@@ -129,6 +132,7 @@ export default function new_project_dialog({
 			name: trimmed,
 			description: description.trim(),
 			type,
+			taskType: type === 'COG' ? 'cog' : undefined,
 			datasetCount: 0,
 			annotationProgress: 0,
 			members: [],

@@ -19,7 +19,6 @@ class TrainingConfig:
         images: list[dict[str, Any]],
         classes: list[dict[str, Any]],
         epochs: int,
-        google_access_token: str | None = None,
         task_type: str = "detect",
     ):
         self.run_id = run_id
@@ -28,7 +27,6 @@ class TrainingConfig:
         self.images = images
         self.classes = classes
         self.epochs = epochs
-        self.google_access_token = google_access_token
         self.task_type = task_type
 
     @classmethod
@@ -40,7 +38,6 @@ class TrainingConfig:
         images: list[dict[str, Any]],
         classes: list[dict[str, Any]],
         epochs: int,
-        google_access_token: str | None = None,
         task_type: str = "detect",
     ) -> "TrainingConfig":
         return cls(
@@ -50,7 +47,6 @@ class TrainingConfig:
             images=images,
             classes=classes,
             epochs=epochs,
-            google_access_token=google_access_token,
             task_type=task_type,
         )
 

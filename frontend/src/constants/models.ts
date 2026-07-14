@@ -1,4 +1,4 @@
-export type TaskType = 'detect' | 'segment'
+export type TaskType = 'detect' | 'segment' | 'cog'
 export type ModelId = 'yolo' | 'sam'
 
 export interface ModelInfo {
