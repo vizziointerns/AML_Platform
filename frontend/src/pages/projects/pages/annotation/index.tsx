@@ -45,10 +45,21 @@ import {
 	type ModelOption
 } from './render'
 import { fetch_classes, save_classes_to_backend } from '../../../../api/classes'
+import { save_annotations } from '../../../../api/annotations'
 import { fetch_training_runs } from '../../../../api/training'
 import { run_inference } from '../../../../api/inference'
 import { run_segmentation, run_auto_segmentation } from '../../../../api/segment'
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
+import { supabase } from '../../../../utils/supabase'
+
+async function save_image_class_labels(imageId: string, class_ids: string[]) {
+	const { error } = await supabase.rpc('update_image_class_labels', {
+		p_image_id: imageId,
+		p_class_labels: class_ids
+	})
+	if (error) throw error
+}
+
 import { use_cog_layers } from '../../../../hooks/use_cog_layers'
 import { use_cog_background } from '../../../../hooks/use_cog_background'
 import { use_annotation_history } from '../../../../hooks/use_annotation_history'
@@ -617,11 +628,9 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		selected_prediction_id,
 		set_selected_prediction_id,
 		is_saving,
+		set_is_saving,
 		save_message,
-		set_annotations,
-		undo,
-		redo,
-		handle_save
+		set_save_message
 	} = use_annotation_history()
 
 	const [selected_ann_id, set_selected_ann_id] = useState<string | undefined>(undefined)
@@ -688,6 +697,68 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		set_selected_prediction_id(undefined)
 	}, [imageId])
 
+	const set_annotations = useCallback(
+		(new_annotations_or_updater: Annotation[] | ((prev: Annotation[]) => Annotation[])) => {
+			set_history((prev) => {
+				const current = prev[history_step]
+				const new_annotations =
+					typeof new_annotations_or_updater === 'function'
+						? new_annotations_or_updater(current ?? [])
+						: new_annotations_or_updater
+
+				if (current === new_annotations) return prev
+
+				const new_history = prev.slice(0, history_step + 1)
+				new_history.push(new_annotations)
+				if (new_history.length > 50) new_history.shift()
+				return new_history
+			})
+			set_history_step((prev) => Math.min(prev + 1, 50))
+		},
+		[history_step]
+	)
+
+	const handle_save = useCallback(async () => {
+		if (!imageId || is_saving) return
+		set_is_saving(true)
+		set_save_message(undefined)
+		try {
+			const preds_as_annotations = predictions as Annotation[]
+			const all_annotations = [...annotations, ...preds_as_annotations]
+			await save_annotations(imageId, all_annotations)
+			const class_ids = [...new Set(all_annotations.map((a) => a.classId).filter(Boolean))]
+			await save_image_class_labels(imageId, class_ids)
+			if (preds_as_annotations.length > 0) {
+				set_history((prev) => {
+					const updated = [...(prev[history_step] ?? []), ...preds_as_annotations]
+					const copy = [...prev]
+					copy[history_step] = updated
+					return copy
+				})
+				set_predictions([])
+				set_is_showing_predictions(false)
+				set_selected_prediction_id(undefined)
+			}
+			set_save_message('Saved')
+			setTimeout(() => set_save_message(undefined), 2000)
+			window.dispatchEvent(new CustomEvent('annotations-saved'))
+		} catch (err) {
+			console.error('Failed to save annotations:', err)
+			set_save_message('Save failed')
+			setTimeout(() => set_save_message(undefined), 3000)
+		} finally {
+			set_is_saving(false)
+		}
+	}, [imageId, annotations, predictions, is_saving, history_step])
+
+	const undo = useCallback(() => {
+		set_history_step((prev) => Math.max(0, prev - 1))
+	}, [])
+
+	const redo = useCallback(() => {
+		set_history_step((prev) => Math.min(history.length - 1, prev + 1))
+	}, [history.length])
+
 	const [new_class_name, set_new_class_name] = useState('')
 	const [delete_class_id, set_delete_class_id] = useState<string | undefined>(undefined)
 	const [renaming_class_id, set_renaming_class_id] = useState<string | undefined>(undefined)
@@ -751,7 +822,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	function on_key_down(e: KeyboardEvent) {
 		handle_keyboard_shortcut(
 			e,
-			() => handle_save(imageId),
+			handle_save,
 			set_active_tool,
 			set_brush_size,
 			set_zoom_level,
@@ -892,7 +963,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				bg_hover,
 				text_muted,
 				text_heading,
-				() => handle_save(imageId),
+				handle_save,
 				is_saving,
 				save_message,
 				handle_back,

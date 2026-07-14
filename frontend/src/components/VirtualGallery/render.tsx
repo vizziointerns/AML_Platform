@@ -70,12 +70,15 @@ export function gallery_image({
 				)}
 
 				<div className="absolute top-2 right-2">
-					{img.status === 'unannotated' && (
-						<div
-							className="w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white dark:border-zinc-900 shadow-sm"
-							title="Unannotated"
-						></div>
-					)}
+					<span
+						className={`px-1.5 py-0.5 rounded text-[10px] font-medium backdrop-blur-md border shadow-sm ${
+							img.status === 'annotated'
+								? 'bg-emerald-500/80 text-white border-emerald-400/30'
+								: 'bg-amber-500/80 text-white border-amber-400/30'
+						}`}
+					>
+						{img.status === 'annotated' ? 'Annotated' : 'Unannotated'}
+					</span>
 				</div>
 
 				<div
@@ -112,17 +115,6 @@ export function gallery_image({
 					>
 						<Maximize size={14} />
 					</button>
-				</div>
-
-				<div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 pointer-events-none">
-					{img.classes.map((c: string) => (
-						<span
-							key={c}
-							className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-900/80 text-white backdrop-blur-md border border-white/10 shadow-sm max-w-full truncate"
-						>
-							{c}
-						</span>
-					))}
 				</div>
 			</div>
 		</div>
@@ -169,14 +161,6 @@ export function render_preview_modal(
 					Image preview not available
 				</div>
 				<div className="mt-6 flex flex-wrap justify-center gap-2">
-					{preview_image.classes.map((c: string) => (
-						<span
-							key={c}
-							className="px-3 py-1.5 rounded-md text-sm font-medium bg-white/10 text-white border border-white/20"
-						>
-							{c}
-						</span>
-					))}
 					<span
 						className={`px-3 py-1.5 rounded-md text-sm font-medium border border-white/20 ${preview_image.status === 'unannotated' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}`}
 					>

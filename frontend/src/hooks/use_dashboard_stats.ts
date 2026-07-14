@@ -12,41 +12,16 @@ export interface DashboardStats {
 export interface UseDashboardStatsResult {
 	stats: DashboardStats | undefined
 	is_loading: boolean
+	is_refreshing: boolean
 	error: string | undefined
-}
-
-function is_table_not_found_error(err: { message?: string }): boolean {
-	return (
-		(err.message?.includes('does not exist') ?? false) ||
-		(err.message?.includes('Could not find the table') ?? false)
-	)
-}
-
-async function fetch_projects(user_id: string) {
-	return supabase.from('projects').select('id, members', { count: 'exact' }).eq('user_id', user_id)
-}
-
-async function fetch_datasets(project_ids: string[]) {
-	return supabase
-		.from('datasets')
-		.select('image_count, storage_bytes')
-		.in('project_id', project_ids)
-}
-
-function calculate_unique_members(project_rows: Array<{ members?: string[] }>): number {
-	const unique_members = new Set<string>()
-	for (const p of project_rows ?? []) {
-		for (const m of p.members ?? []) {
-			unique_members.add(m)
-		}
-	}
-	return unique_members.size
 }
 
 export function use_dashboard_stats(): UseDashboardStatsResult {
 	const { user } = use_auth()
 	const [stats, set_stats] = useState<DashboardStats | undefined>()
 	const [is_loading, set_is_loading] = useState(true)
+	const [is_refreshing, set_is_refreshing] = useState(false)
+	const [has_loaded_once, set_has_loaded_once] = useState(false)
 	const [error, set_error] = useState<string | undefined>()
 	const [refresh_key, set_refresh_key] = useState(0)
 
@@ -59,64 +34,31 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 			set_stats(undefined)
 			set_error(undefined)
 			set_is_loading(false)
+			set_has_loaded_once(false)
 			return
 		}
 
 		let is_cancelled = false
-		set_is_loading(true)
+		if (has_loaded_once) {
+			set_is_refreshing(true)
+		} else {
+			set_is_loading(true)
+		}
 		set_error(undefined)
 		;(async () => {
-			const { data: project_rows, count, error: err } = await fetch_projects(user.id)
+			const { data, error: err } = await supabase.rpc('get_dashboard_stats')
 
 			if (is_cancelled) return
 
 			if (err) {
-				if (is_table_not_found_error(err)) {
-					set_stats({ total_projects: 0, total_images: 0, team_members: 0, storage_used_bytes: 0 })
-				} else {
-					set_error(err.message)
-				}
-				set_is_loading(false)
-				return
+				set_error(err.message)
+			} else if (data) {
+				set_stats(data as DashboardStats)
 			}
 
-			const project_ids = (project_rows ?? []).map((project) => project.id).filter(Boolean)
-			let total_images = 0
-			let storage_used_bytes = 0
-
-			if (project_ids.length > 0) {
-				const { data: datasets, error: dataset_err } = await fetch_datasets(project_ids)
-
-				if (is_cancelled) return
-
-				const is_dataset_error =
-					dataset_err && !is_table_not_found_error(dataset_err) && dataset_err.code !== '406'
-
-				if (is_dataset_error) {
-					set_error(dataset_err.message)
-					set_is_loading(false)
-					return
-				}
-
-				if (!dataset_err) {
-					total_images = (datasets ?? []).reduce(
-						(sum, dataset) => sum + (dataset.image_count ?? 0),
-						0
-					)
-					storage_used_bytes = (datasets ?? []).reduce(
-						(sum, dataset) => sum + (dataset.storage_bytes ?? 0),
-						0
-					)
-				}
-			}
-
-			set_stats({
-				total_projects: count ?? 0,
-				total_images,
-				team_members: calculate_unique_members(project_rows ?? []),
-				storage_used_bytes
-			})
 			set_is_loading(false)
+			set_is_refreshing(false)
+			set_has_loaded_once(true)
 		})()
 
 		return () => {
@@ -163,5 +105,57 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 		}
 	}, [user, refresh])
 
-	return { stats, is_loading, error }
+	return { stats, is_loading, is_refreshing, error }
 }
+
+/*
+-- Supabase SQL to create the get_dashboard_stats RPC function.
+-- Run this in the Supabase SQL Editor:
+
+CREATE OR REPLACE FUNCTION get_dashboard_stats()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  result JSON;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+  WITH user_projects AS (
+    SELECT id FROM projects WHERE user_id = v_user_id
+  ),
+  project_datasets AS (
+    SELECT d.id FROM datasets d
+    WHERE d.project_id IN (SELECT id FROM user_projects)
+  ),
+  image_stats AS (
+    SELECT
+      COUNT(*)::INT AS total_images,
+      COALESCE(SUM(file_size_bytes), 0)::BIGINT AS storage_used_bytes
+    FROM dataset_images
+    WHERE dataset_id IN (SELECT id FROM project_datasets)
+  ),
+  member_stats AS (
+    SELECT COUNT(DISTINCT m.value)::INT AS team_members
+    FROM projects p,
+      LATERAL UNNEST(COALESCE(p.members, ARRAY[]::TEXT[])) AS m(value)
+    WHERE p.id IN (SELECT id FROM user_projects)
+  )
+  SELECT json_build_object(
+    'total_projects', (SELECT COUNT(*)::INT FROM user_projects),
+    'total_images', COALESCE((SELECT total_images FROM image_stats), 0),
+    'team_members', COALESCE((SELECT team_members FROM member_stats), 0),
+    'storage_used_bytes', COALESCE((SELECT storage_used_bytes FROM image_stats), 0)
+  ) INTO result;
+  RETURN result;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION get_dashboard_stats() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION get_dashboard_stats() TO authenticated;
+*/

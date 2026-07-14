@@ -54,7 +54,7 @@ function dataset_explorer_view({
 		width: img.width,
 		height: img.height,
 		classes: img.class_labels,
-		status: 'unannotated' as const
+		status: (img.class_labels?.length ?? 0) > 0 ? 'annotated' : 'unannotated'
 	}))
 
 	const handle_open_annotation = (img: { id: string | number }) => {
