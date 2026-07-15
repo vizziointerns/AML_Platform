@@ -1,9 +1,10 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { Stage, Layer, Image as KonvaImage } from 'react-konva'
 import useImage from 'use-image'
 import type Konva from 'konva'
-import type { AnnotationCanvasProps, MaskLine } from './types'
+import type { AnnotationCanvasProps, MaskLine, TiledBackgroundConfig } from './types'
 import { cog_layer_component as CogLayerComponent } from './cog_layer'
+import { cog_tile_layer_component as CogTileLayerComponent } from './cog_tile_layer'
 import { finish_polygon_logic } from './polygon'
 import { handle_mouse_down_logic, handle_mouse_move_logic, handle_mouse_up_logic } from './input'
 import { render_mask_layer } from './brush'
@@ -14,8 +15,32 @@ import {
 	update_cursor_style
 } from './render'
 
+function use_display_image(
+	tiled_background: TiledBackgroundConfig | undefined,
+	loaded_render: HTMLImageElement | undefined
+): HTMLImageElement | undefined {
+	const mock_ref = useRef<HTMLImageElement | undefined>(undefined)
+	if (tiled_background) {
+		const cur = mock_ref.current
+		if (
+			!cur ||
+			cur.width !== tiled_background.image_width ||
+			cur.height !== tiled_background.image_height
+		) {
+			const mock = new window.Image()
+			mock.width = tiled_background.image_width
+			mock.height = tiled_background.image_height
+			Object.defineProperty(mock, 'naturalWidth', { value: tiled_background.image_width })
+			Object.defineProperty(mock, 'naturalHeight', { value: tiled_background.image_height })
+			mock_ref.current = mock
+		}
+	}
+	return tiled_background ? (mock_ref.current ?? loaded_render) : loaded_render
+}
+
 export default function annotation_canvas({
 	imageUrl: image_url,
+	tiledBackground: tiled_background,
 	cogLayers: cog_layers = [],
 	annotations,
 	predictions,
@@ -39,12 +64,39 @@ export default function annotation_canvas({
 	brushOpacity: brush_opacity = 100,
 	onSegmentClick: on_segment_click
 }: AnnotationCanvasProps) {
-	const [image] = useImage(image_url, 'anonymous')
+	const [loaded_render] = useImage(image_url, 'anonymous')
+	const image = use_display_image(tiled_background, loaded_render)
+
+	const background_cog_config = useMemo(() => {
+		if (!tiled_background) return undefined
+		return {
+			id: 'background',
+			url: tiled_background.url,
+			name: 'Background',
+			visible: true,
+			opacity: 100,
+			band: tiled_background.band,
+			palette: tiled_background.palette,
+			min: tiled_background.min,
+			max: tiled_background.max,
+			composite_mode: 'single' as const
+		}
+	}, [tiled_background])
 
 	const stage_ref = useRef<Konva.Stage>(undefined!)
 	const container_ref = useRef<HTMLDivElement>(undefined!)
 
 	const [stage_size, set_stage_size] = useState({ width: 800, height: 600 })
+
+	const base_zoom = useMemo(() => {
+		if (!tiled_background || stage_size.width === 0) return 1
+		return Math.min(
+			stage_size.width / tiled_background.image_width,
+			stage_size.height / tiled_background.image_height
+		)
+	}, [tiled_background, stage_size])
+
+	const pixel_scale = zoom_level * base_zoom
 	const [is_drawing, set_is_drawing] = useState(false)
 	const [drawing_start, set_drawing_start] = useState({ x: 0, y: 0 })
 	const [drawing_rect, set_drawing_rect] = useState<
@@ -78,14 +130,15 @@ export default function annotation_canvas({
 	}, [])
 
 	useEffect(() => {
+		if (tiled_background) return
 		if (image && stage_size.width > 0 && stage_size.height > 0) {
 			const scale = Math.min(
 				(stage_size.width * 0.9) / image.width,
 				(stage_size.height * 0.9) / image.height
 			)
-			on_zoom_change(scale)
+			on_zoom_change(scale / base_zoom)
 		}
-	}, [image, stage_size])
+	}, [image, stage_size, tiled_background, base_zoom])
 
 	const get_pointer_pos_in_image = useCallback(
 		(stage: Konva.Stage | null) => {
@@ -93,11 +146,11 @@ export default function annotation_canvas({
 			const pointer_position = stage.getPointerPosition()
 			if (!pointer_position) return { x: 0, y: 0 }
 			return {
-				x: (pointer_position.x - offset.x) / zoom_level,
-				y: (pointer_position.y - offset.y) / zoom_level
+				x: (pointer_position.x - offset.x) / pixel_scale,
+				y: (pointer_position.y - offset.y) / pixel_scale
 			}
 		},
-		[offset, zoom_level]
+		[offset, pixel_scale]
 	)
 
 	const finish_polygon = useCallback(
@@ -124,19 +177,23 @@ export default function annotation_canvas({
 			if (!pointer) return
 			if (e.evt.ctrlKey || e.evt.metaKey) {
 				const scale_by = 1.1
-				const old_scale = zoom_level
+				const current_pixel = pixel_scale
+				const min_zoom = tiled_background ? 0.5 : 0.1
+				const max_zoom = tiled_background ? 20 : 10
+				const min_pixel = min_zoom * base_zoom
+				const max_pixel = max_zoom * base_zoom
 				const mouse_point_to = {
-					x: (pointer.x - offset.x) / old_scale,
-					y: (pointer.y - offset.y) / old_scale
+					x: (pointer.x - offset.x) / current_pixel,
+					y: (pointer.y - offset.y) / current_pixel
 				}
-				const new_scale =
+				const new_pixel =
 					e.evt.deltaY > 0
-						? Math.max(old_scale / scale_by, 0.1)
-						: Math.min(old_scale * scale_by, 10)
-				on_zoom_change(new_scale)
+						? Math.max(current_pixel / scale_by, min_pixel)
+						: Math.min(current_pixel * scale_by, max_pixel)
+				on_zoom_change(new_pixel / base_zoom)
 				on_offset_change({
-					x: pointer.x - mouse_point_to.x * new_scale,
-					y: pointer.y - mouse_point_to.y * new_scale
+					x: pointer.x - mouse_point_to.x * new_pixel,
+					y: pointer.y - mouse_point_to.y * new_pixel
 				})
 			} else {
 				on_offset_change({
@@ -145,7 +202,7 @@ export default function annotation_canvas({
 				})
 			}
 		},
-		[zoom_level, offset, on_zoom_change, on_offset_change]
+		[offset, pixel_scale, tiled_background, base_zoom, on_zoom_change, on_offset_change]
 	)
 
 	const handle_mouse_down = useCallback(
@@ -163,7 +220,7 @@ export default function annotation_canvas({
 				drawing_polygon,
 				set_drawing_polygon,
 				finish_polygon,
-				zoom_level,
+				pixel_scale,
 				image,
 				set_is_drawing,
 				set_drawing_start,
@@ -178,7 +235,7 @@ export default function annotation_canvas({
 			get_pointer_pos_in_image,
 			set_selected_ann_id,
 			drawing_polygon,
-			zoom_level,
+			pixel_scale,
 			image,
 			brush_size,
 			on_segment_click
@@ -290,21 +347,37 @@ export default function annotation_canvas({
 				}}
 				x={offset.x}
 				y={offset.y}
-				scaleX={zoom_level}
-				scaleY={zoom_level}
+				scaleX={pixel_scale}
+				scaleY={pixel_scale}
 			>
 				<Layer imageSmoothingEnabled={true} listening={false}>
-					{image && (
+					{loaded_render && (
 						<KonvaImage
-							image={image}
+							image={loaded_render}
 							name="background-image"
-							width={image.width}
-							height={image.height}
+							width={tiled_background ? tiled_background.image_width : loaded_render.width}
+							height={tiled_background ? tiled_background.image_height : loaded_render.height}
 							x={0}
 							y={0}
 						/>
 					)}
 				</Layer>
+				{background_cog_config && (
+					<Layer listening={false}>
+						<CogTileLayerComponent
+							config={background_cog_config}
+							viewport={{
+								offset,
+								zoom_level: pixel_scale,
+								stage_width: stage_size.width,
+								stage_height: stage_size.height
+							}}
+							image_width={tiled_background!.image_width}
+							image_height={tiled_background!.image_height}
+							skip={zoom_level < 2}
+						/>
+					</Layer>
+				)}
 
 				{cog_layers
 					.filter((l) => l.visible)
@@ -332,7 +405,7 @@ export default function annotation_canvas({
 							image,
 							selected_ann_id,
 							hovered_ann_id,
-							zoom_level,
+							pixel_scale,
 							active_tool,
 							get_class_color,
 							get_class_name,
@@ -348,7 +421,7 @@ export default function annotation_canvas({
 							image,
 							selected_prediction_id,
 							hovered_ann_id,
-							zoom_level,
+							pixel_scale,
 							active_tool,
 							get_class_color,
 							get_class_name,
@@ -364,14 +437,14 @@ export default function annotation_canvas({
 						active_tool,
 						drawing_polygon,
 						preview_point,
-						zoom_level,
+						pixel_scale,
 						get_class_color,
 						get_class_name,
 						brush_size,
 						active_class
 					)}
 				</Layer>
-				{render_collaboration_layer(image, collaborators, zoom_level)}
+				{render_collaboration_layer(image, collaborators, pixel_scale)}
 			</Stage>
 		</div>
 	)

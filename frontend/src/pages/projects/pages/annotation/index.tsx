@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
 	MousePointer2,
@@ -53,6 +53,8 @@ import { run_segmentation, run_auto_segmentation } from '../../../../api/segment
 import { use_annotation_image } from '../../../../hooks/use_annotation_image'
 import { use_cog_layers } from '../../../../hooks/use_cog_layers'
 import { use_cog_background } from '../../../../hooks/use_cog_background'
+import { use_cog_image_info } from '../../../../hooks/use_cog_image_info'
+import type { TiledBackgroundConfig } from '../../../../components/AnnotationCanvas/types'
 import { get_cog_thumbnail_url } from '../../../../utils/cog'
 import { use_annotation_history } from '../../../../hooks/use_annotation_history'
 import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
@@ -465,7 +467,8 @@ function render_canvas_content(
 	text_muted: string,
 	text_heading: string,
 	cog_layers: CogLayerInfo[] = [],
-	on_segment_click?: (pos: { x: number; y: number }, image: HTMLImageElement) => void
+	on_segment_click?: (pos: { x: number; y: number }, image: HTMLImageElement) => void,
+	tiled_background_config?: TiledBackgroundConfig
 ) {
 	if (is_loading_image) {
 		return (
@@ -498,6 +501,7 @@ function render_canvas_content(
 			{image_url && (
 				<AnnotationCanvas
 					imageUrl={image_url}
+					tiledBackground={tiled_background_config}
 					cogLayers={cog_layers}
 					annotations={annotations}
 					predictions={predictions}
@@ -608,6 +612,21 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	image_url_ref.current = api_image_url
 	const is_loading_image = is_loading_images
 
+	const is_cog_project = project?.type === 'COG'
+
+	const cog_image_info = use_cog_image_info(image_url, image_name, current_image?.file_extension)
+
+	const tiled_background_config: TiledBackgroundConfig | undefined = useMemo(() => {
+		if (!is_cog_project || !cog_image_info || !image_url) return undefined
+		return {
+			url: image_url,
+			band: bg_band,
+			palette: bg_palette as PaletteName,
+			image_width: cog_image_info.width,
+			image_height: cog_image_info.height
+		}
+	}, [is_cog_project, cog_image_info, image_url, bg_band, bg_palette])
+
 	const display_image_url = use_cog_background(
 		image_url,
 		bg_palette as PaletteName,
@@ -649,8 +668,6 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 
 	const [brush_size, set_brush_size] = useState(20)
 	const [brush_opacity, set_brush_opacity] = useState(100)
-
-	const is_cog_project = project?.type === 'COG'
 
 	const [is_satellite_layers_open, set_is_satellite_layers_open] = useState(true)
 	const {
@@ -943,7 +960,8 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		text_muted,
 		text_heading,
 		cog_layers,
-		handle_segment
+		handle_segment,
+		tiled_background_config
 	)
 
 	const render_main_layout = () => (
