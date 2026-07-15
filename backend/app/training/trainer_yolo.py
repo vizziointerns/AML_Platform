@@ -18,6 +18,10 @@ from app.db.base import Base
 from app.db.session import SessionLocal
 from app.models.annotation import Annotation
 from app.models.training import TrainingRun
+from app.training.cog_utils import (
+    is_cog_file,
+    prepare_cog_dataset,
+)
 from app.training.trainer import (
     TrainingConfig,
     MODELS_DIR,
@@ -213,8 +217,20 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
         for ann in all_annotations:
             anns_by_image.setdefault(ann.image_id, []).append(ann)
 
-        # Shuffle + 70/15/15 split
+        has_cog = any(is_cog_file(img.get("file_name", "")) for img in cfg.images)
+
         images = list(cfg.images)
+        if has_cog:
+            expanded_images, expanded_anns = prepare_cog_dataset(
+                images=images,
+                anns_by_image=anns_by_image,
+                work_dir=work_dir,
+                class_map=class_map,
+                ann_type="bbox",
+            )
+            images = expanded_images
+            anns_by_image = expanded_anns
+
         random.shuffle(images)
         n = len(images)
         if n <= 1:
@@ -236,6 +252,23 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
             label_dir.mkdir(parents=True, exist_ok=True)
 
             for img in subset_images:
+                if img.get("_is_cog_tile"):
+                    tile_info = img.get("_tile_info")
+                    if tile_info:
+                        src_tile = (
+                            work_dir / "cog_tiles" / tile_info.tile_name
+                        )
+                        dest_name = f"{Path(img['file_name']).stem}.png"
+                        dest_img = img_dir / dest_name
+                        if src_tile.exists():
+                            import shutil
+                            shutil.copy2(str(src_tile), str(dest_img))
+                            label_lines = anns_by_image.get(img["id"], [])
+                            if isinstance(label_lines, list):
+                                label_path = label_dir / f"{Path(dest_name).stem}.txt"
+                                label_path.write_text("\n".join(label_lines), encoding="utf-8")
+                    continue
+
                 img_anns = anns_by_image.get(img["id"], [])
                 yolo_lines: list[str] = []
                 for ann in img_anns:

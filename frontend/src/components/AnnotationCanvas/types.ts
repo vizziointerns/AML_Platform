@@ -53,8 +53,19 @@ export interface Collaborator {
 	activeAnnotationId?: string | null
 }
 
+export interface TiledBackgroundConfig {
+	url: string
+	band: number
+	palette: PaletteName
+	min?: number
+	max?: number
+	image_width: number
+	image_height: number
+}
+
 export interface AnnotationCanvasProps {
 	imageUrl: string
+	tiledBackground?: TiledBackgroundConfig
 	cogLayers?: CogLayerInfo[]
 	annotations: Annotation[]
 	predictions: Annotation[]

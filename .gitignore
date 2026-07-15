@@ -14,3 +14,4 @@ backend/stderr.txt
 backend/stdout.txt
 backend/*.json
 backend/cache/
+*report.md

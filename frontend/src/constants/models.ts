@@ -28,8 +28,16 @@ export const SUPPORTED_MODELS: ModelInfo[] = [
 
 export function get_model_for_task(task: TaskType): ModelInfo {
 	const model = SUPPORTED_MODELS.find((m) => m.task_type === task)
-	if (!model) {
-		throw new Error(`No model found for task type: ${task}`)
+	if (model) return model
+	if (task === 'cog') {
+		return SUPPORTED_MODELS[0]!
 	}
-	return model
+	throw new Error(`No model found for task type: ${task}`)
+}
+
+export function get_training_task_types(project_task_type: TaskType): TaskType[] {
+	if (project_task_type === 'cog') {
+		return ['detect', 'segment']
+	}
+	return [project_task_type]
 }

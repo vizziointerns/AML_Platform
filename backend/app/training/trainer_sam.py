@@ -22,6 +22,10 @@ from app.db.session import SessionLocal
 from app.models.training import TrainingRun
 from app.models.segmentation import SegmentationMask
 from app.models.annotation import Annotation
+from app.training.cog_utils import (
+    is_cog_file,
+    prepare_cog_dataset_sam,
+)
 from app.training.trainer import (
     TrainingConfig,
     MODELS_DIR,
@@ -270,6 +274,22 @@ def run_sam_training(cfg: TrainingConfig) -> None:
             masks_by_image = _annotations_to_masks(db, cfg.project_id, list(cfg.images))
 
             images = list(cfg.images)
+            has_cog = any(is_cog_file(img.get("file_name", "")) for img in images)
+            if has_cog:
+                anns_by_image: dict[str, list[Annotation]] = {}
+                all_anns = db.query(Annotation).filter(
+                    Annotation.image_id.in_([img["id"] for img in images])
+                ).all()
+                for ann in all_anns:
+                    anns_by_image.setdefault(ann.image_id, []).append(ann)
+                expanded_images, expanded_masks = prepare_cog_dataset_sam(
+                    images=images,
+                    anns_by_image=anns_by_image,
+                    work_dir=work_dir,
+                )
+                images = expanded_images
+                masks_by_image.update(expanded_masks)
+
             random.shuffle(images)
             n = len(images)
             if n <= 1:
@@ -292,6 +312,17 @@ def run_sam_training(cfg: TrainingConfig) -> None:
 
                 for img in subset_images:
                     if img["id"] not in masks_by_image:
+                        continue
+                    if img.get("_is_cog_tile"):
+                        tile_info = img.get("_tile_info")
+                        if tile_info:
+                            src_tile = work_dir / "cog_tiles" / tile_info.tile_name
+                            dest_name = f"tile_{img['id']}.png"
+                            dest_img = subset_dir / dest_name
+                            if src_tile.exists():
+                                import shutil
+                                shutil.copy2(str(src_tile), str(dest_img))
+                                img_path_map[img["id"]] = str(dest_img)
                         continue
                     try:
                         _download_image(img, subset_dir)

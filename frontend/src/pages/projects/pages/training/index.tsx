@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { use_project_store } from '../../../../store/projectStore'
-import { get_model_for_task } from '../../../../constants/models'
+import { get_model_for_task, get_training_task_types } from '../../../../constants/models'
 import type { TaskType } from '../../../../constants/models'
 import {
 	Square,
@@ -47,6 +47,8 @@ function new_training_dialog({
 	on_create,
 	is_creating,
 	task_type,
+	selected_training_task_type,
+	set_selected_training_task_type,
 	new_run_dataset_id,
 	set_new_run_dataset_id,
 	new_run_name,
@@ -66,6 +68,8 @@ function new_training_dialog({
 	}) => void
 	is_creating: boolean
 	task_type: TaskType
+	selected_training_task_type: TaskType
+	set_selected_training_task_type: (t: TaskType) => void
 	new_run_dataset_id: string
 	set_new_run_dataset_id: (id: string) => void
 	new_run_name: string
@@ -73,11 +77,10 @@ function new_training_dialog({
 	new_run_epochs: number
 	set_new_run_epochs: (epochs: number) => void
 }) {
+	const training_options = get_training_task_types(task_type)
 	let model_display_name = 'Unknown Model'
 	try {
-		if (task_type) {
-			model_display_name = get_model_for_task(task_type).name
-		}
+		model_display_name = get_model_for_task(selected_training_task_type).name
 	} catch {
 		console.warn('Invalid task type found:', task_type)
 	}
@@ -98,7 +101,7 @@ function new_training_dialog({
 		on_create({
 			dataset_id: effective_dataset_id,
 			name: new_run_name.trim(),
-			task_type: task_type,
+			task_type: selected_training_task_type,
 			epochs: new_run_epochs
 		})
 	}
@@ -148,10 +151,26 @@ function new_training_dialog({
 						</select>
 					</div>
 					<div>
-						<label className={`block text-sm font-medium mb-1.5 ${text_heading}`}>Model Type</label>
-						<div className={`px-3 py-2 rounded-md border text-sm ${input_bg}`}>
-							{model_display_name}
-						</div>
+						<label className={`block text-sm font-medium mb-1.5 ${text_heading}`}>
+							Training Task
+						</label>
+						{training_options.length > 1 ? (
+							<select
+								value={selected_training_task_type}
+								onChange={(e) => set_selected_training_task_type(e.target.value as TaskType)}
+								className={`w-full px-3 py-2 rounded-md border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${input_bg}`}
+							>
+								{training_options.map((opt) => (
+									<option key={opt} value={opt}>
+										{opt === 'detect' ? 'Object Detection (YOLO)' : 'Segmentation (SAM)'}
+									</option>
+								))}
+							</select>
+						) : (
+							<div className={`px-3 py-2 rounded-md border text-sm ${input_bg}`}>
+								{model_display_name}
+							</div>
+						)}
 					</div>
 					<div>
 						<label className={`block text-sm font-medium mb-1.5 ${text_heading}`}>Epochs</label>
@@ -726,6 +745,8 @@ interface RenderTrainingProps {
 	set_new_run_name: (name: string) => void
 	new_run_epochs: number
 	set_new_run_epochs: (epochs: number) => void
+	selected_training_task_type: TaskType
+	set_selected_training_task_type: (t: TaskType) => void
 	stats: { active_jobs: number; avg_accuracy: string; avg_loss: string; total_hours: string }
 	set_is_new_dialog_open: (val: boolean) => void
 	handle_export: () => void
@@ -881,6 +902,8 @@ function render_training_page(props: RenderTrainingProps) {
 					on_create: props.handle_create,
 					is_creating: props.is_creating,
 					task_type: props.task_type,
+					selected_training_task_type: props.selected_training_task_type,
+					set_selected_training_task_type: props.set_selected_training_task_type,
 					new_run_dataset_id: props.new_run_dataset_id,
 					set_new_run_dataset_id: props.set_new_run_dataset_id,
 					new_run_name: props.new_run_name,
@@ -911,6 +934,8 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 	const [new_run_dataset_id, set_new_run_dataset_id] = useState('')
 	const [new_run_name, set_new_run_name] = useState('')
 	const [new_run_epochs, set_new_run_epochs] = useState(50)
+	const [selected_training_task_type, set_selected_training_task_type] =
+		useState<TaskType>('detect')
 
 	useEffect(() => {
 		if (!project_id) {
@@ -932,8 +957,10 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 				if (err) {
 					console.error('Failed to fetch project task type:', err)
 				} else if (data) {
-					set_task_type(data.task_type as TaskType)
-					update_project_store(project_id, { task_type: data.task_type as TaskType })
+					const pt = data.task_type as TaskType
+					set_task_type(pt)
+					set_selected_training_task_type(pt === 'cog' ? 'detect' : pt)
+					update_project_store(project_id, { task_type: pt })
 				}
 			} catch (err) {
 				console.error(err)
@@ -1020,6 +1047,8 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 		set_new_run_name,
 		new_run_epochs,
 		set_new_run_epochs,
+		selected_training_task_type,
+		set_selected_training_task_type,
 		stats,
 		set_is_new_dialog_open,
 		handle_export,

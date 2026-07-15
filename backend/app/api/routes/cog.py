@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import io
+import math
 import os
 import shutil
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -129,6 +131,82 @@ PALETTES: dict[str, np.ndarray] = {
 }
 
 LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS  # type: ignore[attr-defined]
+
+# ---- in-memory band cache ----
+
+_band_cache: dict[tuple[str, int, int], tuple[np.ndarray, int, int]] = {}
+_band_cache_lock = threading.Lock()
+
+
+def _infer_page_structure(
+    cache_path: Path,
+) -> tuple[int, int, int, bool]:
+    """Return ``(num_pages, full_w, full_h, is_pyramid)``.
+
+    ``is_pyramid`` is ``True`` when successive pages have decreasing
+    dimensions (multi-resolution TIFF).  When ``False``, each page is a
+    separate band and we must map ``band`` to the page index directly.
+    """
+    with tifffile.TiffFile(cache_path) as tif:
+        num_pages = len(tif.pages)
+        if num_pages == 0:
+            raise ValueError(f"No pages found in {cache_path}")
+        p0 = tif.pages[0]
+        full_w = int(p0.imagewidth)
+        full_h = int(p0.imagelength)
+        # If there is a second page with a different size → pyramid
+        if num_pages > 1:
+            p1 = tif.pages[1]
+            p1_w = int(p1.imagewidth)
+            p1_h = int(p1.imagelength)
+            is_pyramid = p1_w < full_w or p1_h < full_h
+        else:
+            is_pyramid = False
+    return num_pages, full_w, full_h, is_pyramid
+
+
+def _read_band_page(
+    cache_path: Path, page_idx: int = 0
+) -> tuple[np.ndarray, int, int]:
+    """Read a single-channel array from a given page index, cached in memory."""
+    key = (str(cache_path), page_idx)
+    with _band_cache_lock:
+        if key in _band_cache:
+            return _band_cache[key]
+
+    with tifffile.TiffFile(cache_path) as tif:
+        raw_page = tif.pages[page_idx]
+        if raw_page is None:
+            raise ValueError(f"Page {page_idx} not found in {cache_path}")
+        data = raw_page.asarray()
+        if data is None:
+            raise ValueError(f"Failed to read page {page_idx} from {cache_path}")
+        if data.ndim > 2:
+            data = data[..., 0]
+        h, w = data.shape[:2]
+
+    with _band_cache_lock:
+        if len(_band_cache) > 6:
+            _band_cache.clear()
+        _band_cache[key] = (data, w, h)
+
+    return data, w, h
+
+
+def _pick_overview_page(
+    num_pages: int, image_max_dim: int, z: int
+) -> int:
+    """Select the best overview page index for a given tile z-level.
+
+    The image divides into ``2**z`` tiles per axis.  We pick the overview
+    where the tile region in overview coordinates is closest to ~256 px,
+    so we minimise the final resize cost.
+    """
+    if num_pages <= 1:
+        return 0
+    target_log2 = math.log2(image_max_dim) - 8  # log2(W / 256)
+    best = round(target_log2 - z)
+    return max(0, min(num_pages - 1, best))
 
 
 def _evict_cache_if_needed() -> None:
@@ -297,7 +375,14 @@ async def cog_tile(
     max_val: Optional[float] = Query(None, alias="max"),
 ) -> Response:
     cache_path = await _ensure_cached(url)
-    band_data, orig_w, orig_h = _read_band(cache_path, band)
+
+    num_pages, full_w, full_h, is_pyramid = _infer_page_structure(cache_path)
+    if is_pyramid:
+        page_idx = _pick_overview_page(num_pages, max(full_w, full_h), z)
+    else:
+        page_idx = min(band, num_pages - 1)
+    band_data, orig_w, orig_h = _read_band_page(cache_path, page_idx)
+
     tiles_at_z = 2**z
     tile_w = max(1, orig_w // tiles_at_z)
     tile_h = max(1, orig_h // tiles_at_z)
@@ -325,11 +410,9 @@ async def cog_tile(
     )
     rgba_tile[:, :, :3] = rgb_tile
     rgba_tile[:, :, 3] = 255
-    tile_img = Image.fromarray(rgba_tile, "RGBA")
-    canvas = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-    canvas.paste(tile_img, (0, 0))
+    tile_img = Image.fromarray(rgba_tile, "RGBA").resize((256, 256), LANCZOS)
     buf = io.BytesIO()
-    canvas.save(buf, format="PNG")
+    tile_img.save(buf, format="PNG")
     return Response(buf.getvalue(), media_type="image/png")
 
 
