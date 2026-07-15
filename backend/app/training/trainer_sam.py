@@ -323,6 +323,10 @@ def run_sam_training(cfg: TrainingConfig) -> None:
                                 import shutil
                                 shutil.copy2(str(src_tile), str(dest_img))
                                 img_path_map[img["id"]] = str(dest_img)
+                            else:
+                                print(f"Warning: missing source tile {src_tile}")
+                        else:
+                            print(f"Warning: missing tile_info for {img.get('id', 'unknown')}")
                         continue
                     try:
                         _download_image(img, subset_dir)

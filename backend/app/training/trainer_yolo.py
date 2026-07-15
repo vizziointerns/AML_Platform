@@ -267,6 +267,10 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
                             if isinstance(label_lines, list):
                                 label_path = label_dir / f"{Path(dest_name).stem}.txt"
                                 label_path.write_text("\n".join(label_lines), encoding="utf-8")
+                        else:
+                            print(f"Warning: missing source tile {src_tile}")
+                    else:
+                        print(f"Warning: missing tile_info for {img.get('id', 'unknown')}")
                     continue
 
                 img_anns = anns_by_image.get(img["id"], [])

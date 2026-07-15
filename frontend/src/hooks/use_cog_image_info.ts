@@ -31,6 +31,7 @@ export function use_cog_image_info(
 			return
 		}
 
+		set_info(undefined)
 		let is_cancelled = false
 		const params = new URLSearchParams({ url })
 		fetch(`${API_BASE}/cog/info?${params}`)

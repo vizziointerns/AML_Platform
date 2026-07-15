@@ -150,9 +150,25 @@ export function cog_tile_layer_component({
 	const current_z_ref = useRef(current_z)
 	current_z_ref.current = current_z
 
+	const visible_tiles = useMemo(
+		() => compute_tiles(image_width, image_height, viewport, 0),
+		[
+			image_width,
+			image_height,
+			viewport.offset.x,
+			viewport.offset.y,
+			viewport.zoom_level,
+			viewport.stage_width,
+			viewport.stage_height
+		]
+	).tiles
+
 	useEffect(() => {
 		const current_loaded = loaded_ref.current
 		const current_loading = loading_ref.current
+		for (const k of Object.keys(current_loaded)) delete current_loaded[k]
+		current_loading.clear()
+		set_loaded_tiles({})
 		let last_z = -1
 		let last_tiles_key = ''
 		let current_raf = 0
@@ -225,19 +241,6 @@ export function cog_tile_layer_component({
 	}, [config_key])
 
 	if (skip || !config.visible) return undefined
-
-	const visible_tiles = useMemo(
-		() => compute_tiles(image_width, image_height, viewport, 0),
-		[
-			image_width,
-			image_height,
-			viewport.offset.x,
-			viewport.offset.y,
-			viewport.zoom_level,
-			viewport.stage_width,
-			viewport.stage_height
-		]
-	).tiles
 
 	const rendered_fallbacks = new Set<string>()
 

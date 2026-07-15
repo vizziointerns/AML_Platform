@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
-import os
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -12,6 +9,8 @@ import numpy as np
 from PIL import Image
 
 from app.utils.download import extract_drive_id
+
+LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS  # type: ignore[attr-defined]
 
 TILE_SIZE = 512
 MAX_RENDER_SIZE = 4096
@@ -70,11 +69,37 @@ def _download_cog_drive(file_id: str, dest: Path) -> None:
                     f.write(chunk)
 
 
+COG_ALLOWED_HOSTS: set[str] = {
+    "drive.google.com",
+    "docs.google.com",
+    "googleapis.com",
+    "lh3.googleusercontent.com",
+    "ssl.gstatic.com",
+}
+
+
+def _assert_cog_url(url: str) -> None:
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https",):
+        raise ValueError(f"Only HTTPS URLs are allowed: {url}")
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"Could not parse host from URL: {url}")
+    if not any(
+        host == allowed or host.endswith("." + allowed)
+        for allowed in COG_ALLOWED_HOSTS
+    ):
+        raise ValueError(f"URL host not in allowed list: {host}")
+
+
 def download_cog(file_url: str, dest: Path) -> None:
     file_id = extract_drive_id(file_url)
     if file_id:
         _download_cog_drive(file_id, dest)
     else:
+        _assert_cog_url(file_url)
         _download_cog_http(file_url, dest)
 
 
@@ -85,7 +110,18 @@ def render_cog_to_rgb(
 ) -> tuple[int, int]:
     import tifffile
     with tifffile.TiffFile(cog_path) as tif:
-        data = tif.asarray()
+        num_pages = len(tif.pages)
+        target_page = 0
+        for i in range(num_pages):
+            if i > 0:
+                p = tif.pages[i]
+                pw = int(p.imagewidth)  # type: ignore[union-attr]
+                ph = int(p.imagelength)  # type: ignore[union-attr]
+                if max(pw, ph) <= max_size:
+                    target_page = i
+                else:
+                    break
+        data = tif.pages[target_page].asarray()
     if data is None:
         raise ValueError(f"Failed to read TIFF data from {cog_path}")
     if data.ndim == 3:
@@ -114,7 +150,7 @@ def render_cog_to_rgb(
             else:
                 channel = np.zeros_like(channel)
             img_c = Image.fromarray(channel.astype(np.uint8))
-            img_c = img_c.resize((new_w, new_h), Image.LANCZOS)
+            img_c = img_c.resize((new_w, new_h), LANCZOS)
             result[..., c_i] = np.array(img_c)
         h, w = new_h, new_w
     else:
@@ -141,6 +177,7 @@ def tile_image(
     img_w, img_h = img.size
     tiles: list[TileInfo] = []
     tile_idx = 0
+    prefix = image_path.stem.replace(".", "_")
     stride = tile_size
     for y in range(0, img_h, stride):
         for x in range(0, img_w, stride):
@@ -149,7 +186,7 @@ def tile_image(
             if tw < tile_size * 0.25 or th < tile_size * 0.25:
                 continue
             tile = img.crop((x, y, x + tw, y + th))
-            tile_name = f"tile_{tile_idx:04d}_{x}_{y}_{tw}_{th}.png"
+            tile_name = f"{prefix}_tile_{tile_idx:04d}_{x}_{y}_{tw}_{th}.png"
             tile.save(str(output_dir / tile_name))
             tiles.append(TileInfo(
                 tile_name=tile_name,
@@ -210,11 +247,11 @@ def remap_annotations_to_tile_yolo(
     return lines
 
 
-def remap_polygon_to_tile_mask(
+def _build_tile_mask(
     annotations: list[Any],
     tile: TileInfo,
-    tile_mask_path: Path,
-) -> bool:
+) -> np.ndarray | None:
+    """Shared polygon rasterisation: returns a ``(th, tw)`` uint8 mask or ``None``."""
     import cv2
     tx, ty = tile.x, tile.y
     tw, th = tile.w, tile.h
@@ -238,9 +275,19 @@ def remap_polygon_to_tile_mask(
             continue
         cv2.fillPoly(mask, [pts], 1)
         any_polygon = True
-    if not any_polygon:
-        return False
+    return mask if any_polygon else None
+
+
+def remap_polygon_to_tile_mask(
+    annotations: list[Any],
+    tile: TileInfo,
+    tile_mask_path: Path,
+) -> bool:
     import pycocotools.mask as mask_utils
+
+    mask = _build_tile_mask(annotations, tile)
+    if mask is None:
+        return False
     rle = mask_utils.encode(np.asfortranarray(mask))
     rle["counts"] = rle["counts"].decode("utf-8")
     tile_mask_path.write_text(json.dumps(rle), encoding="utf-8")
@@ -322,7 +369,6 @@ def prepare_cog_dataset_sam(
     anns_by_image: dict[str, list[Any]],
     work_dir: Path,
 ) -> tuple[list[dict[str, Any]], dict[str, list[Any]]]:
-    import cv2
     expanded_images: list[dict[str, Any]] = []
     expanded_masks: dict[str, Any] = {}
     cog_tiles_dir = work_dir / "cog_tiles"
@@ -376,45 +422,26 @@ def prepare_cog_dataset_sam(
 def _create_tile_mask_from_polygons(
     annotations: list[Any],
     tile: TileInfo,
-) -> dict[str, Any] | None:
-    import cv2
+) -> _MaskProxy | None:
     import pycocotools.mask as mask_utils
-    tx, ty = tile.x, tile.y
-    tw, th = tile.w, tile.h
-    img_w, img_h = tile.img_width, tile.img_height
-    mask = np.zeros((th, tw), dtype=np.uint8)
-    any_polygon = False
-    for ann in annotations:
-        if ann.type != "polygon":
-            continue
-        points_raw = json.loads(ann.points) if ann.points else []
-        if not points_raw:
-            continue
-        pts = np.array(
-            [
-                [int(p["x"] / 100.0 * img_w - tx), int(p["y"] / 100.0 * img_h - ty)]
-                for p in points_raw
-            ],
-            dtype=np.int32,
-        )
-        if pts.size == 0:
-            continue
-        cv2.fillPoly(mask, [pts], 1)
-        any_polygon = True
-    if not any_polygon:
+
+    mask = _build_tile_mask(annotations, tile)
+    if mask is None:
         return None
     rle = mask_utils.encode(np.asfortranarray(mask))
     rle["counts"] = rle["counts"].decode("utf-8")
     bbox = _mask_to_bbox(mask)
-    class _MaskProxy:
-        __slots__ = ("mask_data", "bbox_prompt")
-        def __init__(self, mask_data: str, bbox_prompt: str) -> None:
-            self.mask_data = mask_data
-            self.bbox_prompt = bbox_prompt
     return _MaskProxy(
         mask_data=json.dumps(rle),
         bbox_prompt=json.dumps(bbox),
     )
+
+
+class _MaskProxy:
+    __slots__ = ("mask_data", "bbox_prompt")
+    def __init__(self, mask_data: str, bbox_prompt: str) -> None:
+        self.mask_data = mask_data
+        self.bbox_prompt = bbox_prompt
 
 
 def _mask_to_bbox(mask: np.ndarray) -> list[int]:

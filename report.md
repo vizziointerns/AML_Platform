@@ -123,8 +123,9 @@ datature-clone/
 - Images served via Google CDN thumbnail URL
 
 ### 4. Training Pipeline
-- **YOLO11n** training via Ultralytics
-- **SAM 2.1** fine-tuning (mask decoder only, BCE + Dice loss)
+- **YOLO11n** training via Ultralytics (object detection)
+- **SAM 2.1** fine-tuning (mask decoder only, BCE + Dice loss) (segmentation)
+- **Satellite imagery training** — both YOLO and SAM trainers now support COG/GeoTIFF images
 - Background thread with live progress (epoch count, accuracy, loss)
 - Per-epoch metrics chart (mAP50 + loss curve)
 - 70/15/15 train/val/test split
@@ -249,8 +250,108 @@ Annotations (bbox, polygon, brush) drawn on top
 
 1. **Test with real COG files** — source from USGS, Sentinel Hub, or Hugging Face
 2. **Thumbnail strip** — pre-render thumbnails for `.tif` files (currently shows empty for COG images)
-3. **Training pipeline** — train models on satellite imagery (requires separate model config)
-4. **Multi-band composites** — RGB composite from 3 separate bands instead of single-band pseudocolor
+3. **Multi-band composites** — RGB composite from 3 separate bands instead of single-band pseudocolor
+4. **Train on real satellite data** — run end-to-end training with a proper satellite dataset
+5. **Overlapping tiles** — configurable stride for overlapping tile boundaries to improve edge detection
+
+---
+
+## COG Satellite Imagery — Training Integration
+
+Satellite imagery training was the natural next step after getting annotation working. The core challenge: satellite images (GeoTIFF/COG files) are fundamentally different from regular photos — they're often gigabytes in size, multi-spectral, and can't be fed into models the same way as JPEGs. Here's what was involved.
+
+### The Problem
+
+The existing training pipeline (`trainer_yolo.py` and `trainer_sam.py`) worked like this:
+1. Download each image from Google Drive (with a **10MB file size limit**)
+2. Treat the downloaded file as a JPEG/PNG that OpenCV/PIL can read directly
+3. Use annotation coordinates (stored as percentages of the full image) directly
+
+This breaks for satellite imagery because:
+- COG files are often **500MB–2GB** (well past the 10MB limit)
+- They're **GeoTIFF format**, not JPEG/PNG — OpenCV can't read them directly
+- They're **absolutely massive** (10,000×10,000 pixels or more) — models expect 512×512 or 256×256 inputs
+- Annotations at 1% of 10,000px span many tiles — they need to be **clipped and remapped** per tile
+
+### The Solution: `cog_utils.py`
+
+We built a new module `backend/app/training/cog_utils.py` that sits between the raw data and the trainers. It handles three things:
+
+**1. COG-to-RGB rendering**
+
+Instead of downloading the raw TIFF (which is huge and multi-spectral), we:
+- Download the COG with **no size limit** (removed the 10MB cap for COG files)
+- Read it with `tifffile` to get the raw band data
+- If the file has 3+ bands, use the first three as Red, Green, Blue channels
+- If it has 1 band (e.g., grayscale), repeat it across all 3 channels
+- **Normalize each channel independently** — satellite data often has wildly different value ranges per band
+- Save as a standard RGB PNG file at up to 4096×4096 resolution
+
+This gives us a regular image that any vision model can work with, while preserving the visual information from the satellite data.
+
+**2. Tiling**
+
+Even rendered to RGB, a 10,000×10,000 pixel image is too big for any model. We added automatic tiling:
+- Split the rendered image into **512×512 pixel non-overlapping tiles**
+- Skip tiny edge tiles (less than 25% of tile size)
+- Each tile becomes its own training sample
+
+This is a standard technique in satellite deep learning (often called "patchify"). A single satellite image might produce 100+ tiles.
+
+**3. Annotation remapping**
+
+This is the trickiest part. Annotations on a 10,000px-wide image are stored as percentages (e.g., "this building is at 45.5% X, 30.2% Y"). After tiling, each tile needs its own annotations — but only for objects that actually fall within that tile.
+
+For each tile we:
+- Convert all annotations from percentages to pixel coordinates on the full image
+- Check which annotations overlap with the tile boundaries
+- Skip annotations with less than 25% overlap with the tile (to avoid training on tiny slivers)
+- Remap the overlapping portion to **tile-local coordinates** (X=0 at the tile's left edge)
+- Normalize back to 0-1 range relative to the tile's dimensions
+
+For YOLO (bounding boxes): we clip bbox coordinates to the tile and generate standard YOLO-format label lines.
+For SAM (polygons): we offset polygon vertices by the tile position, fill a mask using OpenCV, and generate a COCO RLE-format mask per tile.
+
+### How It Works in Practice
+
+```
+COG .tif file (500MB, 10000x10000, 4 bands)
+       │
+       ▼
+download_cog() — no size limit, Drive service account auth
+       │
+       ▼
+render_cog_to_rgb() — tifffile → normalize bands → RGB PNG
+       │
+       ▼
+tile_image() — split into 512×512 tiles (up to ~400 tiles)
+       │
+       ▼
+For each tile:
+  ├── remap_annotations_to_tile_yolo() — clip bboxes to tile
+  └── save tile PNG + YOLO .txt label file
+
+       │
+       ▼
+Trainer (YOLO or SAM) receives tiles as if they were original images
+```
+
+### What Changed
+
+| File | Change |
+|---|---|
+| `backend/app/training/cog_utils.py` | **New** — COG download, RGB render, tiling, annotation remapping |
+| `backend/app/training/trainer_yolo.py` | Detects COG files, expands into tiles with per-tile YOLO labels |
+| `backend/app/training/trainer_sam.py` | Detects COG files, expands into tiles with per-tile polygon masks |
+| `frontend/src/constants/models.ts` | `get_model_for_task()` defaults to YOLO for COG projects; `get_training_task_types()` returns both detect+segment for COG |
+| `frontend/src/pages/projects/pages/training/index.tsx` | Training dialog shows a dropdown to choose YOLO or SAM for COG projects |
+
+### What This Enables
+
+- **End-to-end satellite object detection** — annotate buildings, vehicles, ships, etc. on COG imagery → train a YOLO model on the tiles → deploy the model
+- **End-to-end satellite segmentation** — annotate land cover, roads, water bodies as polygons → fine-tune SAM on the tiles → segment new satellite images
+- **Mixed datasets** — regular JPEG images and COG TIFFs can coexist in the same dataset and training run
+- **No external tools** — everything runs through the existing annotation studio and training pipeline. No QGIS, no GDAL, no separate tile servers.
 
 ---
 

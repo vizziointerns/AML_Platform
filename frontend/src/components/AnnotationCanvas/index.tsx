@@ -20,13 +20,20 @@ function use_display_image(
 	loaded_render: HTMLImageElement | undefined
 ): HTMLImageElement | undefined {
 	const mock_ref = useRef<HTMLImageElement | undefined>(undefined)
-	if (tiled_background && !mock_ref.current) {
-		const mock = new window.Image()
-		mock.width = tiled_background.image_width
-		mock.height = tiled_background.image_height
-		Object.defineProperty(mock, 'naturalWidth', { value: tiled_background.image_width })
-		Object.defineProperty(mock, 'naturalHeight', { value: tiled_background.image_height })
-		mock_ref.current = mock
+	if (tiled_background) {
+		const cur = mock_ref.current
+		if (
+			!cur ||
+			cur.width !== tiled_background.image_width ||
+			cur.height !== tiled_background.image_height
+		) {
+			const mock = new window.Image()
+			mock.width = tiled_background.image_width
+			mock.height = tiled_background.image_height
+			Object.defineProperty(mock, 'naturalWidth', { value: tiled_background.image_width })
+			Object.defineProperty(mock, 'naturalHeight', { value: tiled_background.image_height })
+			mock_ref.current = mock
+		}
 	}
 	return tiled_background ? (mock_ref.current ?? loaded_render) : loaded_render
 }

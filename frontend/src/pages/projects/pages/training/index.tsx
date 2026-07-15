@@ -82,7 +82,7 @@ function new_training_dialog({
 	try {
 		model_display_name = get_model_for_task(selected_training_task_type).name
 	} catch {
-		console.warn('Invalid task type found:', task_type)
+		console.warn('Invalid task type found:', selected_training_task_type)
 	}
 
 	const effective_dataset_id =

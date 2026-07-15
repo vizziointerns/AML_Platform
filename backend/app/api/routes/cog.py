@@ -134,8 +134,10 @@ LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LA
 
 # ---- in-memory band cache ----
 
-_band_cache: dict[tuple[str, int, int], tuple[np.ndarray, int, int]] = {}
+_band_cache: dict[tuple[str, int], tuple[np.ndarray, int, int, float, float]] = {}
 _band_cache_lock = threading.Lock()
+_meta_cache: dict[str, tuple[int, int, int, bool]] = {}
+_meta_cache_lock = threading.Lock()
 
 
 def _infer_page_structure(
@@ -147,32 +149,43 @@ def _infer_page_structure(
     dimensions (multi-resolution TIFF).  When ``False``, each page is a
     separate band and we must map ``band`` to the page index directly.
     """
+    cache_key = str(cache_path)
+    with _meta_cache_lock:
+        if cache_key in _meta_cache:
+            return _meta_cache[cache_key]
+
     with tifffile.TiffFile(cache_path) as tif:
         num_pages = len(tif.pages)
         if num_pages == 0:
             raise ValueError(f"No pages found in {cache_path}")
         p0 = tif.pages[0]
-        full_w = int(p0.imagewidth)
-        full_h = int(p0.imagelength)
-        # If there is a second page with a different size → pyramid
+        full_w = int(p0.imagewidth)  # type: ignore[union-attr]
+        full_h = int(p0.imagelength)  # type: ignore[union-attr]
         if num_pages > 1:
             p1 = tif.pages[1]
-            p1_w = int(p1.imagewidth)
-            p1_h = int(p1.imagelength)
+            p1_w = int(p1.imagewidth)  # type: ignore[union-attr]
+            p1_h = int(p1.imagelength)  # type: ignore[union-attr]
             is_pyramid = p1_w < full_w or p1_h < full_h
         else:
             is_pyramid = False
+
+    with _meta_cache_lock:
+        _meta_cache[cache_key] = (num_pages, full_w, full_h, is_pyramid)
     return num_pages, full_w, full_h, is_pyramid
 
 
 def _read_band_page(
     cache_path: Path, page_idx: int = 0
-) -> tuple[np.ndarray, int, int]:
-    """Read a single-channel array from a given page index, cached in memory."""
+) -> tuple[np.ndarray, int, int, float, float]:
+    """Read a single-channel array from a given page index, cached in memory.
+
+    Returns ``(data, width, height, data_min, data_max)``.
+    """
     key = (str(cache_path), page_idx)
     with _band_cache_lock:
-        if key in _band_cache:
-            return _band_cache[key]
+        cached = _band_cache.get(key)
+        if cached is not None:
+            return cached
 
     with tifffile.TiffFile(cache_path) as tif:
         raw_page = tif.pages[page_idx]
@@ -185,12 +198,16 @@ def _read_band_page(
             data = data[..., 0]
         h, w = data.shape[:2]
 
-    with _band_cache_lock:
-        if len(_band_cache) > 6:
-            _band_cache.clear()
-        _band_cache[key] = (data, w, h)
+    data_min = float(data.min())
+    data_max = float(data.max())
 
-    return data, w, h
+    with _band_cache_lock:
+        if len(_band_cache) >= 6:
+            oldest = next(iter(_band_cache))
+            del _band_cache[oldest]
+        _band_cache[key] = (data, w, h, data_min, data_max)
+
+    return data, w, h, data_min, data_max
 
 
 def _pick_overview_page(
@@ -381,7 +398,7 @@ async def cog_tile(
         page_idx = _pick_overview_page(num_pages, max(full_w, full_h), z)
     else:
         page_idx = min(band, num_pages - 1)
-    band_data, orig_w, orig_h = _read_band_page(cache_path, page_idx)
+    band_data, orig_w, orig_h, band_min, band_max = _read_band_page(cache_path, page_idx)
 
     tiles_at_z = 2**z
     tile_w = max(1, orig_w // tiles_at_z)
@@ -396,8 +413,10 @@ async def cog_tile(
         img.save(buf, format="PNG")
         return Response(buf.getvalue(), media_type="image/png")
     tile_data = band_data[y_start:y_end, x_start:x_end]
-    actual_min = min_val if min_val is not None else float(band_data.min())
-    actual_max = max_val if max_val is not None else float(band_data.max())
+    actual_min = min_val if min_val is not None else band_min
+    actual_max = max_val if max_val is not None else band_max
+    if actual_max - actual_min < 1e-10:
+        actual_max = actual_min + 1.0
     rgb_tile = PALETTES.get(palette, PALETTES["grayscale"])[
         np.clip(
             (tile_data - actual_min) / (actual_max - actual_min) * 255,
