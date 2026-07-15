@@ -113,14 +113,11 @@ def render_cog_to_rgb(
         num_pages = len(tif.pages)
         target_page = 0
         for i in range(num_pages):
-            if i > 0:
-                p = tif.pages[i]
-                pw = int(p.imagewidth)  # type: ignore[union-attr]
-                ph = int(p.imagelength)  # type: ignore[union-attr]
-                if max(pw, ph) <= max_size:
-                    target_page = i
-                else:
-                    break
+            p = tif.pages[i]
+            pw = int(p.imagewidth)  # type: ignore[union-attr]
+            ph = int(p.imagelength)  # type: ignore[union-attr]
+            if max(pw, ph) >= max_size:
+                target_page = i
         data = tif.pages[target_page].asarray()
     if data is None:
         raise ValueError(f"Failed to read TIFF data from {cog_path}")

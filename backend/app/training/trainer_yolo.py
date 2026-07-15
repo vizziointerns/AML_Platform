@@ -2,7 +2,6 @@ import ipaddress
 import json
 import os
 import random
-import shutil
 import socket
 import tempfile
 import time
@@ -231,16 +230,38 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
             images = expanded_images
             anns_by_image = expanded_anns
 
-        random.shuffle(images)
-        n = len(images)
+        # Group tiles by original source so they stay in the same split
+        tile_groups: dict[str, list[dict[str, Any]]] = {}
+        non_tile_images: list[dict[str, Any]] = []
+        for img in images:
+            tile_info = img.get("_tile_info")
+            if tile_info and tile_info.original_image_id:
+                src_id = tile_info.original_image_id
+                tile_groups.setdefault(src_id, []).append(img)
+            else:
+                non_tile_images.append(img)
+
+        groups = list(tile_groups.values())
+        random.shuffle(groups)
+        random.shuffle(non_tile_images)
+
+        all_groups = groups + [[i] for i in non_tile_images]
+        random.shuffle(all_groups)
+
+        n = len(all_groups)
         if n <= 1:
-            train_images = images
-            val_images = images
+            train_groups = all_groups
+            val_groups = all_groups
         else:
             train_end = max(1, int(n * 0.7))
             val_end = max(train_end + 1, int(n * 0.85))
-            train_images = images[:train_end]
-            val_images = images[train_end:val_end] if val_end <= n else images[-1:]
+            train_groups = all_groups[:train_end]
+            val_groups = all_groups[train_end:val_end] if val_end <= n else all_groups[-1:]
+
+        train_images = [img for g in train_groups for img in g]
+        val_images = [img for g in val_groups for img in g]
+
+        missing_tiles: list[str] = []
 
         for subset_name, subset_images in [
             ("train", train_images),
@@ -267,7 +288,7 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
                             label_path = label_dir / f"{Path(dest_name).stem}.txt"
                             label_path.write_text("\n".join(label_lines), encoding="utf-8")
                         else:
-                            print(f"Warning: missing source tile {src_tile}")
+                            missing_tiles.append(tile_info.tile_name)
                     else:
                         print(f"Warning: missing tile_info for {img.get('id', 'unknown')}")
                     continue
@@ -291,6 +312,13 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
                     _download_image(img, img_dir)
                 except Exception as exc:
                     print(f"Warning: failed to download {img['file_name']}: {exc}")
+
+        if missing_tiles:
+            raise RuntimeError(
+                f"Training cannot start — {len(missing_tiles)} tile(s) missing: "
+                f"{', '.join(missing_tiles[:10])}"
+                f"{'...' if len(missing_tiles) > 10 else ''}"
+            )
 
         db.close()
         db = SessionLocal()
