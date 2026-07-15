@@ -263,10 +263,9 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
                         if src_tile.exists():
                             import shutil
                             shutil.copy2(str(src_tile), str(dest_img))
-                            label_lines = anns_by_image.get(img["id"], [])
-                            if isinstance(label_lines, list):
-                                label_path = label_dir / f"{Path(dest_name).stem}.txt"
-                                label_path.write_text("\n".join(label_lines), encoding="utf-8")
+                            label_lines: "list[str]" = anns_by_image.get(img["id"], [])  # type: ignore[assignment]
+                            label_path = label_dir / f"{Path(dest_name).stem}.txt"
+                            label_path.write_text("\n".join(label_lines), encoding="utf-8")
                         else:
                             print(f"Warning: missing source tile {src_tile}")
                     else:
