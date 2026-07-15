@@ -58,7 +58,9 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 				return { deleted_count: 0 }
 			}
 
-			const drive_file_urls = removed_images.map((image) => image.file_url).filter(Boolean)
+			const drive_file_urls = removed_images
+				.map((image) => image.file_url)
+				.filter((url) => url && !url.startsWith('cache://'))
 
 			set_error(undefined)
 			set_images(previous_images.filter((image) => !ids_to_delete.has(image.id)))
@@ -75,14 +77,19 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 			}
 
 			if (drive_file_urls.length > 0) {
+				const controller = new AbortController()
+				const timeout_id = setTimeout(() => controller.abort(), 10000)
 				try {
 					await fetch(`${API_BASE}/images/drive/delete`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ file_urls: drive_file_urls })
+						body: JSON.stringify({ file_urls: drive_file_urls }),
+						signal: controller.signal
 					})
 				} catch {
 					// Non-critical — file stays in Drive but DB is clean
+				} finally {
+					clearTimeout(timeout_id)
 				}
 			}
 

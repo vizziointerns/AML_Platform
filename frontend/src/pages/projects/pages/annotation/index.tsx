@@ -500,7 +500,7 @@ function render_canvas_content(
 	return (
 		<>
 			{image_url && !tiled_background_config && is_cog_loading && (
-				<div className="absolute inset-0 flex items-center justify-center">
+				<div className="absolute inset-0 flex items-center justify-center z-50 bg-black/20">
 					<div className="flex flex-col items-center gap-2">
 						<Loader2 size={32} className="animate-spin text-blue-500" />
 						<p className="text-sm text-zinc-400">Loading satellite image...</p>

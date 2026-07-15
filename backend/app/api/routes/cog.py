@@ -5,6 +5,7 @@ import hashlib
 import io
 import math
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -256,6 +257,12 @@ async def _ensure_cached(url: str) -> Path:
             hash_part = hash_part[:-4]
         elif hash_part.endswith(".bin"):
             hash_part = hash_part[:-4]
+        # Validate: must be a 16-char hex string (no path traversal)
+        if not re.fullmatch(r"[0-9a-f]{16}", hash_part):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid cache ID: {hash_part}",
+            )
         cached = CACHE_DIR / f"{hash_part}.tif"
         if cached.exists():
             return cached
@@ -269,15 +276,20 @@ async def _ensure_cached(url: str) -> Path:
         return cache_path
 
     # Prevent concurrent downloads of the same URL
+    # Must not await while holding the threading lock
     cache_key = str(cache_path)
     with _download_locks_lock:
         existing = _download_locks.get(cache_key)
-        if existing is not None:
-            await existing.wait()
-            # After the other task finishes, the cache should exist
-            if cache_path.exists():
-                return cache_path
 
+    if existing is not None:
+        await existing.wait()
+        if cache_path.exists():
+            return cache_path
+        # Downloader failed — proceed to re-download
+        with _download_locks_lock:
+            _download_locks.pop(cache_key, None)
+
+    with _download_locks_lock:
         event = asyncio.Event()
         _download_locks[cache_key] = event
 

@@ -3,17 +3,24 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import threading
 from pathlib import Path
 from typing import Any, cast
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request
+import tempfile
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.core.config import settings
 from app.utils.download import extract_drive_id
 from app.utils.google_drive_auth import async_get_drive_access_token
+
+# Simple in-memory upload status tracking
+_upload_status: dict[str, str] = {}  # cache_url -> 'pending' | 'completed' | 'failed'
+_UPLOAD_STATUS_LOCK = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +122,11 @@ async def _ensure_folder_hierarchy(
     if not project_name or not dataset_name:
         return None
 
-    if user_id:
+    drive_root = SHARED_DRIVE_ID or PARENT_FOLDER_ID
+    if drive_root:
+        root_id = drive_root
+    elif user_id:
         root_id = await _ensure_folder(access_token, user_id)
-    elif SHARED_DRIVE_ID or PARENT_FOLDER_ID:
-        root_id = SHARED_DRIVE_ID or PARENT_FOLDER_ID
     else:
         root_id = await _ensure_folder(access_token, "unknown_user")
 
@@ -153,12 +161,8 @@ async def upload_to_drive(
     dataset_name: str = Query(""),
     user_id: str = Query(""),
 ) -> dict[str, Any]:
-    """Upload a file to Drive by streaming the raw request body through.
-
-    Metadata (file name, project, dataset) is passed as query params.
-    The file content is the raw POST body (not multipart).
-    The backend streams each chunk to Drive as it arrives,
-    so total time is ~ the slower of the two links, not the sum.
+    """Upload a file to Drive. Streams to local cache first, returns
+    immediately with a cache:// URL. Drive upload runs in background.
     """
     if not file_name:
         raise HTTPException(status_code=400, detail="file_name is required")
@@ -169,30 +173,47 @@ async def upload_to_drive(
     if not content_length:
         raise HTTPException(status_code=411, detail="Content-Length header is required")
 
-    try:
-        # Read entire body first
-        body_bytes = await request.body()
+    max_size = int(content_length)
+    if max_size <= 0:
+        raise HTTPException(status_code=400, detail="Invalid content-length")
 
-        # Cache locally instantly — COG rendering will find it immediately
-        if _is_tiff_name(file_name):
-            content_hash = hashlib.sha256(body_bytes).hexdigest()[:16]
-            cache_path = COG_CACHE_DIR / f"{content_hash}.tif"
+    try:
+        # Stream request body to a temp file so we don't hold 500 MB in memory
+        hasher = hashlib.sha256()
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        try:
+            async for chunk in request.stream():
+                hasher.update(chunk)
+                tmp.write(chunk)
+            tmp.flush()
+            tmp.close()
+
+            content_hash = hasher.hexdigest()[:16]
+            ext = ".tif" if _is_tiff_name(file_name) else ".bin"
+            cache_url = f"cache://{content_hash}{ext}"
+            cache_path = COG_CACHE_DIR / f"{content_hash}{ext}"
+
+            # Move temp file to cache (atomic-ish)
             if not cache_path.exists():
-                try:
-                    cache_path.write_bytes(body_bytes)
-                    logger.info(
-                        "Cached TIFF (%d bytes) locally: %s",
-                        len(body_bytes),
-                        cache_path.name,
-                    )
-                except Exception:
-                    logger.exception("Failed to write local COG cache for %s", file_name)
-            cache_url = f"cache://{content_hash}.tif"
-        else:
-            cache_url = f"cache://{hashlib.sha256(body_bytes).hexdigest()[:16]}.bin"
+                import shutil
+                shutil.move(tmp.name, cache_path)
+                logger.info("Cached %s (%s) locally: %s", file_name, ext, cache_path.name)
+            else:
+                Path(tmp.name).unlink(missing_ok=True)
+        except Exception:
+            Path(tmp.name).unlink(missing_ok=True)
+            raise
+
+        # Track upload status
+        with _UPLOAD_STATUS_LOCK:
+            _upload_status[cache_url] = "pending"
 
         # Upload to Drive in background — don't block the response
-        async def _background_drive_upload() -> None:
+        async def _background_drive_upload(
+            bg_cache_url: str,
+            bg_cache_path_str: str,
+        ) -> None:
+            bg_cache_path = Path(bg_cache_path_str)
             try:
                 bg_access_token = await async_get_drive_access_token()
                 bg_parent_folder_id = await _ensure_folder_hierarchy(
@@ -223,13 +244,15 @@ async def upload_to_drive(
                         logger.error("Drive did not return a session URL for %s", file_name)
                         return
 
+                    # Read from the cached file for the PUT
+                    file_bytes = bg_cache_path.read_bytes()
                     bg_put_resp = await client.put(
                         bg_session_url,
                         headers={
                             "Content-Type": mime_type,
                             "Content-Length": content_length,
                         },
-                        content=body_bytes,
+                        content=file_bytes,
                     )
                     bg_put_resp.raise_for_status()
                     bg_drive_file_id = cast(str, bg_put_resp.json()["id"])
@@ -238,16 +261,23 @@ async def upload_to_drive(
                         bg_drive_file_id,
                         file_name,
                     )
+                    with _UPLOAD_STATUS_LOCK:
+                        _upload_status[bg_cache_url] = "completed"
             except Exception:
                 logger.exception("Background Drive upload failed for %s", file_name)
+                with _UPLOAD_STATUS_LOCK:
+                    _upload_status[bg_cache_url] = "failed"
 
-        asyncio.create_task(_background_drive_upload())
+        asyncio.create_task(
+            _background_drive_upload(cache_url, str(cache_path))
+        )
 
         return {
             "drive_file_id": "",
             "file_name": file_name,
             "file_url": cache_url,
             "mime_type": mime_type,
+            "drive_upload_status": "pending",
         }
     except httpx.HTTPStatusError as e:
         detail = f"Google Drive API error: {e.response.status_code}"

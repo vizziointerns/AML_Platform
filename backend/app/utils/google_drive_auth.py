@@ -173,8 +173,6 @@ async def async_get_drive_access_token() -> str:
             return cached
 
     refresh_token = _get_refresh_token_from_env()
-    client_info = _get_client_info()
-
     if not refresh_token:
         token_data = _load_token()
         if token_data and "refresh_token" in token_data:
@@ -184,6 +182,8 @@ async def async_get_drive_access_token() -> str:
             from app.utils.google_service_account import get_access_token
 
             return get_access_token()
+
+    client_info = _get_client_info()
 
     try:
         new_token = await _async_refresh_access_token(refresh_token, client_info)
