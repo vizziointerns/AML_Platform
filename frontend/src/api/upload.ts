@@ -173,9 +173,14 @@ export async function upload_to_drive_and_save(
 
 		// Send file as raw body — metadata in query params.
 		// Backend streams chunks to Drive as they arrive (concurrent upload).
+		const {
+			data: { user }
+		} = await supabase.auth.getUser()
+		const user_id = user?.id ?? ''
 		const params = new URLSearchParams({ file_name: file.name })
 		if (project_name) params.set('project_name', project_name)
 		if (dataset_name) params.set('dataset_name', dataset_name)
+		if (user_id) params.set('user_id', user_id)
 
 		const xhr = new XMLHttpRequest()
 		controller.signal.addEventListener('abort', () => xhr.abort())
@@ -184,8 +189,8 @@ export async function upload_to_drive_and_save(
 			(resolve, reject) => {
 				xhr.upload.addEventListener('progress', (e) => {
 					if (e.lengthComputable) {
-						const raw = Math.round((e.loaded / e.total) * 100)
-						callbacks.on_progress(Math.min(raw, 95), e.loaded, e.total)
+						const pct = Math.round((e.loaded / e.total) * 100)
+						callbacks.on_progress(pct, e.loaded, e.total)
 					}
 				})
 				xhr.addEventListener('load', function () {

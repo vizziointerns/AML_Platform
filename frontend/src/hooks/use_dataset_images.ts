@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../utils/supabase'
 import { resolve_image_urls } from '../utils/drive_image'
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
+
 export interface DatasetImage {
 	id: string
 	dataset_id: string
@@ -56,6 +58,8 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 				return { deleted_count: 0 }
 			}
 
+			const drive_file_urls = removed_images.map((image) => image.file_url).filter(Boolean)
+
 			set_error(undefined)
 			set_images(previous_images.filter((image) => !ids_to_delete.has(image.id)))
 
@@ -68,6 +72,18 @@ export function use_dataset_images(dataset_id: string | undefined): UseDatasetIm
 				set_images(previous_images)
 				set_error(delete_error.message)
 				return undefined
+			}
+
+			if (drive_file_urls.length > 0) {
+				try {
+					await fetch(`${API_BASE}/images/drive/delete`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ file_urls: drive_file_urls })
+					})
+				} catch {
+					// Non-critical — file stays in Drive but DB is clean
+				}
 			}
 
 			const { data: dataset_row, error: dataset_error } = await supabase

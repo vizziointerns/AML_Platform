@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./dev.db"
     google_service_account_key: str = ""
     google_drive_shared_drive_id: str = ""
+    google_drive_parent_folder_id: str = ""
+
+    # OAuth 2.0 for personal Google Drive (has storage quota)
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    google_drive_refresh_token: str = ""
 
     def cors_origin_list(self) -> list[str]:
         raw = self.cors_origins.strip()

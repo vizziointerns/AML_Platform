@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import logging
+from pathlib import Path
 from typing import Any, cast
-from urllib.parse import quote as _url_quote
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.core.config import settings
+from app.utils.download import extract_drive_id
 from app.utils.google_drive_auth import async_get_drive_access_token
 
 logger = logging.getLogger(__name__)
@@ -18,15 +22,15 @@ router = APIRouter()
 DRIVE_FILES_API = "https://www.googleapis.com/drive/v3/files"
 DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3/files"
 FOLDER_MIME = "application/vnd.google-apps.folder"
-ROOT_FOLDER_NAME = "test_folder"
 SHARED_DRIVE_ID = settings.google_drive_shared_drive_id.strip() or None
+PARENT_FOLDER_ID = settings.google_drive_parent_folder_id.strip() or None
 
 
 def _drive_params(
     extra: dict[str, str] | None = None,
 ) -> dict[str, str]:
     params: dict[str, str] = {"supportsAllDrives": "true"}
-    if SHARED_DRIVE_ID:
+    if SHARED_DRIVE_ID or PARENT_FOLDER_ID:
         params["includeItemsFromAllDrives"] = "true"
     if extra:
         params.update(extra)
@@ -106,13 +110,17 @@ async def _ensure_folder_hierarchy(
     access_token: str,
     project_name: str | None,
     dataset_name: str | None,
+    user_id: str | None = None,
 ) -> str | None:
     if not project_name or not dataset_name:
         return None
 
-    root_id: str | None = SHARED_DRIVE_ID
-    if not root_id:
-        root_id = await _ensure_folder(access_token, ROOT_FOLDER_NAME)
+    if user_id:
+        root_id = await _ensure_folder(access_token, user_id)
+    elif SHARED_DRIVE_ID or PARENT_FOLDER_ID:
+        root_id = SHARED_DRIVE_ID or PARENT_FOLDER_ID
+    else:
+        root_id = await _ensure_folder(access_token, "unknown_user")
 
     project_folder_id = await _ensure_folder(access_token, project_name, root_id)
     dataset_folder_id = await _ensure_folder(
@@ -121,12 +129,29 @@ async def _ensure_folder_hierarchy(
     return dataset_folder_id
 
 
+def _is_tiff_name(name: str) -> bool:
+    lower = name.lower()
+    return lower.endswith(".tif") or lower.endswith(".tiff")
+
+
+COG_CACHE_DIR = (
+    Path(__file__).parent.parent.parent.parent / "cache" / "cog"
+)
+COG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _cog_cache_path(file_url: str) -> Path:
+    key = hashlib.sha256(file_url.encode()).hexdigest()[:16]
+    return COG_CACHE_DIR / f"{key}.tif"
+
+
 @router.post("/upload/drive")
 async def upload_to_drive(
     request: Request,
     file_name: str = Query(...),
     project_name: str = Query(""),
     dataset_name: str = Query(""),
+    user_id: str = Query(""),
 ) -> dict[str, Any]:
     """Upload a file to Drive by streaming the raw request body through.
 
@@ -145,61 +170,83 @@ async def upload_to_drive(
         raise HTTPException(status_code=411, detail="Content-Length header is required")
 
     try:
-        access_token = await async_get_drive_access_token()
+        # Read entire body first
+        body_bytes = await request.body()
 
-        parent_folder_id = await _ensure_folder_hierarchy(
-            access_token,
-            project_name or None,
-            dataset_name or None,
-        )
+        # Cache locally instantly — COG rendering will find it immediately
+        if _is_tiff_name(file_name):
+            content_hash = hashlib.sha256(body_bytes).hexdigest()[:16]
+            cache_path = COG_CACHE_DIR / f"{content_hash}.tif"
+            if not cache_path.exists():
+                try:
+                    cache_path.write_bytes(body_bytes)
+                    logger.info(
+                        "Cached TIFF (%d bytes) locally: %s",
+                        len(body_bytes),
+                        cache_path.name,
+                    )
+                except Exception:
+                    logger.exception("Failed to write local COG cache for %s", file_name)
+            cache_url = f"cache://{content_hash}.tif"
+        else:
+            cache_url = f"cache://{hashlib.sha256(body_bytes).hexdigest()[:16]}.bin"
 
-        # Create Drive resumable upload session (fast — metadata only)
-        metadata: dict[str, Any] = {"name": file_name}
-        if parent_folder_id:
-            metadata["parents"] = [parent_folder_id]
-
-        async with httpx.AsyncClient() as client:
-            session_resp = await client.post(
-                DRIVE_UPLOAD_API,
-                params={"uploadType": "resumable", "supportsAllDrives": "true"},
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                    "X-Upload-Content-Type": mime_type,
-                },
-                json=metadata,
-            )
-            session_resp.raise_for_status()
-            session_url = session_resp.headers.get("Location")
-            if not session_url:
-                raise HTTPException(
-                    status_code=502, detail="Drive did not return a session URL"
+        # Upload to Drive in background — don't block the response
+        async def _background_drive_upload() -> None:
+            try:
+                bg_access_token = await async_get_drive_access_token()
+                bg_parent_folder_id = await _ensure_folder_hierarchy(
+                    bg_access_token,
+                    project_name or None,
+                    dataset_name or None,
+                    user_id or None,
                 )
 
-        # Stream the incoming request body directly to Drive
-        put_headers: dict[str, str] = {
-            "Content-Type": mime_type,
-            "Content-Length": content_length,
-        }
+                bg_metadata: dict[str, Any] = {"name": file_name}
+                if bg_parent_folder_id:
+                    bg_metadata["parents"] = [bg_parent_folder_id]
 
-        async with httpx.AsyncClient() as client:
-            put_resp = await client.put(
-                session_url,
-                headers=put_headers,
-                content=request.stream(),
-            )
-            put_resp.raise_for_status()
-            drive_file_id = cast(str, put_resp.json()["id"])
+                async with httpx.AsyncClient(timeout=httpx.Timeout(600.0)) as client:
+                    bg_session_resp = await client.post(
+                        DRIVE_UPLOAD_API,
+                        params={"uploadType": "resumable", "supportsAllDrives": "true"},
+                        headers={
+                            "Authorization": f"Bearer {bg_access_token}",
+                            "Content-Type": "application/json",
+                            "X-Upload-Content-Type": mime_type,
+                        },
+                        json=bg_metadata,
+                    )
+                    bg_session_resp.raise_for_status()
+                    bg_session_url = bg_session_resp.headers.get("Location")
+                    if not bg_session_url:
+                        logger.error("Drive did not return a session URL for %s", file_name)
+                        return
 
-        drive_url = (
-            f"https://drive.google.com/uc?id={drive_file_id}"
-            f"&name={_url_quote(file_name)}"
-        )
+                    bg_put_resp = await client.put(
+                        bg_session_url,
+                        headers={
+                            "Content-Type": mime_type,
+                            "Content-Length": content_length,
+                        },
+                        content=body_bytes,
+                    )
+                    bg_put_resp.raise_for_status()
+                    bg_drive_file_id = cast(str, bg_put_resp.json()["id"])
+                    logger.info(
+                        "Background Drive upload complete: file_id=%s, name=%s",
+                        bg_drive_file_id,
+                        file_name,
+                    )
+            except Exception:
+                logger.exception("Background Drive upload failed for %s", file_name)
+
+        asyncio.create_task(_background_drive_upload())
 
         return {
-            "drive_file_id": drive_file_id,
+            "drive_file_id": "",
             "file_name": file_name,
-            "file_url": drive_url,
+            "file_url": cache_url,
             "mime_type": mime_type,
         }
     except httpx.HTTPStatusError as e:
@@ -207,6 +254,13 @@ async def upload_to_drive(
         try:
             err_body = e.response.json()
             detail = err_body.get("error", {}).get("message", detail)
+            logger.error(
+                "Drive upload error: status=%s, method=%s, url=%s, body=%s",
+                e.response.status_code,
+                e.request.method if e.request else "?",
+                str(e.request.url) if e.request else "?",
+                err_body,
+            )
         except Exception:
             logger.exception("Failed to parse Drive error response body")
         raise HTTPException(status_code=e.response.status_code, detail=detail) from e
@@ -261,3 +315,45 @@ async def proxy_drive_image(file_id: str) -> Response:
             "Access-Control-Allow-Origin": "*",
         },
     )
+
+
+class DeleteDriveFilesRequest(BaseModel):
+    file_urls: list[str]
+
+
+@router.post("/images/drive/delete")
+async def delete_drive_files(body: DeleteDriveFilesRequest) -> dict[str, int]:
+    access_token = await async_get_drive_access_token()
+    deleted = 0
+    errors: list[str] = []
+
+    async def _delete_one(file_id: str) -> None:
+        nonlocal deleted
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(
+                f"{DRIVE_FILES_API}/{file_id}",
+                params=_drive_params(),
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if resp.status_code == 204 or resp.status_code == 404:
+                deleted += 1
+            else:
+                try:
+                    err_body = resp.json()
+                    errors.append(
+                        err_body.get("error", {}).get("message", f"HTTP {resp.status_code}")
+                    )
+                except Exception:
+                    errors.append(f"HTTP {resp.status_code}")
+
+    tasks: list[Any] = []
+    for url in body.file_urls:
+        file_id = extract_drive_id(url) or url
+        tasks.append(_delete_one(file_id))
+
+    await asyncio.gather(*tasks)
+
+    if errors:
+        logger.warning("Drive delete errors (partial): %s", errors)
+
+    return {"deleted_count": deleted}

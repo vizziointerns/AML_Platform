@@ -468,7 +468,8 @@ function render_canvas_content(
 	text_heading: string,
 	cog_layers: CogLayerInfo[] = [],
 	on_segment_click?: (pos: { x: number; y: number }, image: HTMLImageElement) => void,
-	tiled_background_config?: TiledBackgroundConfig
+	tiled_background_config?: TiledBackgroundConfig,
+	is_cog_loading?: boolean
 ) {
 	if (is_loading_image) {
 		return (
@@ -498,6 +499,14 @@ function render_canvas_content(
 	}
 	return (
 		<>
+			{image_url && !tiled_background_config && is_cog_loading && (
+				<div className="absolute inset-0 flex items-center justify-center">
+					<div className="flex flex-col items-center gap-2">
+						<Loader2 size={32} className="animate-spin text-blue-500" />
+						<p className="text-sm text-zinc-400">Loading satellite image...</p>
+					</div>
+				</div>
+			)}
 			{image_url && (
 				<AnnotationCanvas
 					imageUrl={image_url}
@@ -933,6 +942,8 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	const get_class_name = (id: string) => theme_get_class_name(classes, id)
 	const get_current_count = (id: string) => theme_current_count(id, annotations)
 
+	const is_cog_loading = is_cog_project && !!current_image && !cog_image_info && !!image_url
+
 	const canvas = render_canvas_content(
 		is_loading_image,
 		image_error,
@@ -961,7 +972,8 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		text_heading,
 		cog_layers,
 		handle_segment,
-		tiled_background_config
+		tiled_background_config,
+		is_cog_loading
 	)
 
 	const render_main_layout = () => (

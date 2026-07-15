@@ -107,14 +107,31 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 DATABASE_URL=sqlite:///./dev.db
 ```
 
-**Google Service Account** — required for the training pipeline to download images from Google Drive:
+**Google Service Account** — required only as a fallback when OAuth fails:
 
 | Option | Value |
 |--------|-------|
 | Inline JSON | `GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}` |
 | File path | `GOOGLE_SERVICE_ACCOUNT_KEY=./vizlabel-498314-d6b987d88174.json` |
 
-> The service account automates OAuth 2.0 token generation (30-min cached, auto-refreshed). See `backend/app/utils/google_service_account.py`.
+**Google OAuth 2.0** — required for image upload to Drive (has storage quota):
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_OAUTH_CLIENT_ID` | OAuth client ID from Google Cloud Console |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | OAuth client secret |
+| `GOOGLE_DRIVE_REFRESH_TOKEN` | Refresh token for offline access (obtained once) |
+
+OAuth replaces the service account because service accounts have zero Drive storage quota.
+To obtain the refresh token:
+
+1. Create an OAuth 2.0 Client ID (Desktop app type) in Google Cloud Console
+2. Add `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` to `.env`
+3. Run `python -c "from app.utils.google_drive_auth import interactive_auth; interactive_auth()"` from `backend/`
+4. Follow the URL, authorise, paste the code — it saves the refresh token to `drive_token.json`
+5. Copy `google_drive_refresh_token` from that file into `.env`
+
+> The backend uses OAuth first, falling back to service account if the refresh fails.
 
 ### Frontend (`frontend/.env.local`)
 

@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 import random
-import shutil
 import tempfile
 import threading
 import time
