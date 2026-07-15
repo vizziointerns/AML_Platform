@@ -2,8 +2,11 @@ import { X, RefreshCw, FileArchive, Image as ImageIcon } from 'lucide-react'
 import type { UploadFile } from './types'
 
 function status_label(file: UploadFile) {
-	if (file.status === 'uploading')
+	if (file.status === 'uploading') {
+		if (file.progress >= 100)
+			return <span className="text-xs font-medium text-blue-500">Processing...</span>
 		return <span className="text-xs font-medium text-blue-500">{Math.round(file.progress)}%</span>
+	}
 	if (file.status === 'success')
 		return <span className="text-xs font-medium text-emerald-500">Done</span>
 	if (file.status === 'error')

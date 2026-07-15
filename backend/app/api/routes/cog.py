@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 import math
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -37,7 +39,10 @@ def _assert_allowed_url(url: str) -> None:
     """Reject URLs that could enable SSRF.
 
     Only allows Google-hosted endpoints and rejects private/local IPs.
+    cache:// URLs are exempt — they refer to local pre-cached files.
     """
+    if url.startswith("cache://"):
+        return
     from urllib.parse import urlparse
     import ipaddress
 
@@ -66,6 +71,9 @@ CACHE_DIR = Path(__file__).parent.parent.parent.parent / "cache" / "cog"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_CACHE_MB = 2048
+
+_download_locks: dict[str, asyncio.Event] = {}
+_download_locks_lock = threading.Lock()
 
 # ---- palette helpers (mirrors frontend colormaps.ts) ----
 
@@ -242,26 +250,71 @@ def _cache_path(url: str) -> Path:
 
 
 async def _ensure_cached(url: str) -> Path:
+    # cache:// URLs point to files already on disk — no download needed
+    if url.startswith("cache://"):
+        hash_part = url.removeprefix("cache://")
+        if hash_part.endswith(".tif"):
+            hash_part = hash_part[:-4]
+        elif hash_part.endswith(".bin"):
+            hash_part = hash_part[:-4]
+        # Validate: must be a 16-char hex string (no path traversal)
+        if not re.fullmatch(r"[0-9a-f]{16}", hash_part):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid cache ID: {hash_part}",
+            )
+        cached = CACHE_DIR / f"{hash_part}.tif"
+        if cached.exists():
+            return cached
+        cached = CACHE_DIR / f"{hash_part}.bin"
+        if cached.exists():
+            return cached
+        raise HTTPException(status_code=404, detail=f"Cached file not found: {url}")
+
     cache_path = _cache_path(url)
     if cache_path.exists():
         return cache_path
 
-    _assert_allowed_url(url)
+    # Prevent concurrent downloads of the same URL
+    # Must not await while holding the threading lock
+    cache_key = str(cache_path)
+    with _download_locks_lock:
+        existing = _download_locks.get(cache_key)
 
-    async with httpx.AsyncClient(follow_redirects=False, timeout=300) as client:
-        file_id = extract_drive_id(url)
-        if file_id:
-            access_token = await async_get_drive_access_token()
-            drive_url = f"{DRIVE_FILES_API}/{file_id}?alt=media"
-            response = await client.get(
-                drive_url,
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-        else:
-            response = await client.get(url)
-        response.raise_for_status()
-        _evict_cache_if_needed()
-        cache_path.write_bytes(response.content)
+    if existing is not None:
+        await existing.wait()
+        if cache_path.exists():
+            return cache_path
+        # Downloader failed — proceed to re-download
+        with _download_locks_lock:
+            _download_locks.pop(cache_key, None)
+
+    with _download_locks_lock:
+        event = asyncio.Event()
+        _download_locks[cache_key] = event
+
+    try:
+        _assert_allowed_url(url)
+
+        async with httpx.AsyncClient(follow_redirects=False, timeout=300) as client:
+            file_id = extract_drive_id(url)
+            if file_id:
+                access_token = await async_get_drive_access_token()
+                drive_url = f"{DRIVE_FILES_API}/{file_id}?alt=media"
+                response = await client.get(
+                    drive_url,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+            else:
+                response = await client.get(url)
+            response.raise_for_status()
+            _evict_cache_if_needed()
+            cache_path.write_bytes(response.content)
+    finally:
+        with _download_locks_lock:
+            _download_locks.pop(cache_key, None)
+        event.set()
+
     return cache_path
 
 

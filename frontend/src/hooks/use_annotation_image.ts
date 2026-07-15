@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 import { resolve_image_urls } from '../utils/drive_image'
-import { use_datasets } from './use_datasets'
 
 export interface AnnotationImageInfo {
 	id: string
@@ -32,12 +31,35 @@ export function use_annotation_image(
 	image_id: string | undefined
 ): UseAnnotationImageResult {
 	const navigate = useNavigate()
-	const { datasets, is_loading: is_loading_datasets } = use_datasets(project_id)
+
+	const [dataset_id, set_dataset_id] = useState<string | undefined>()
 	const [images, set_images] = useState<AnnotationImageInfo[]>([])
 	const [is_loading_images, set_is_loading_images] = useState(true)
 	const [error, set_error] = useState<string | undefined>(undefined)
 
-	const dataset_id = datasets[0]?.id
+	useEffect(() => {
+		if (!image_id) {
+			set_dataset_id(undefined)
+			return
+		}
+		let is_cancelled = false
+		;(async () => {
+			const { data, error: err } = await supabase
+				.from('dataset_images')
+				.select('dataset_id')
+				.eq('id', image_id)
+				.maybeSingle()
+			if (is_cancelled) return
+			if (err || !data) {
+				set_dataset_id(undefined)
+				return
+			}
+			set_dataset_id(data.dataset_id)
+		})()
+		return () => {
+			is_cancelled = true
+		}
+	}, [image_id])
 
 	useEffect(() => {
 		if (!dataset_id) {
@@ -51,36 +73,44 @@ export function use_annotation_image(
 		set_is_loading_images(true)
 		set_error(undefined)
 		;(async () => {
-			const { data, error: err } = await supabase
-				.from('dataset_images')
-				.select('id, file_url, file_name, file_extension')
-				.eq('dataset_id', dataset_id)
-				.order('uploaded_at', { ascending: true })
+			try {
+				const { data, error: err } = await supabase
+					.from('dataset_images')
+					.select('id, file_url, file_name, file_extension')
+					.eq('dataset_id', dataset_id)
+					.order('uploaded_at', { ascending: true })
 
-			if (is_cancelled) return
-			if (err) {
-				set_error(err.message)
+				if (is_cancelled) return
+				if (err) {
+					set_error(err.message)
+					set_images([])
+					set_is_loading_images(false)
+					return
+				}
+
+				const parsed = (data ?? []).map((row) => ({
+					id: row.id,
+					file_url: row.file_url ?? '',
+					file_name: row.file_name ?? 'Unknown',
+					original_file_url: row.file_url ?? '',
+					file_extension: row.file_extension ?? undefined
+				}))
+
+				if (is_cancelled) return
+
+				await resolve_image_urls(parsed)
+
+				if (is_cancelled) return
+
+				set_images(parsed)
+				set_is_loading_images(false)
+			} catch (err) {
+				if (is_cancelled) return
+				const message = err instanceof Error ? err.message : 'Failed to load images'
+				set_error(message)
 				set_images([])
 				set_is_loading_images(false)
-				return
 			}
-
-			const parsed = (data ?? []).map((row) => ({
-				id: row.id,
-				file_url: row.file_url,
-				file_name: row.file_name ?? 'Unknown',
-				original_file_url: row.file_url,
-				file_extension: row.file_extension ?? undefined
-			}))
-
-			if (is_cancelled) return
-
-			await resolve_image_urls(parsed)
-
-			if (is_cancelled) return
-
-			set_images(parsed)
-			set_is_loading_images(false)
 		})()
 
 		return () => {
@@ -123,8 +153,8 @@ export function use_annotation_image(
 		stable_images: images,
 		current_index,
 		current_image,
-		is_loading: is_loading_datasets || is_loading_images,
-		is_empty: !is_loading_datasets && !is_loading_images && images.length === 0,
+		is_loading: is_loading_images,
+		is_empty: !is_loading_images && images.length === 0,
 		error,
 		dataset_id,
 		go_next,
