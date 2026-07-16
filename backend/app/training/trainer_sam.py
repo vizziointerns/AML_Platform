@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import random
+import shutil
 import tempfile
 import threading
 import time
@@ -168,7 +169,7 @@ def _annotations_to_masks(
         db.query(Annotation)
         .filter(
             Annotation.image_id.in_(image_ids),
-            Annotation.type == "polygon",
+            Annotation.type.in_(["polygon", "bbox"]),
         )
         .all()
     )
@@ -178,15 +179,24 @@ def _annotations_to_masks(
     masks_by_image: dict[str, dict[str, Any]] = {}
     for ann in annotations:
         ann_data: dict[str, Any] = masks_by_image.setdefault(ann.image_id, {"segments": [], "bbox": None})
-        points_raw = json.loads(ann.points) if ann.points else []
-        if not points_raw:
-            continue
 
         w_img, h_img = image_dims.get(ann.image_id, (800, 600))
-        pts = np.array(
-            [[int(p["x"] / 100 * w_img), int(p["y"] / 100 * h_img)] for p in points_raw],
-            dtype=np.int32,
-        )
+
+        if ann.type == "polygon":
+            points_raw = json.loads(ann.points) if ann.points else []
+            if not points_raw:
+                continue
+            pts = np.array(
+                [[int(p["x"] / 100 * w_img), int(p["y"] / 100 * h_img)] for p in points_raw],
+                dtype=np.int32,
+            )
+        else:
+            x1 = int(ann.x / 100 * w_img)
+            y1 = int(ann.y / 100 * h_img)
+            x2 = int((ann.x + ann.w) / 100 * w_img)
+            y2 = int((ann.y + ann.h) / 100 * h_img)
+            pts = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.int32)
+
         mask = np.zeros((h_img, w_img), dtype=np.uint8)
         cv2.fillPoly(mask, [pts], 1)
 
@@ -319,7 +329,6 @@ def run_sam_training(cfg: TrainingConfig) -> None:
                             dest_name = f"tile_{img['id']}.png"
                             dest_img = subset_dir / dest_name
                             if src_tile.exists():
-                                import shutil
                                 shutil.copy2(str(src_tile), str(dest_img))
                                 img_path_map[img["id"]] = str(dest_img)
                             else:
