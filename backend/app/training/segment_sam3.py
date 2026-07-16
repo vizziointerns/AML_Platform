@@ -21,9 +21,6 @@ _SAM3_MODEL = None
 _SAM3_PROCESSOR = None
 _SAM3_LOCK = threading.Lock()
 
-HF_TOKEN: str | None = os.environ.get("HF_TOKEN")
-
-
 def _load_sam3_model():
     global _SAM3_MODEL, _SAM3_PROCESSOR
     if _SAM3_MODEL is not None and _SAM3_PROCESSOR is not None:
@@ -43,9 +40,10 @@ def _load_sam3_model():
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info("Loading SAM3 model on %s ...", device)
 
+        hf_token = os.environ.get("HF_TOKEN")
         kwargs = {}
-        if HF_TOKEN:
-            kwargs["token"] = HF_TOKEN
+        if hf_token:
+            kwargs["token"] = hf_token
 
         try:
             processor = Sam3Processor.from_pretrained("facebook/sam3", **kwargs)
