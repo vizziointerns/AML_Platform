@@ -168,12 +168,12 @@ def _infer_page_structure(
         if num_pages == 0:
             raise ValueError(f"No pages found in {cache_path}")
         p0 = tif.pages[0]
-        full_w = int(p0.imagewidth)  # type: ignore[union-attr]
-        full_h = int(p0.imagelength)  # type: ignore[union-attr]
+        full_w = int(p0.imagewidth)
+        full_h = int(p0.imagelength)
         if num_pages > 1:
             p1 = tif.pages[1]
-            p1_w = int(p1.imagewidth)  # type: ignore[union-attr]
-            p1_h = int(p1.imagelength)  # type: ignore[union-attr]
+            p1_w = int(p1.imagewidth)
+            p1_h = int(p1.imagelength)
             is_pyramid = p1_w < full_w or p1_h < full_h
         else:
             is_pyramid = False

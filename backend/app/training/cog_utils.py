@@ -142,8 +142,8 @@ def render_cog_to_rgb(
         target_page = 0
         for i in range(num_pages):
             p = tif.pages[i]
-            pw = int(p.imagewidth)  # type: ignore[union-attr]
-            ph = int(p.imagelength)  # type: ignore[union-attr]
+            pw = int(p.imagewidth)
+            ph = int(p.imagelength)
             if max(pw, ph) >= max_size:
                 target_page = i
         data = tif.pages[target_page].asarray()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -21,7 +22,7 @@ _SAM3_MODEL = None
 _SAM3_PROCESSOR = None
 _SAM3_LOCK = threading.Lock()
 
-def _load_sam3_model():
+def _load_sam3_model() -> tuple[Any, Any]:
     global _SAM3_MODEL, _SAM3_PROCESSOR
     if _SAM3_MODEL is not None and _SAM3_PROCESSOR is not None:
         return _SAM3_MODEL, _SAM3_PROCESSOR
@@ -40,13 +41,11 @@ def _load_sam3_model():
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info("Loading SAM3 model on %s ...", device)
 
-        kwargs = {}
-        if settings.hf_token:
-            kwargs["token"] = settings.hf_token
+        token = settings.hf_token or None
 
         try:
-            processor = Sam3Processor.from_pretrained("facebook/sam3", **kwargs)
-            model = Sam3Model.from_pretrained("facebook/sam3", **kwargs).to(device)
+            processor = Sam3Processor.from_pretrained("facebook/sam3", token=token)
+            model = Sam3Model.from_pretrained("facebook/sam3", token=token).to(device)  # type: ignore[arg-type]
             model.eval()
         except OSError as e:
             if "gated" in str(e):
@@ -78,12 +77,16 @@ def auto_segment(image: np.ndarray, class_name: str) -> list[PolygonOut]:
     with torch.no_grad():
         outputs = model(**inputs)
 
-    original_sizes = inputs.get("original_sizes", [[image.shape[0], image.shape[1]]])
+    original_sizes = inputs.get("original_sizes")
+    if original_sizes is not None:
+        target_sizes = original_sizes.tolist()
+    else:
+        target_sizes = [[image.shape[0], image.shape[1]]]
     results = processor.post_process_instance_segmentation(
         outputs,
         threshold=0.5,
         mask_threshold=0.5,
-        target_sizes=original_sizes.tolist(),
+        target_sizes=target_sizes,
     )[0]
 
     height, width = image.shape[:2]
