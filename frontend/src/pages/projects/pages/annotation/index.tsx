@@ -718,6 +718,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	const [selected_model_id, set_selected_model_id] = useState<number | undefined>(undefined)
 	const [is_running_inference, set_is_running_inference] = useState(false)
 	const [is_running_segmentation, set_is_running_segmentation] = useState(false)
+	const [sam3_prompt, set_sam3_prompt] = useState('')
 
 	useEffect(() => {
 		set_predictions([])
@@ -1206,7 +1207,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 					} else if (selected_model_id === -2) {
 						handle_sam_auto_segment(
 							api_image_url,
-							active_class,
+							sam3_prompt || active_class,
 							set_is_running_segmentation,
 							set_is_model_selector_open,
 							set_annotations,
@@ -1215,6 +1216,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 							() => api_image_url === image_url_ref.current,
 							'sam3'
 						)
+						set_sam3_prompt('')
 					} else {
 						handle_run_inference_cb(selected_model_id)
 					}
@@ -1225,7 +1227,9 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				text_heading,
 				bg_panel,
 				border_subtle,
-				bg_hover
+				bg_hover,
+				sam3_prompt,
+				set_sam3_prompt
 			)}
 
 			{is_add_cog_open && (

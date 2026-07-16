@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from pathlib import Path
 
@@ -9,6 +8,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+from app.core.config import settings
 from app.schemas.segment import Point2D, PolygonOut
 from app.training.segment import mask_to_polygons
 
@@ -40,10 +40,9 @@ def _load_sam3_model():
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info("Loading SAM3 model on %s ...", device)
 
-        hf_token = os.environ.get("HF_TOKEN")
         kwargs = {}
-        if hf_token:
-            kwargs["token"] = hf_token
+        if settings.hf_token:
+            kwargs["token"] = settings.hf_token
 
         try:
             processor = Sam3Processor.from_pretrained("facebook/sam3", **kwargs)

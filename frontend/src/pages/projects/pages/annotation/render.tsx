@@ -1091,7 +1091,9 @@ export function render_model_selection_dialog(
 	text_heading: string,
 	bg_panel: string,
 	border_subtle: string,
-	bg_hover: string
+	bg_hover: string,
+	sam3_prompt: string,
+	set_sam3_prompt: (v: string) => void
 ) {
 	if (!is_open) return undefined
 
@@ -1139,6 +1141,17 @@ export function render_model_selection_dialog(
 						<div className={`text-xs ${text_muted}`}>Promptable Concept Segmentation</div>
 					</div>
 				</label>
+
+				{selected_model_id === -2 && (
+					<input
+						type="text"
+						value={sam3_prompt}
+						onChange={(e) => set_sam3_prompt(e.target.value)}
+						placeholder="Text prompt — e.g. car, person wearing hat, ..."
+						className={`w-full mt-2 px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all ${border_subtle} ${bg_hover}`}
+						autoFocus
+					/>
+				)}
 
 				<label
 					className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
