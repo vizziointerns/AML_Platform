@@ -32,6 +32,7 @@ _ALLOWED_DOWNLOAD_HOSTS: set[str] = {
     "googleapis.com",
     "lh3.googleusercontent.com",
     "ssl.gstatic.com",
+    "supabase.co",
 }
 
 

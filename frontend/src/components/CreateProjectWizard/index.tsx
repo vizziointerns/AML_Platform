@@ -23,7 +23,7 @@ import { generate_tiff_preview, convert_tiff_to_png, tiff_data_url_to_file } fro
 import { use_auth } from '../../contexts/auth_context'
 import { use_project_store, type ProjectType } from '../../store/projectStore'
 import type { UploadFile } from '../Uploader/types'
-import { upload_to_drive_and_save, cancel_all_uploads } from '../../api/upload'
+import { upload_file, cancel_all_uploads } from '../../api/upload'
 import { use_google_auth } from '../../hooks/use_google_auth'
 import { ensure_project_drive_folder, get_user_folder_id } from '../../utils/google_drive'
 
@@ -306,7 +306,7 @@ export default function create_project_wizard({
 				prev.map((f) => (f.id === item.id ? { ...f, status: 'uploading' as const } : f))
 			)
 
-			await upload_to_drive_and_save(item, '', ds_id, pid, {
+			await upload_file(item, ds_id, {
 				on_progress: (progress) => {
 					set_upload_items((prev) => prev.map((f) => (f.id === item.id ? { ...f, progress } : f)))
 				},

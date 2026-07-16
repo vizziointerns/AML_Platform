@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type { UploadFile } from '../components/Uploader/types'
-import { upload_to_drive_and_save, cancel_all_uploads } from '../api/upload'
+import { upload_file, cancel_all_uploads } from '../api/upload'
+import { generate_tiff_preview } from '../utils/tiff'
 import { supabase } from '../utils/supabase'
 import { use_datasets } from './use_datasets'
 
@@ -51,6 +52,8 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 	const [new_dataset_name, set_new_dataset_name] = useState('')
 	const [new_dataset_description, set_new_dataset_description] = useState('')
 	const resolved_dataset_id_ref = useRef<string | undefined>(undefined)
+	const files_ref = useRef(files)
+	files_ref.current = files
 
 	useEffect(() => {
 		if (!target_dataset && datasets.length > 0) {
@@ -86,7 +89,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			const is_zip = f.name.endsWith('.zip')
 			const is_tiff = /\.tiff?$/i.test(f.name)
 			let preview_url
-			if (is_image) {
+			if (is_image && !is_tiff) {
 				preview_url = URL.createObjectURL(f)
 			}
 			return {
@@ -101,6 +104,16 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			}
 		})
 		set_files((prev) => [...prev, ...processed])
+
+		for (const item of processed) {
+			if (/\.tiff?$/i.test(item.name)) {
+				generate_tiff_preview(item.file).then((url) => {
+					if (url) {
+						set_files((prev) => prev.map((f) => (f.id === item.id ? { ...f, previewUrl: url } : f)))
+					}
+				})
+			}
+		}
 	}, [])
 
 	const handle_file_change = useCallback(
@@ -226,11 +239,11 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 		const uploads = pending_files.map((file) => {
 			const callbacks = make_callbacks(file)
 
-			return upload_to_drive_and_save(file, '', dataset_id, project_id, callbacks)
+			return upload_file(file, dataset_id, callbacks)
 		})
 
 		await Promise.allSettled(uploads)
-	}, [files, target_dataset, project_id, make_callbacks, resolve_dataset_id])
+	}, [files, target_dataset, make_callbacks, resolve_dataset_id])
 
 	const retry_upload = useCallback(
 		(id: string) => {
@@ -253,11 +266,11 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 						callbacks.on_error('No dataset selected. Select or create a dataset first.')
 						return
 					}
-					upload_to_drive_and_save(file_to_upload!, '', ds_id, project_id, callbacks)
+					upload_file(file_to_upload!, ds_id, callbacks)
 				})
 			}
 		},
-		[project_id, make_callbacks, resolve_dataset_id]
+		[make_callbacks, resolve_dataset_id]
 	)
 
 	const remove_file = useCallback((id: string) => {
@@ -270,6 +283,9 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 
 	const clear_all = useCallback(() => {
 		cancel_all_uploads(files.map((f) => f.id))
+		for (const f of files) {
+			if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
+		}
 		set_files([])
 	}, [files])
 
@@ -291,13 +307,12 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 	}, [files, on_close])
 
 	useEffect(() => {
-		const current_files = [...files]
 		return () => {
-			for (const f of current_files) {
+			for (const f of files_ref.current) {
 				if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
 			}
 		}
-	}, [files])
+	}, [])
 
 	return {
 		files,
