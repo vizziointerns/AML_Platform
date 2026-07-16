@@ -175,11 +175,39 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 - Training cancellation support
 - Model weights saved locally (`backend/models/<run_id>/best.pt`)
 
-### AI Segmentation (SAM 2.1)
-- Interactive segmentation with point/box prompts via SAM 2.1
-- Automatic segmentation (full-image mask generation)
+### AI Segmentation (SAM 2.1 / SAM 3)
+
+- **SAM 2.1** — Interactive segmentation with point/box prompts; automatic full-image mask generation
+- **SAM 3** — Text-prompted automatic segmentation (e.g. "car", "building", "tree")
 - Thread-safe single-model inference
 - Mask data stored as COCO RLE in the backend database
+
+#### SAM 3 Prerequisites
+
+1. **Hugging Face token** — SAM 3 is a gated model. Accept the license at
+   [facebook/sam3](https://huggingface.co/facebook/sam3), then authenticate using one of:
+
+   ```powershell
+   # Method 1 — CLI login (persistent, recommended)
+   huggingface-cli login
+   ```
+
+   ```env
+   # Method 2 — Environment variable (backend/.env)
+   HF_TOKEN=hf_your_token_here
+   ```
+
+2. **Model download** (~4.5 GB) — Automatically downloaded to Hugging Face cache on first use
+   (`~/.cache/huggingface/hub/models--facebook--sam3/`). One-time download, cached forever.
+
+#### How to Use
+
+1. Open an image in the **Annotation Studio**
+2. Select the **Auto-Detect** tool
+3. Choose **SAM 3** from the model selector
+4. (Optional) Enter a text prompt — describes what to detect (e.g. "car", "person")
+   — Leave blank to fall back to the currently selected class name
+5. Click **Run Detection** — masks are generated and added as polygon annotations
 
 ### YOLO Export
 - Export annotations + images as a YOLO-format ZIP
