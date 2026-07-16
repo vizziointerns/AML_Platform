@@ -20,12 +20,12 @@ def load_sam_model(
         if not os.path.exists(checkpoint_path):
             os.makedirs(models_dir, exist_ok=True)
             print(f"Downloading SAM ViT-B checkpoint to {checkpoint_path}...")
-            cached_path = hf_hub_download(
+            hf_hub_download(
                 repo_id="ybelkada/segment-anything",
                 filename=f"checkpoints/{checkpoint_name}",
+                local_dir=models_dir,
+                local_dir_use_symlinks=False,
             )
-            import shutil
-            shutil.copy2(cached_path, checkpoint_path)
             print("Download complete.")
 
     sam = sam_model_registry["vit_b"](checkpoint=checkpoint_path)

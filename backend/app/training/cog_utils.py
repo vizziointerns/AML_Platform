@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -120,7 +121,7 @@ def _resolve_cache_url(file_url: str) -> Path:
 def download_cog(file_url: str, dest: Path) -> None:
     if file_url.startswith("cache://"):
         cached = _resolve_cache_url(file_url)
-        dest.write_bytes(cached.read_bytes())
+        shutil.copy2(cached, dest)
         return
     file_id = extract_drive_id(file_url)
     if file_id:
@@ -281,7 +282,6 @@ def _build_tile_mask(
     tw, th = tile.w, tile.h
     img_w, img_h = tile.img_width, tile.img_height
     mask = np.zeros((th, tw), dtype=np.uint8)
-    any_annotation = False
     for ann in annotations:
         if ann.type == "polygon":
             points_raw = json.loads(ann.points) if ann.points else []
@@ -305,9 +305,7 @@ def _build_tile_mask(
         if pts.size == 0:
             continue
         cv2.fillPoly(mask, [pts], 1)
-        if mask.any():
-            any_annotation = True
-    return mask if any_annotation else None
+    return mask if mask.any() else None
 
 
 def remap_polygon_to_tile_mask(
