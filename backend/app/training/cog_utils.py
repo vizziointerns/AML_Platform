@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -94,7 +96,33 @@ def _assert_cog_url(url: str) -> None:
         raise ValueError(f"URL host not in allowed list: {host}")
 
 
+CACHE_DIR = Path(__file__).parent.parent.parent / "cache" / "cog"
+
+
+def _resolve_cache_url(file_url: str) -> Path:
+    if not file_url.startswith("cache://"):
+        raise ValueError(f"Not a cache URL: {file_url}")
+    hash_part = file_url.removeprefix("cache://")
+    if hash_part.endswith(".tif"):
+        hash_part = hash_part[:-4]
+    elif hash_part.endswith(".bin"):
+        hash_part = hash_part[:-4]
+    if not re.fullmatch(r"[0-9a-f]{16}", hash_part):
+        raise ValueError(f"Invalid cache ID: {hash_part}")
+    cached = CACHE_DIR / f"{hash_part}.tif"
+    if cached.exists():
+        return cached
+    cached = CACHE_DIR / f"{hash_part}.bin"
+    if cached.exists():
+        return cached
+    raise FileNotFoundError(f"Cached file not found: {file_url}")
+
+
 def download_cog(file_url: str, dest: Path) -> None:
+    if file_url.startswith("cache://"):
+        cached = _resolve_cache_url(file_url)
+        shutil.copy2(cached, dest)
+        return
     file_id = extract_drive_id(file_url)
     if file_id:
         _download_cog_drive(file_id, dest)
@@ -248,31 +276,36 @@ def _build_tile_mask(
     annotations: list[Any],
     tile: TileInfo,
 ) -> np.ndarray | None:
-    """Shared polygon rasterisation: returns a ``(th, tw)`` uint8 mask or ``None``."""
+    """Shared annotation rasterisation: returns a ``(th, tw)`` uint8 mask or ``None``."""
     import cv2
     tx, ty = tile.x, tile.y
     tw, th = tile.w, tile.h
     img_w, img_h = tile.img_width, tile.img_height
     mask = np.zeros((th, tw), dtype=np.uint8)
-    any_polygon = False
     for ann in annotations:
-        if ann.type != "polygon":
+        if ann.type == "polygon":
+            points_raw = json.loads(ann.points) if ann.points else []
+            if not points_raw:
+                continue
+            pts = np.array(
+                [
+                    [int(p["x"] / 100.0 * img_w - tx), int(p["y"] / 100.0 * img_h - ty)]
+                    for p in points_raw
+                ],
+                dtype=np.int32,
+            )
+        elif ann.type == "bbox":
+            x1 = int(ann.x / 100.0 * img_w - tx)
+            y1 = int(ann.y / 100.0 * img_h - ty)
+            x2 = int((ann.x + ann.w) / 100.0 * img_w - tx)
+            y2 = int((ann.y + ann.h) / 100.0 * img_h - ty)
+            pts = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.int32)
+        else:
             continue
-        points_raw = json.loads(ann.points) if ann.points else []
-        if not points_raw:
-            continue
-        pts = np.array(
-            [
-                [int(p["x"] / 100.0 * img_w - tx), int(p["y"] / 100.0 * img_h - ty)]
-                for p in points_raw
-            ],
-            dtype=np.int32,
-        )
         if pts.size == 0:
             continue
         cv2.fillPoly(mask, [pts], 1)
-        any_polygon = True
-    return mask if any_polygon else None
+    return mask if mask.any() else None
 
 
 def remap_polygon_to_tile_mask(
