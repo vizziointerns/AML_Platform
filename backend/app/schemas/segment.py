@@ -16,6 +16,7 @@ class SegmentRequest(BaseModel):
     prompt_data: list[float] | None = None
     class_name: str | None = None
     auto_mode: bool = False
+    model_version: str = "sam2.1"
 
 
 class SegmentResponse(BaseModel):

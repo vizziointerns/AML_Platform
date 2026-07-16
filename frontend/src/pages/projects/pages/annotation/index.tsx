@@ -265,11 +265,12 @@ function handle_sam_auto_segment(
 	set_annotations: (fn: (prev: Annotation[]) => Annotation[]) => void,
 	set_selected_ann_id: (id: string | undefined) => void,
 	set_active_tool: (mode: Mode) => void,
-	is_current_image: () => boolean
+	is_current_image: () => boolean,
+	model_version: string = 'sam2.1'
 ) {
 	set_is_running_segmentation(true)
 	set_is_model_selector_open(false)
-	run_auto_segmentation(image_url, active_class)
+	run_auto_segmentation(image_url, active_class, model_version)
 		.then((polygons) => {
 			if (!is_current_image()) return
 			const new_annotations: Annotation[] = polygons.map((poly) => {
@@ -1199,7 +1200,20 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 							set_annotations,
 							set_selected_ann_id,
 							set_active_tool,
-							() => api_image_url === image_url_ref.current
+							() => api_image_url === image_url_ref.current,
+							'sam2.1'
+						)
+					} else if (selected_model_id === -2) {
+						handle_sam_auto_segment(
+							api_image_url,
+							active_class,
+							set_is_running_segmentation,
+							set_is_model_selector_open,
+							set_annotations,
+							set_selected_ann_id,
+							set_active_tool,
+							() => api_image_url === image_url_ref.current,
+							'sam3'
 						)
 					} else {
 						handle_run_inference_cb(selected_model_id)

@@ -45,7 +45,7 @@ def _load_model() -> SAM2ImagePredictor:
         return predictor
 
 
-def _mask_to_polygons(
+def mask_to_polygons(
     mask: np.ndarray, min_area: int = 50
 ) -> list[list[tuple[float, float]]]:
     contours, _ = cv2.findContours(
@@ -108,7 +108,7 @@ def run_segmentation(
     polygons: list[PolygonOut] = []
 
     for mask_idx in range(masks.shape[0]):
-        raw_polys = _mask_to_polygons(masks[mask_idx])
+        raw_polys = mask_to_polygons(masks[mask_idx])
         for poly in raw_polys:
             normalized = [
                 Point2D(x=round(p[0] / width * 100, 2), y=round(p[1] / height * 100, 2))
@@ -137,7 +137,7 @@ def auto_segment(image: np.ndarray) -> list[PolygonOut]:
 
     for mask_data in masks:
         mask = mask_data["segmentation"]
-        raw_polys = _mask_to_polygons(mask)
+        raw_polys = mask_to_polygons(mask)
         for poly in raw_polys:
             normalized = [
                 Point2D(x=round(p[0] / width * 100, 2), y=round(p[1] / height * 100, 2))

@@ -37,14 +37,16 @@ export async function run_segmentation(
 
 export async function run_auto_segmentation(
 	image_url: string,
-	class_name?: string
+	class_name?: string,
+	model_version: string = 'sam2.1'
 ): Promise<PolygonResult[]> {
 	const { data } = await api_client.post<SegmentResponse>(
 		'/segment',
 		{
 			image_url,
 			auto_mode: true,
-			class_name
+			class_name,
+			model_version
 		},
 		{
 			timeout: 180_000
