@@ -21,6 +21,8 @@ from app.utils.google_drive_auth import async_get_drive_access_token
 # Simple in-memory upload status tracking
 _upload_status: dict[str, str] = {}  # cache_url -> 'pending' | 'completed' | 'failed'
 _UPLOAD_STATUS_LOCK = threading.Lock()
+_upload_results: dict[str, dict[str, str]] = {}  # cache_url -> {drive_file_id, file_url}
+_UPLOAD_RESULTS_LOCK = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +162,7 @@ async def upload_to_drive(
     project_name: str = Query(""),
     dataset_name: str = Query(""),
     user_id: str = Query(""),
+    dataset_id: str = Query(""),
 ) -> dict[str, Any]:
     """Upload a file to Drive. Streams to local cache first, returns
     immediately with a cache:// URL. Drive upload runs in background.
@@ -256,6 +259,7 @@ async def upload_to_drive(
                     )
                     bg_put_resp.raise_for_status()
                     bg_drive_file_id = cast(str, bg_put_resp.json()["id"])
+                    bg_file_url = f"https://drive.google.com/uc?id={bg_drive_file_id}"
                     logger.info(
                         "Background Drive upload complete: file_id=%s, name=%s",
                         bg_drive_file_id,
@@ -263,6 +267,11 @@ async def upload_to_drive(
                     )
                     with _UPLOAD_STATUS_LOCK:
                         _upload_status[bg_cache_url] = "completed"
+                    with _UPLOAD_RESULTS_LOCK:
+                        _upload_results[bg_cache_url] = {
+                            "drive_file_id": bg_drive_file_id,
+                            "file_url": bg_file_url,
+                        }
             except Exception:
                 logger.exception("Background Drive upload failed for %s", file_name)
                 with _UPLOAD_STATUS_LOCK:
@@ -294,6 +303,19 @@ async def upload_to_drive(
         except Exception:
             logger.exception("Failed to parse Drive error response body")
         raise HTTPException(status_code=e.response.status_code, detail=detail) from e
+
+
+@router.get("/upload/drive/status")
+async def check_upload_status(cache_url: str = Query(...)) -> dict[str, Any]:
+    """Poll the status of a background Drive upload."""
+    status = _upload_status.get(cache_url, "unknown")
+    with _UPLOAD_RESULTS_LOCK:
+        result = _upload_results.get(cache_url, {})
+    return {
+        "status": status,
+        "drive_file_id": result.get("drive_file_id", ""),
+        "file_url": result.get("file_url", ""),
+    }
 
 
 @router.post("/upload/drive/create-dataset-folder")

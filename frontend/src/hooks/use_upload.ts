@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { UploadFile } from '../components/Uploader/types'
-import { upload_file, cancel_all_uploads } from '../api/upload'
+import { upload_to_drive_and_save, cancel_all_uploads } from '../api/upload'
 import { generate_tiff_preview } from '../utils/tiff'
 import { supabase } from '../utils/supabase'
 import { use_datasets } from './use_datasets'
@@ -47,6 +48,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 		return match ? match[1] : undefined
 	})()
 
+	const navigate = useNavigate()
 	const { datasets } = use_datasets(project_id)
 	const [target_dataset, set_target_dataset] = useState(initial_dataset_id ?? '')
 	const [new_dataset_name, set_new_dataset_name] = useState('')
@@ -232,18 +234,13 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			return
 		}
 
-		set_files((prev) =>
-			prev.map((f) => (f.status === 'pending' ? { ...f, status: 'uploading' } : f))
-		)
+		for (const file of pending_files) {
+			set_files((prev) => prev.map((f) => (f.id === file.id ? { ...f, status: 'uploading' } : f)))
 
-		const uploads = pending_files.map((file) => {
 			const callbacks = make_callbacks(file)
-
-			return upload_file(file, dataset_id, callbacks)
-		})
-
-		await Promise.allSettled(uploads)
-	}, [files, target_dataset, make_callbacks, resolve_dataset_id])
+			await upload_to_drive_and_save(file, '', dataset_id, project_id, callbacks)
+		}
+	}, [files, target_dataset, project_id, make_callbacks, resolve_dataset_id])
 
 	const retry_upload = useCallback(
 		(id: string) => {
@@ -266,11 +263,11 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 						callbacks.on_error('No dataset selected. Select or create a dataset first.')
 						return
 					}
-					upload_file(file_to_upload!, ds_id, callbacks)
+					upload_to_drive_and_save(file_to_upload!, '', ds_id, project_id, callbacks)
 				})
 			}
 		},
-		[make_callbacks, resolve_dataset_id]
+		[project_id, make_callbacks, resolve_dataset_id]
 	)
 
 	const remove_file = useCallback((id: string) => {
@@ -292,6 +289,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 	const close_and_clear = useCallback(() => {
 		const completed = files.filter((f) => f.status === 'success').length
 		const total = files.length
+		const ds_id = resolved_dataset_id_ref.current
 		cancel_all_uploads(files.map((f) => f.id))
 		for (const f of files) {
 			if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
@@ -304,7 +302,10 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			window.dispatchEvent(new CustomEvent('upload-complete', { detail: { completed, total } }))
 		}
 		on_close()
-	}, [files, on_close])
+		if (ds_id && project_id) {
+			navigate(`/projects/${project_id}/datasets/${ds_id}`)
+		}
+	}, [files, on_close, project_id, navigate])
 
 	useEffect(() => {
 		return () => {
