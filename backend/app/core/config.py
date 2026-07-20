@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     google_oauth_client_id: str = ""
     google_oauth_client_secret: str = ""
     google_drive_refresh_token: str = ""
+    hf_token: str = ""
 
     def cors_origin_list(self) -> list[str]:
         raw = self.cors_origins.strip()

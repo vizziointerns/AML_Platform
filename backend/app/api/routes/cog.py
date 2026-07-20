@@ -32,6 +32,7 @@ _ALLOWED_DOWNLOAD_HOSTS: set[str] = {
     "googleapis.com",
     "lh3.googleusercontent.com",
     "ssl.gstatic.com",
+    "supabase.co",
 }
 
 
@@ -167,12 +168,16 @@ def _infer_page_structure(
         if num_pages == 0:
             raise ValueError(f"No pages found in {cache_path}")
         p0 = tif.pages[0]
-        full_w = int(p0.imagewidth)  # type: ignore[union-attr]
-        full_h = int(p0.imagelength)  # type: ignore[union-attr]
+        kf0 = p0.keyframe
+        assert kf0 is not None
+        full_w = int(kf0.imagewidth)
+        full_h = int(kf0.imagelength)
         if num_pages > 1:
             p1 = tif.pages[1]
-            p1_w = int(p1.imagewidth)  # type: ignore[union-attr]
-            p1_h = int(p1.imagelength)  # type: ignore[union-attr]
+            kf1 = p1.keyframe
+            assert kf1 is not None
+            p1_w = int(kf1.imagewidth)
+            p1_h = int(kf1.imagelength)
             is_pyramid = p1_w < full_w or p1_h < full_h
         else:
             is_pyramid = False

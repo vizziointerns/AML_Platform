@@ -157,6 +157,63 @@ async function fetch_upload_names(
 	return { project_name, dataset_name, resolved_project_id }
 }
 
+async function update_image_url(
+	dataset_id: string,
+	file_name: string,
+	file_url: string
+): Promise<void> {
+	const { error } = await supabase
+		.from('dataset_images')
+		.update({ file_url })
+		.eq('dataset_id', dataset_id)
+		.eq('file_name', file_name)
+	if (error) {
+		throw new Error(`Failed to update image URL: ${error.message}`)
+	}
+}
+
+async function poll_drive_upload(
+	cache_url: string,
+	dataset_id: string,
+	file_name: string,
+	signal: AbortSignal
+): Promise<void> {
+	const api_base = get_api_base()
+	const max_attempts = 300 // 10 minutes at 2s intervals
+	const poll_interval = 2000
+
+	for (let attempt = 0; attempt < max_attempts; attempt++) {
+		if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+
+		await new Promise((resolve) => setTimeout(resolve, poll_interval))
+		if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+
+		let response: Response
+		try {
+			response = await fetch(
+				`${api_base}/upload/drive/status?cache_url=${encodeURIComponent(cache_url)}`,
+				{ signal }
+			)
+		} catch {
+			continue
+		}
+
+		if (!response.ok) continue
+
+		const data = await response.json()
+		if (data.status === 'completed' && data.file_url) {
+			await update_image_url(dataset_id, file_name, data.file_url)
+			return
+		}
+
+		if (data.status === 'failed') {
+			throw new Error('Drive upload failed on the server')
+		}
+	}
+
+	throw new Error('Drive upload timed out')
+}
+
 export async function upload_to_drive_and_save(
 	file: UploadFile,
 	_access_token: string,
@@ -171,8 +228,6 @@ export async function upload_to_drive_and_save(
 		const { project_name, dataset_name } = await fetch_upload_names(dataset_id, _project_id)
 		const api_base = get_api_base()
 
-		// Send file as raw body — metadata in query params.
-		// Backend streams chunks to Drive as they arrive (concurrent upload).
 		const {
 			data: { user }
 		} = await supabase.auth.getUser()
@@ -181,53 +236,55 @@ export async function upload_to_drive_and_save(
 		if (project_name) params.set('project_name', project_name)
 		if (dataset_name) params.set('dataset_name', dataset_name)
 		if (user_id) params.set('user_id', user_id)
+		if (dataset_id) params.set('dataset_id', dataset_id)
 
 		const xhr = new XMLHttpRequest()
 		controller.signal.addEventListener('abort', () => xhr.abort())
 
-		const result = await new Promise<{ drive_file_id: string; file_url: string }>(
-			(resolve, reject) => {
-				xhr.upload.addEventListener('progress', (e) => {
-					if (e.lengthComputable) {
-						const pct = Math.round((e.loaded / e.total) * 100)
-						callbacks.on_progress(pct, e.loaded, e.total)
+		const cache_url = await new Promise<string>((resolve, reject) => {
+			xhr.upload.addEventListener('progress', (e) => {
+				if (e.lengthComputable) {
+					const pct = Math.round((e.loaded / e.total) * 100)
+					callbacks.on_progress(pct, e.loaded, e.total)
+				}
+			})
+			xhr.addEventListener('load', function () {
+				if (this.status === 200 || this.status === 201) {
+					try {
+						const response = JSON.parse(this.responseText)
+						resolve(response.file_url ?? '')
+					} catch {
+						reject(new Error('Invalid response from server'))
 					}
-				})
-				xhr.addEventListener('load', function () {
-					if (this.status === 200 || this.status === 201) {
-						try {
-							const response = JSON.parse(this.responseText)
-							resolve({
-								drive_file_id: response.drive_file_id ?? '',
-								file_url: response.file_url ?? ''
-							})
-						} catch {
-							reject(new Error('Invalid response from server'))
-						}
-					} else {
-						let message = `Upload failed (${this.status})`
-						try {
-							const err = JSON.parse(this.responseText)
-							message = err.detail ?? message
-						} catch {
-							/* ignore */
-						}
-						reject(new Error(message))
+				} else {
+					let message = `Upload failed (${this.status})`
+					try {
+						const err = JSON.parse(this.responseText)
+						message = err.detail ?? message
+					} catch {
+						/* ignore */
 					}
-				})
-				xhr.addEventListener('error', () => reject(new Error('Network error during upload')))
-				xhr.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
-				xhr.open('POST', `${api_base}/upload/drive?${params}`)
-				xhr.setRequestHeader('Content-Type', file.file.type || 'application/octet-stream')
-				xhr.send(file.file)
-			}
-		)
+					reject(new Error(message))
+				}
+			})
+			xhr.addEventListener('error', () => reject(new Error('Network error during upload')))
+			xhr.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+			xhr.open('POST', `${api_base}/upload/drive?${params}`)
+			xhr.setRequestHeader('Content-Type', file.file.type || 'application/octet-stream')
+			xhr.send(file.file)
+		})
 
 		if (dataset_id) {
-			await save_image_metadata(dataset_id, file.name, result.file_url, file.size)
+			await save_image_metadata(dataset_id, file.name, cache_url, file.size)
 		}
 
 		callbacks.on_complete()
+
+		if (dataset_id) {
+			poll_drive_upload(cache_url, dataset_id, file.name, new AbortController().signal).catch(
+				() => {}
+			)
+		}
 	} catch (err) {
 		if (err instanceof DOMException && err.name === 'AbortError') return
 		const message = err instanceof Error ? err.message : 'Upload failed unexpectedly'
