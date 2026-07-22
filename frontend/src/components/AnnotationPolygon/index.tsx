@@ -98,10 +98,10 @@ function render_polygon_vertices(
 				key={`pt-${i}`}
 				x={pt.x}
 				y={pt.y}
-				radius={hovered_point === i ? 6 / zoom_level : 4 / zoom_level}
+				radius={hovered_point === i ? Math.min(6 / zoom_level, 12) : Math.min(4 / zoom_level, 8)}
 				fill="white"
 				stroke={color}
-				strokeWidth={1.5 / zoom_level}
+				strokeWidth={Math.min(1.5 / zoom_level, 3)}
 				draggable
 				onDragStart={(e) => {
 					e.cancelBubble = true
@@ -129,11 +129,11 @@ function render_polygon_line(
 ) {
 	const fill = compute_polygon_fill(is_selected, is_hovered, is_locked, color, locked_by_color)
 	const stroke = is_locked ? locked_by_color || color : color
-	const stroke_width = is_selected ? 3 / zoom_level : 2 / zoom_level
+	const stroke_width = is_selected ? Math.min(3 / zoom_level, 5) : Math.min(2 / zoom_level, 4)
 	const dash = is_prediction
-		? [10 / zoom_level, 10 / zoom_level]
+		? [Math.min(10 / zoom_level, 16), Math.min(10 / zoom_level, 16)]
 		: is_locked
-			? [5 / zoom_level, 5 / zoom_level]
+			? [Math.min(5 / zoom_level, 8), Math.min(5 / zoom_level, 8)]
 			: undefined
 	return (
 		<Line
@@ -144,7 +144,7 @@ function render_polygon_line(
 			dash={dash}
 			closed={true}
 			tension={0}
-			hitStrokeWidth={10 / zoom_level}
+			hitStrokeWidth={Math.min(10 / zoom_level, 20)}
 		/>
 	)
 }
@@ -166,8 +166,8 @@ function render_label_group(
 	const width_val =
 		((label.length + (confidence ? 5 : 0) + (is_locked ? 3 : 0)) * 6.5 +
 			(is_prediction ? 14 : 10)) /
-		zoom_level
-	const height_val = 16 / zoom_level
+		Math.max(zoom_level, 0.3)
+	const height_val = Math.min(16 / zoom_level, 32)
 
 	return (
 		<Group x={min_x} y={min_y - height_val}>
@@ -209,11 +209,11 @@ function render_polygon_midpoints(
 			key={`mid-${i}`}
 			x={pt.x}
 			y={pt.y}
-			radius={hovered_midpoint === i ? 5 / zoom_level : 4 / zoom_level}
+			radius={hovered_midpoint === i ? Math.min(5 / zoom_level, 10) : Math.min(4 / zoom_level, 8)}
 			fill="white"
 			opacity={hovered_midpoint === i ? 1 : 0.6}
 			stroke={color}
-			strokeWidth={1.5 / zoom_level}
+			strokeWidth={Math.min(1.5 / zoom_level, 3)}
 			onClick={(e) => {
 				e.cancelBubble = true
 				const new_pts = [...(ann.points ?? [])]
