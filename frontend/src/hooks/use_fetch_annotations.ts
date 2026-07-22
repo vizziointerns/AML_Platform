@@ -20,9 +20,7 @@ export function use_fetch_annotations(
 				if (loaded.length > 0) {
 					set_history([loaded])
 					set_history_step(0)
-					if (loaded[0]) {
-						set_selected_ann_id(loaded[0].id)
-					}
+					set_selected_ann_id(undefined)
 				} else {
 					set_history([[]])
 					set_history_step(0)

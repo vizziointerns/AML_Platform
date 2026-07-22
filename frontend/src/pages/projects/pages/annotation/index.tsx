@@ -9,7 +9,8 @@ import {
 	Eraser,
 	WandSparkles,
 	Loader2,
-	ImageIcon
+	ImageIcon,
+	Layers
 } from 'lucide-react'
 import AnnotationCanvas from '../../../../components/AnnotationCanvas'
 import type { Annotation, Prediction, Mode, ClassInfo } from './types'
@@ -38,7 +39,6 @@ import {
 	render_image_properties_panel,
 	render_layers_panel,
 	render_satellite_layers_panel,
-	render_bg_raster_controls,
 	render_top_toolbar,
 	render_left_panel,
 	render_model_selection_dialog,
@@ -58,7 +58,7 @@ import type { TiledBackgroundConfig } from '../../../../components/AnnotationCan
 import { get_cog_thumbnail_url } from '../../../../utils/cog'
 import { use_annotation_history } from '../../../../hooks/use_annotation_history'
 import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
-import type { PaletteName } from '../../../../utils/colormaps'
+import { PALETTE_NAMES, type PaletteName } from '../../../../utils/colormaps'
 
 async function save_image_class_labels(imageId: string, class_ids: string[]) {
 	const { error } = await supabase.rpc('update_image_class_labels', {
@@ -188,6 +188,86 @@ function render_processing_overlay(
 				<Loader2 size={20} className="animate-spin" />
 				<span className={`text-sm font-medium ${text_heading}`}>Processing...</span>
 			</div>
+		</div>
+	)
+}
+
+function render_palette_dropdown(
+	is_cog_project: boolean,
+	is_open: boolean,
+	set_is_open: (v: boolean) => void,
+	bg_palette: string,
+	set_bg_palette: (v: string) => void,
+	bg_band: number,
+	set_bg_band: (v: number) => void,
+	band_count: number | undefined,
+	bg_panel: string,
+	border_subtle: string,
+	text_muted: string,
+	bg_hover: string,
+	ref_obj: React.RefObject<HTMLDivElement | null>
+) {
+	if (!is_cog_project) return undefined
+	const band_options = band_count ? Array.from({ length: band_count }, (_, i) => i) : []
+
+	return (
+		<div ref={ref_obj} className="absolute top-2 right-2 z-50">
+			<button
+				onClick={() => set_is_open(!is_open)}
+				className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors border ${
+					is_open
+						? 'bg-blue-500/20 border-blue-500 text-blue-400'
+						: `${bg_panel} ${border_subtle} ${text_muted} hover:border-zinc-500`
+				}`}
+				title="Band & Palette"
+			>
+				<Layers size={16} />
+			</button>
+			{is_open && (
+				<div
+					className={`absolute right-0 top-10 mt-1 py-2 rounded-lg border shadow-lg ${bg_panel} ${border_subtle} min-w-36 max-h-80 overflow-y-auto`}
+				>
+					<div
+						className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider ${text_muted}`}
+					>
+						Band
+					</div>
+					{band_options.map((b) => (
+						<button
+							key={b}
+							onClick={() => {
+								set_bg_band(b)
+								set_is_open(false)
+							}}
+							className={`w-full text-left px-3 py-1 text-[11px] transition-colors ${
+								b === bg_band ? 'bg-blue-500/20 text-blue-400' : `${text_muted} ${bg_hover}`
+							}`}
+						>
+							Band {b}
+						</button>
+					))}
+					<div className={`mx-3 my-1.5 border-t ${border_subtle}`} />
+					<div
+						className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider ${text_muted}`}
+					>
+						Palette
+					</div>
+					{PALETTE_NAMES.map((name) => (
+						<button
+							key={name}
+							onClick={() => {
+								set_bg_palette(name)
+								set_is_open(false)
+							}}
+							className={`w-full text-left px-3 py-1 text-[11px] transition-colors ${
+								name === bg_palette ? 'bg-blue-500/20 text-blue-400' : `${text_muted} ${bg_hover}`
+							}`}
+						>
+							{name.charAt(0).toUpperCase() + name.slice(1)}
+						</button>
+					))}
+				</div>
+			)}
 		</div>
 	)
 }
@@ -613,7 +693,6 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 
 	const [bg_palette, set_bg_palette] = useState('grayscale')
 	const [bg_band, set_bg_band] = useState(0)
-	const [bg_opacity, set_bg_opacity] = useState(100)
 
 	const image_url = current_image?.file_url
 	const image_name = current_image?.file_name
@@ -690,6 +769,20 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		handle_update_cog_layer,
 		handle_remove_cog_layer
 	} = use_cog_layers()
+
+	const [is_palette_open, set_is_palette_open] = useState(false)
+	const palette_ref = useRef<HTMLDivElement | null>(undefined as unknown as HTMLDivElement | null)
+
+	useEffect(() => {
+		if (!is_palette_open) return
+		const handle_click = (e: MouseEvent) => {
+			if (palette_ref.current && !palette_ref.current.contains(e.target as Node)) {
+				set_is_palette_open(false)
+			}
+		}
+		document.addEventListener('mousedown', handle_click)
+		return () => document.removeEventListener('mousedown', handle_click)
+	}, [is_palette_open])
 
 	const local_classes = useRef(load_classes())
 	const [classes, set_classes] = useState<ClassInfo[]>(local_classes.current)
@@ -1055,6 +1148,21 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 						text_heading
 					)}
 					{canvas}
+					{render_palette_dropdown(
+						is_cog_project,
+						is_palette_open,
+						set_is_palette_open,
+						bg_palette,
+						set_bg_palette,
+						bg_band,
+						set_bg_band,
+						cog_image_info?.band_count,
+						bg_panel,
+						border_subtle,
+						text_muted,
+						bg_hover,
+						palette_ref
+					)}
 				</div>
 
 				<div
@@ -1104,20 +1212,6 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 						isDarkMode,
 						text_muted,
 						text_heading,
-						border_subtle
-					)}
-
-					{render_bg_raster_controls(
-						bg_palette,
-						set_bg_palette,
-						bg_band,
-						set_bg_band,
-						bg_opacity,
-						set_bg_opacity,
-						is_cog_project,
-						isDarkMode,
-						text_heading,
-						text_muted,
 						border_subtle
 					)}
 

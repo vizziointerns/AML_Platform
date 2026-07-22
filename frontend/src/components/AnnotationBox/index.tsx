@@ -182,11 +182,11 @@ export default function annotation_box({
 			: is_locked
 				? `${lockedByColor}22`
 				: `${color}11`
-	const stroke_width_val = isSelected ? 3 / zoomLevel : 2 / zoomLevel
+	const stroke_width_val = isSelected ? Math.min(3 / zoomLevel, 5) : Math.min(2 / zoomLevel, 4)
 	const dash_val = isPrediction
-		? [10 / zoomLevel, 10 / zoomLevel]
+		? [Math.min(10 / zoomLevel, 16), Math.min(10 / zoomLevel, 16)]
 		: is_locked
-			? [5 / zoomLevel, 5 / zoomLevel]
+			? [Math.min(5 / zoomLevel, 8), Math.min(5 / zoomLevel, 8)]
 			: undefined
 
 	return (
@@ -248,12 +248,12 @@ export default function annotation_box({
 				}}
 				rotateEnabled={false}
 				ignoreStroke
-				anchorSize={10 / zoomLevel}
+				anchorSize={Math.min(10 / zoomLevel, 24)}
 				borderStroke={color}
 				anchorStroke={color}
 				anchorFill="white"
-				borderStrokeWidth={2 / zoomLevel}
-				anchorStrokeWidth={2 / zoomLevel}
+				borderStrokeWidth={Math.min(2 / zoomLevel, 4)}
+				anchorStrokeWidth={Math.min(2 / zoomLevel, 4)}
 				enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
 				overdrawWholeArea
 			/>

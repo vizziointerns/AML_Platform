@@ -501,55 +501,6 @@ export function render_satellite_layer_item(
 	)
 }
 
-export function render_bg_raster_controls(
-	palette: string,
-	on_palette_change: (v: string) => void,
-	band: number,
-	on_band_change: (v: number) => void,
-	opacity: number,
-	on_opacity_change: (v: number) => void,
-	is_cog_project: boolean,
-	isDarkMode: boolean,
-	text_heading: string,
-	text_muted: string,
-	border_subtle: string
-) {
-	if (!is_cog_project) return undefined
-
-	const select_cls = `bg-transparent border rounded px-1 py-0.5 text-[10px] ${isDarkMode ? 'border-zinc-700 text-zinc-100' : 'border-zinc-300 text-zinc-900'}`
-	const input_cls = `bg-transparent border rounded px-1 py-0.5 text-[10px] w-14 ${isDarkMode ? 'border-zinc-700 text-zinc-100' : 'border-zinc-300 text-zinc-900'}`
-
-	return (
-		<div className={`p-3 border-b ${border_subtle} space-y-2`}>
-			<h3 className={`text-sm font-semibold tracking-tight ${text_heading}`}>Raster Controls</h3>
-			<div className="flex items-center gap-2">
-				<span className={`text-[10px] ${text_muted} w-8`}>Opacity</span>
-				<input
-					type="range"
-					min="0"
-					max="100"
-					value={opacity}
-					onChange={(e) => on_opacity_change(parseInt(e.target.value))}
-					className="flex-1 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-				/>
-				<span className={`text-[10px] ${text_muted} w-6 text-right`}>{opacity}%</span>
-			</div>
-			<div className="flex items-center gap-2">
-				<span className={`text-[10px] ${text_muted} w-8`}>Band</span>
-				<input
-					type="number"
-					min="0"
-					value={band}
-					onChange={(e) => on_band_change(Math.max(0, parseInt(e.target.value) || 0))}
-					className={input_cls}
-				/>
-				<span className={`text-[10px] ${text_muted} ml-1`}>Palette</span>
-				{render_palette_select(palette, on_palette_change, `${select_cls} flex-1`)}
-			</div>
-		</div>
-	)
-}
-
 export function render_satellite_layers_panel(
 	cog_layers: CogLayerInfo[],
 	on_update_layer: (id: string, patch: Partial<CogLayerInfo>) => void,
