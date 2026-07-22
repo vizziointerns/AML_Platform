@@ -184,9 +184,9 @@ export default function annotation_box({
 				: `${color}11`
 	const stroke_width_val = isSelected ? Math.min(3 / zoomLevel, 5) : Math.min(2 / zoomLevel, 4)
 	const dash_val = isPrediction
-		? [10 / zoomLevel, 10 / zoomLevel]
+		? [Math.min(10 / zoomLevel, 16), Math.min(10 / zoomLevel, 16)]
 		: is_locked
-			? [5 / zoomLevel, 5 / zoomLevel]
+			? [Math.min(5 / zoomLevel, 8), Math.min(5 / zoomLevel, 8)]
 			: undefined
 
 	return (

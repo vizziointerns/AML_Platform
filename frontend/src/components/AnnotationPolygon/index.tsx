@@ -163,11 +163,12 @@ function render_label_group(
 ) {
 	const bg_fill = compute_label_bg_fill(is_prediction, is_locked, locked_by_color, color)
 	const label_text = compute_label_text(is_prediction, label, confidence, is_locked)
+	const label_scale = Math.max(zoom_level, 0.3)
 	const width_val =
 		((label.length + (confidence ? 5 : 0) + (is_locked ? 3 : 0)) * 6.5 +
 			(is_prediction ? 14 : 10)) /
-		Math.max(zoom_level, 0.3)
-	const height_val = Math.min(16 / zoom_level, 32)
+		label_scale
+	const height_val = Math.min(16 / label_scale, 32)
 
 	return (
 		<Group x={min_x} y={min_y - height_val}>
@@ -175,18 +176,18 @@ function render_label_group(
 			<Text
 				text={label_text}
 				fill="white"
-				fontSize={10 / zoom_level}
+				fontSize={10 / label_scale}
 				fontStyle="bold"
-				padding={3 / zoom_level}
+				padding={3 / label_scale}
 			/>
 			{is_locked && locked_by_name && (
 				<Text
-					y={-14 / zoom_level}
+					y={-14 / label_scale}
 					text={`Locked by ${locked_by_name}`}
 					fill={locked_by_color || 'white'}
-					fontSize={9 / zoom_level}
+					fontSize={9 / label_scale}
 					fontStyle="bold"
-					padding={2 / zoom_level}
+					padding={2 / label_scale}
 				/>
 			)}
 		</Group>

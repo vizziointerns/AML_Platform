@@ -205,7 +205,7 @@ function render_palette_dropdown(
 	border_subtle: string,
 	text_muted: string,
 	bg_hover: string,
-	ref_obj: React.RefObject<HTMLDivElement>
+	ref_obj: React.RefObject<HTMLDivElement | null>
 ) {
 	if (!is_cog_project) return undefined
 	const band_options = band_count ? Array.from({ length: band_count }, (_, i) => i) : []
@@ -771,7 +771,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	} = use_cog_layers()
 
 	const [is_palette_open, set_is_palette_open] = useState(false)
-	const palette_ref = useRef<HTMLDivElement>(undefined as unknown as HTMLDivElement)
+	const palette_ref = useRef<HTMLDivElement | null>(undefined as unknown as HTMLDivElement | null)
 
 	useEffect(() => {
 		if (!is_palette_open) return
