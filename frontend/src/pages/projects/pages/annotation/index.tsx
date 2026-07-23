@@ -702,9 +702,14 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 							'sam2.1'
 						)
 					} else if (selected_model_id === -2) {
+						const sam3_class = sam3_prompt || active_class
+						if (!sam3_class) {
+							alert('Please enter a text prompt or select a class for SAM3 segmentation.')
+							return
+						}
 						handle_sam_auto_segment(
 							api_image_url,
-							sam3_prompt || active_class,
+							sam3_class,
 							set_is_running_segmentation,
 							set_is_model_selector_open,
 							set_annotations,
