@@ -12,6 +12,11 @@ export interface AuthContextValue {
 		options?: { data?: Record<string, unknown> }
 	) => Promise<{ error: AuthError | null }>
 	sign_out: () => Promise<void>
+	update_user: (attrs: {
+		email?: string
+		password?: string
+		data?: Record<string, unknown>
+	}) => Promise<{ error: AuthError | null }>
 }
 
 const AUTH_CONTEXT = createContext<AuthContextValue | undefined>(undefined)
@@ -61,8 +66,17 @@ export function auth_provider({ children }: { children: ReactNode }) {
 		await supabase.auth.signOut()
 	}
 
+	async function update_user(attrs: {
+		email?: string
+		password?: string
+		data?: Record<string, unknown>
+	}) {
+		const { error } = await supabase.auth.updateUser(attrs)
+		return { error }
+	}
+
 	return (
-		<AUTH_CONTEXT.Provider value={{ user, is_loading, sign_in, sign_up, sign_out }}>
+		<AUTH_CONTEXT.Provider value={{ user, is_loading, sign_in, sign_up, sign_out, update_user }}>
 			{children}
 		</AUTH_CONTEXT.Provider>
 	)

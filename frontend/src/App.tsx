@@ -11,7 +11,7 @@ import RootLayout from './components/RootLayout'
 import HomeShell from './pages/Home/Shell'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import ProjectRouter from './pages/projects/ProjectRouter'
-import PagePlaceholder from './components/page_placeholder'
+import SettingsPage from './pages/Settings'
 
 interface Toast {
 	id: string
@@ -98,7 +98,7 @@ function app_content() {
 										<Route path="home" element={<HomeShell />} />
 										<Route path="projects" element={<ProjectsPage />} />
 										<Route path="projects/:projectId/*" element={<ProjectRouter />} />
-										<Route path="settings" element={<PagePlaceholder />} />
+										<Route path="settings" element={<SettingsPage />} />
 										<Route path="*" element={<Navigate to="/home" replace />} />
 									</Route>
 								</Routes>

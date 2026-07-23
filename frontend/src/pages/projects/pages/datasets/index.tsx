@@ -1,125 +1,19 @@
 import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Plus, AlertTriangle, CheckCircle2, X } from 'lucide-react'
-import VirtualGallery from '../../../../components/VirtualGallery'
+import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { supabase } from '../../../../utils/supabase'
 import { use_datasets } from '../../../../hooks/use_datasets'
 import { use_dataset_images } from '../../../../hooks/use_dataset_images'
-import { dataset_card } from '../../../../components/datasets/dataset_card'
-import { dataset_list_row } from '../../../../components/datasets/dataset_list_row'
 import { dataset_toolbar } from '../../../../components/datasets/dataset_toolbar'
 import { create_dataset_dialog } from '../../../../components/datasets/create_dataset_dialog'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
-import type { DatasetImage } from '../../../../hooks/use_dataset_images'
+import { dataset_explorer_view } from './dataset_explorer'
+import { dataset_grid_view } from './dataset_grid'
 
 interface Toast {
 	id: string
 	message: string
 	type: 'success' | 'error'
-}
-
-function dataset_explorer_view({
-	dataset,
-	is_dark_mode,
-	on_back,
-	on_add_data,
-	on_start_training,
-	on_start_annotating,
-	images,
-	on_delete_images,
-	is_deleting_images,
-	on_open_annotation
-}: {
-	dataset: DatasetInfo
-	is_dark_mode: boolean
-	on_back: () => void
-	on_add_data: () => void
-	on_start_training: () => void
-	on_start_annotating: () => void
-	images: DatasetImage[]
-	on_delete_images: (image_ids: string[]) => Promise<void>
-	is_deleting_images: boolean
-	on_open_annotation: (image_id: string) => void
-}) {
-	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
-	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
-	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
-	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
-	const hover_bg_subtle = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
-	const hover_border_subtle = is_dark_mode ? 'hover:border-zinc-800' : 'hover:border-zinc-200'
-
-	const gallery_images = images.map((img) => ({
-		id: img.id,
-		url: img.file_url,
-		width: img.width,
-		height: img.height,
-		classes: img.class_labels,
-		status: (img.class_labels?.length ?? 0) > 0 ? 'annotated' : 'unannotated',
-		file_extension: img.file_extension
-	}))
-
-	const handle_open_annotation = (img: { id: string | number }) => {
-		on_open_annotation(String(img.id))
-	}
-
-	const info_parts = [
-		`${images.length.toLocaleString()} images`,
-		dataset.class_count > 0 ? `${dataset.class_count} classes` : ''
-	].filter(Boolean)
-
-	return (
-		<div className="space-y-6 animate-in fade-in duration-500 flex flex-col h-[calc(100vh-140px)]">
-			<div className="page-header shrink-0">
-				<div className="flex items-center gap-4">
-					<button
-						onClick={on_back}
-						className={`p-2 rounded-md ${hover_bg_subtle} border border-transparent ${hover_border_subtle} transition-colors text-zinc-500`}
-					>
-						<ArrowLeft size={20} />
-					</button>
-					<div>
-						<h1 className={`text-2xl font-semibold tracking-tight ${text_heading}`}>
-							{dataset.name}
-						</h1>
-						<p className={`text-sm mt-1 ${text_muted}`}>
-							{info_parts.join(' — ') || 'No data yet'}
-						</p>
-					</div>
-				</div>
-				<div className="flex items-center gap-3">
-					<button
-						onClick={on_add_data}
-						className={`px-4 py-2 text-sm font-medium flex items-center gap-2 rounded-md border ${border_subtle} ${bg_card} ${hover_bg_subtle} transition-colors ${text_heading}`}
-					>
-						<Plus size={16} /> Add Data
-					</button>
-					<button
-						onClick={on_start_annotating}
-						disabled={images.length === 0}
-						className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-					>
-						Start Annotating
-					</button>
-					<button
-						onClick={on_start_training}
-						className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 shadow-sm transition-colors"
-					>
-						Start Training
-					</button>
-				</div>
-			</div>
-
-			<div className="flex-1 min-h-[500px]">
-				<VirtualGallery
-					is_dark_mode={is_dark_mode}
-					images={gallery_images}
-					on_delete_selected={on_delete_images}
-					is_deleting_selected={is_deleting_images}
-					on_open_annotation={handle_open_annotation}
-				/>
-			</div>
-		</div>
-	)
 }
 
 function rename_dialog({
@@ -511,55 +405,17 @@ export default function datasets_view({
 					>
 						<p className="text-sm">No datasets yet. Create one to get started.</p>
 					</div>
-				) : view_mode === 'grid' ? (
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-						{filtered_datasets.map((ds) =>
-							dataset_card({
-								key: ds.id,
-								dataset: ds,
-								is_dark_mode,
-								on_select: select_dataset,
-								on_rename: handle_rename_open,
-								on_delete: set_delete_target,
-								is_menu_open: open_menu_id === ds.id,
-								on_menu_toggle: () => set_open_menu_id(open_menu_id === ds.id ? undefined : ds.id)
-							})
-						)}
-					</div>
 				) : (
-					(() => {
-						const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
-						const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
-						return (
-							<div
-								className={`rounded-xl border ${border_subtle} ${is_dark_mode ? 'bg-zinc-900' : 'bg-white'} overflow-hidden`}
-							>
-								<table className="w-full text-sm text-left">
-									<thead
-										className={`text-xs uppercase ${bg_subtle} ${is_dark_mode ? 'text-zinc-400 border-b border-zinc-800' : 'text-zinc-500 border-b border-zinc-200'}`}
-									>
-										<tr>
-											<th className="px-6 py-4 font-medium">Dataset</th>
-											<th className="px-6 py-4 font-medium">Size</th>
-											<th className="px-6 py-4 font-medium">Status</th>
-											<th className="px-6 py-4 font-medium">Tags</th>
-											<th className="px-6 py-4 font-medium text-right">Last Updated</th>
-										</tr>
-									</thead>
-									<tbody className="divide-y divide-zinc-800/20">
-										{filtered_datasets.map((ds) =>
-											dataset_list_row({
-												key: ds.id,
-												dataset: ds,
-												is_dark_mode,
-												on_select: select_dataset
-											})
-										)}
-									</tbody>
-								</table>
-							</div>
-						)
-					})()
+					dataset_grid_view({
+						datasets: filtered_datasets,
+						is_dark_mode,
+						view_mode,
+						on_select: select_dataset,
+						on_rename: handle_rename_open,
+						on_delete: set_delete_target,
+						open_menu_id,
+						on_menu_toggle: (id: string) => set_open_menu_id(open_menu_id === id ? undefined : id)
+					})
 				)}
 			</div>
 

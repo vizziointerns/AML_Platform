@@ -1,15 +1,5 @@
 import type { ElementType } from 'react'
-import {
-	LayoutDashboard,
-	Database,
-	Box,
-	Cpu,
-	Rocket,
-	GitBranch,
-	Home,
-	Layers,
-	Settings
-} from 'lucide-react'
+import { LayoutDashboard, Database, Box, Cpu, Home, Layers, Settings } from 'lucide-react'
 
 export interface NavItem {
 	id: string
@@ -31,7 +21,5 @@ export const PROJECT_NAV_ITEMS: NavItem[] = [
 
 export const PROJECT_ML_ITEMS: NavItem[] = [
 	{ id: 'models', label: 'Models', icon: Box },
-	{ id: 'training', label: 'Training', icon: Cpu },
-	{ id: 'deployment', label: 'Deployment', icon: Rocket },
-	{ id: 'workflow', label: 'Workflow', icon: GitBranch }
+	{ id: 'training', label: 'Training', icon: Cpu }
 ]

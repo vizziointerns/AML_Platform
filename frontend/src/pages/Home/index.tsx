@@ -1,78 +1,20 @@
 import { useNavigate } from 'react-router-dom'
-import { use_dashboard_stats, type DashboardStats } from '../../hooks/use_dashboard_stats'
+import { use_dashboard_stats } from '../../hooks/use_dashboard_stats'
 import { use_recent_projects } from '../../hooks/use_recent_projects'
-import { use_activity_feed, type ActivityItem } from '../../hooks/use_activity_feed'
-import { use_alerts, type Alert } from '../../hooks/use_alerts'
+import { use_activity_feed } from '../../hooks/use_activity_feed'
+import { use_alerts } from '../../hooks/use_alerts'
 import { recent_project_card as RecentProjectCard } from '../../components/RecentProjectCard'
 import type { User } from '@supabase/supabase-js'
-import {
-	Layers,
-	ImageIcon,
-	Users,
-	HardDrive,
-	Plus,
-	ChevronRight,
-	Database,
-	AlertCircle
-} from 'lucide-react'
+import { Plus, ChevronRight, Database } from 'lucide-react'
+import { stats_grid } from './stats_grid'
+import { alerts_widget } from './alerts_widget'
+import { team_activity_widget } from './activity_widget'
 
 function greeting(name: string | undefined): string {
 	const hour = new Date().getHours()
 	const period = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 	const display_name = name?.split(' ')[0] ?? 'there'
 	return `${period}, ${display_name}`
-}
-
-function stat_card({
-	title,
-	value,
-	icon: Icon,
-	is_dark_mode,
-	text_muted
-}: {
-	title: string
-	value: string
-	icon: React.ElementType
-	is_dark_mode: boolean
-	text_muted: string
-}) {
-	const card_classes = is_dark_mode
-		? 'bg-zinc-900 border-zinc-800'
-		: 'bg-white border-zinc-200 shadow-sm'
-
-	return (
-		<div className={`stat-card ${card_classes}`}>
-			<div className="flex justify-between items-start mb-3">
-				<div className={`text-sm font-medium ${text_muted}`}>{title}</div>
-				<div className={`p-2 rounded-lg ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-					<Icon size={18} className={is_dark_mode ? 'text-zinc-300' : 'text-zinc-600'} />
-				</div>
-			</div>
-			<div className="text-2xl font-bold tracking-tight">{value}</div>
-		</div>
-	)
-}
-
-function stat_skeleton({ is_dark_mode }: { is_dark_mode: boolean }) {
-	const card_classes = is_dark_mode
-		? 'bg-zinc-900 border-zinc-800'
-		: 'bg-white border-zinc-200 shadow-sm'
-
-	return (
-		<div className={`stat-card ${card_classes}`}>
-			<div className="flex justify-between items-start mb-3">
-				<div
-					className={`h-4 w-24 rounded animate-pulse ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
-				/>
-				<div className={`p-2 rounded-lg ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-					<div className="w-[18px] h-[18px]" />
-				</div>
-			</div>
-			<div
-				className={`h-8 w-16 rounded animate-pulse ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'}`}
-			/>
-		</div>
-	)
 }
 
 function project_card_skeleton({ is_dark_mode }: { is_dark_mode: boolean }) {
@@ -110,92 +52,6 @@ function project_card_skeleton({ is_dark_mode }: { is_dark_mode: boolean }) {
 						/>
 					))}
 				</div>
-			</div>
-		</div>
-	)
-}
-
-function format_bytes(bytes: number): string {
-	const gb = bytes / 1_000_000_000
-	if (gb >= 1) return `${gb.toFixed(1)} GB`
-	const mb = bytes / 1_000_000
-	if (mb >= 1) return `${mb.toFixed(1)} MB`
-	const kb = bytes / 1_000
-	if (kb >= 1) return `${kb.toFixed(1)} KB`
-	return `${bytes} B`
-}
-
-function stats_grid({
-	stats,
-	is_loading,
-	error,
-	is_refreshing,
-	is_dark_mode,
-	text_muted
-}: {
-	stats: DashboardStats | undefined
-	is_loading: boolean
-	error: string | undefined
-	is_refreshing: boolean
-	is_dark_mode: boolean
-	text_muted: string
-}) {
-	const resolved = stats ?? {
-		total_projects: 0,
-		total_images: 0,
-		team_members: 0,
-		storage_used_bytes: 0
-	}
-
-	return (
-		<div className="relative">
-			{is_refreshing && (
-				<div className="absolute -top-3 right-0 z-10 flex items-center gap-1.5 text-[11px] text-blue-500 font-medium">
-					<div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-					Refreshing...
-				</div>
-			)}
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-				{is_loading && !error ? (
-					<>
-						{stat_skeleton({ is_dark_mode })}
-						{stat_skeleton({ is_dark_mode })}
-						{stat_skeleton({ is_dark_mode })}
-						{stat_skeleton({ is_dark_mode })}
-					</>
-				) : (
-					<>
-						{stat_card({
-							title: 'Total Projects',
-							value: format_count(resolved.total_projects),
-							icon: Layers,
-							is_dark_mode,
-							text_muted
-						})}
-						{stat_card({
-							title: 'Total Images',
-							value: format_count(resolved.total_images),
-							icon: ImageIcon,
-							is_dark_mode,
-							text_muted
-						})}
-						{stat_card({
-							title: 'Team Members',
-							value: format_count(resolved.team_members),
-							icon: Users,
-							is_dark_mode,
-							text_muted
-						})}
-						{stat_card({
-							title: 'Storage Used',
-							value: format_bytes(resolved.storage_used_bytes),
-							icon: HardDrive,
-							is_dark_mode,
-							text_muted
-						})}
-					</>
-				)}
-				{error && <div className="col-span-full text-xs text-red-500">{error}</div>}
 			</div>
 		</div>
 	)
@@ -266,160 +122,6 @@ function recent_projects_section({
 					))}
 				</div>
 			)}
-		</div>
-	)
-}
-
-function format_count(n: number): string {
-	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-	return n.toString()
-}
-
-function alert_skeleton(is_dark_mode: boolean) {
-	const skeleton_bg = is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'
-	return (
-		<div
-			className={`flex gap-3 animate-pulse p-3 rounded-lg border ${is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'}`}
-		>
-			<div className={`w-4 h-4 rounded mt-0.5 shrink-0 ${skeleton_bg}`} />
-			<div className="flex-1 space-y-2">
-				<div className={`h-3 w-40 rounded ${skeleton_bg}`} />
-				<div className={`h-2.5 w-56 rounded ${skeleton_bg}`} />
-			</div>
-		</div>
-	)
-}
-
-function alert_colors(severity: Alert['severity'], is_dark_mode: boolean) {
-	if (severity === 'danger') {
-		return is_dark_mode
-			? 'bg-red-500/5 border-red-500/20 text-red-400'
-			: 'bg-red-50 border-red-200 text-red-800'
-	}
-	if (severity === 'warning') {
-		return is_dark_mode
-			? 'bg-amber-500/5 border-amber-500/20 text-amber-400'
-			: 'bg-amber-50 border-amber-200 text-amber-800'
-	}
-	return is_dark_mode
-		? 'bg-blue-500/5 border-blue-500/20 text-blue-400'
-		: 'bg-blue-50 border-blue-200 text-blue-800'
-}
-
-function alert_icon_color(severity: Alert['severity']) {
-	if (severity === 'danger') return 'text-red-500'
-	if (severity === 'warning') return 'text-amber-500'
-	return 'text-blue-500'
-}
-
-function alerts_widget({
-	alerts,
-	is_loading,
-	is_dark_mode,
-	card_classes
-}: {
-	alerts: Alert[]
-	is_loading: boolean
-	is_dark_mode: boolean
-	card_classes: string
-}) {
-	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
-
-	return (
-		<div className={`rounded-xl border ${card_classes} p-5`}>
-			<h3 className="font-semibold text-base tracking-tight mb-4 flex items-center gap-2">
-				<AlertCircle size={16} className="text-amber-500" /> Alerts
-			</h3>
-			<div className="space-y-3">
-				{is_loading ? (
-					<>
-						{alert_skeleton(is_dark_mode)}
-						{alert_skeleton(is_dark_mode)}
-					</>
-				) : alerts.length === 0 ? (
-					<p className={`text-sm ${text_muted} text-center py-4`}>
-						No alerts — everything looks good
-					</p>
-				) : (
-					alerts.map((alert) => (
-						<div
-							key={alert.id}
-							className={`p-3 rounded-lg border flex gap-3 text-sm ${alert_colors(alert.severity, is_dark_mode)}`}
-						>
-							<div className="mt-0.5">
-								<AlertCircle size={16} className={alert_icon_color(alert.severity)} />
-							</div>
-							<div>
-								<div className="font-medium">{alert.title}</div>
-								<div className={`text-xs mt-1 opacity-70`}>{alert.description}</div>
-							</div>
-						</div>
-					))
-				)}
-			</div>
-		</div>
-	)
-}
-
-function activity_skeleton(is_dark_mode: boolean) {
-	const skeleton_bg = is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'
-	return (
-		<div className="flex gap-3 animate-pulse">
-			<div className={`w-8 h-8 rounded-full shrink-0 ${skeleton_bg}`} />
-			<div className="flex-1 space-y-2 py-1">
-				<div className={`h-3 w-48 rounded ${skeleton_bg}`} />
-				<div className={`h-2.5 w-16 rounded ${skeleton_bg}`} />
-			</div>
-		</div>
-	)
-}
-
-function team_activity_widget({
-	items,
-	is_loading,
-	avatar_text,
-	is_dark_mode,
-	text_muted,
-	card_classes
-}: {
-	items: ActivityItem[]
-	is_loading: boolean
-	avatar_text: string
-	is_dark_mode: boolean
-	text_muted: string
-	card_classes: string
-}) {
-	return (
-		<div className={`rounded-xl border ${card_classes} p-5`}>
-			<h3 className="font-semibold text-base tracking-tight mb-4">Activity</h3>
-			<div className="space-y-4">
-				{is_loading ? (
-					<>
-						{activity_skeleton(is_dark_mode)}
-						{activity_skeleton(is_dark_mode)}
-						{activity_skeleton(is_dark_mode)}
-						{activity_skeleton(is_dark_mode)}
-						{activity_skeleton(is_dark_mode)}
-					</>
-				) : items.length === 0 ? (
-					<p className={`text-sm ${text_muted} text-center py-4`}>No recent activity</p>
-				) : (
-					items.map((item) => (
-						<div key={item.id} className="flex gap-3">
-							<div
-								className={`w-8 h-8 rounded-full flex shrink-0 items-center justify-center text-xs font-medium ${is_dark_mode ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'}`}
-							>
-								{avatar_text}
-							</div>
-							<div className="flex-1 min-w-0">
-								<div className="text-sm">{item.description}</div>
-								<div className={`text-xs ${text_muted} mt-0.5`}>{item.relative_time}</div>
-							</div>
-						</div>
-					))
-				)}
-			</div>
 		</div>
 	)
 }

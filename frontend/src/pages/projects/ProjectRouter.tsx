@@ -12,8 +12,6 @@ import DatasetsView from './pages/datasets'
 import AnnotationStudio from './pages/annotation'
 import ModelsPage from './pages/models'
 import TrainingPage from './pages/training'
-import DeploymentPage from './pages/deployment'
-import WorkflowBuilder from './pages/workflow'
 import PlaceholderPage from '../../components/page_placeholder'
 
 export default function project_router() {
@@ -108,21 +106,11 @@ export default function project_router() {
 				</div>
 			)
 		}
-		if (sub_route === 'workflow') {
-			return (
-				<div className="h-full">
-					<WorkflowBuilder is_dark_mode={is_dark_mode} />
-				</div>
-			)
-		}
 		if (sub_route === 'models') {
 			return <ModelsPage is_dark_mode={is_dark_mode} />
 		}
 		if (sub_route === 'training') {
 			return <TrainingPage is_dark_mode={is_dark_mode} />
-		}
-		if (sub_route === 'deployment') {
-			return <DeploymentPage is_dark_mode={is_dark_mode} />
 		}
 		return (
 			<div className="h-full">
