@@ -124,6 +124,24 @@ interface SearchResult {
 	navigate_to: string
 }
 
+interface ProjectSearchResult {
+	id: string
+	name: string
+}
+
+interface DatasetSearchResult {
+	id: string
+	name: string
+	project_id: string
+}
+
+function alert_ids_key(alerts: Alert[]): string {
+	return alerts
+		.map((a) => a.id)
+		.sort()
+		.join(',')
+}
+
 function search_dropdown({
 	search_query,
 	projects,
@@ -135,8 +153,8 @@ function search_dropdown({
 }: {
 	search_query: string
 	projects: Project[]
-	search_project_results: Array<{ id: string; name: string }>
-	dataset_results: Array<{ id: string; name: string; project_id: string }>
+	search_project_results: ProjectSearchResult[]
+	dataset_results: DatasetSearchResult[]
 	navigate: ReturnType<typeof useNavigate>
 	set_search_query: (v: string) => void
 	is_dark_mode: boolean
@@ -152,15 +170,12 @@ function search_dropdown({
 				}))
 		: []
 
-	const fetched_projects: SearchResult[] =
-		projects.length === 0
-			? search_project_results.map((p) => ({
-					id: p.id,
-					name: p.name,
-					type: 'Project' as const,
-					navigate_to: `/projects/${p.id}/dashboard`
-				}))
-			: []
+	const fetched_projects: SearchResult[] = search_project_results.map((p) => ({
+		id: p.id,
+		name: p.name,
+		type: 'Project' as const,
+		navigate_to: `/projects/${p.id}/dashboard`
+	}))
 
 	const filtered_projects = store_projects.length > 0 ? store_projects : fetched_projects
 
@@ -356,10 +371,10 @@ function search_bar({
 	is_dark_mode: boolean
 	search_query: string
 	set_search_query: (v: string) => void
-	search_ref: React.RefObject<HTMLDivElement>
+	search_ref: React.RefObject<HTMLDivElement | null>
 	projects: Project[]
-	search_project_results: Array<{ id: string; name: string }>
-	dataset_results: Array<{ id: string; name: string; project_id: string }>
+	search_project_results: ProjectSearchResult[]
+	dataset_results: DatasetSearchResult[]
 	navigate: ReturnType<typeof useNavigate>
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
@@ -444,14 +459,14 @@ function right_actions({
 	toggle_theme: () => void
 	search_query: string
 	set_search_query: (v: string) => void
-	search_ref: React.RefObject<HTMLDivElement>
+	search_ref: React.RefObject<HTMLDivElement | null>
 	projects: Project[]
-	search_project_results: Array<{ id: string; name: string }>
-	dataset_results: Array<{ id: string; name: string; project_id: string }>
+	search_project_results: ProjectSearchResult[]
+	dataset_results: DatasetSearchResult[]
 	navigate: ReturnType<typeof useNavigate>
 	is_alert_open: boolean
 	set_alert_open: (v: boolean) => void
-	alert_ref: React.RefObject<HTMLDivElement>
+	alert_ref: React.RefObject<HTMLDivElement | null>
 	has_unviewed_alerts: boolean
 	set_has_unviewed_alerts: (v: boolean) => void
 	menu_ref: (el: HTMLDivElement | null) => void
@@ -498,11 +513,8 @@ function right_actions({
 						if (!is_alert_open) {
 							set_has_unviewed_alerts(false)
 							localStorage.setItem(
-								'last_viewed_alert_ids',
-								alerts
-									.map((a) => a.id)
-									.sort()
-									.join(',')
+								`last_viewed_alert_ids_${user_email ?? ''}`,
+								alert_ids_key(alerts)
 							)
 						}
 					}}
@@ -579,54 +591,72 @@ export function header_content() {
 	const [search_query, set_search_query] = useState('')
 	const [is_alert_open, set_alert_open] = useState(false)
 	const [has_unviewed_alerts, set_has_unviewed_alerts] = useState(false)
-	const [dataset_results, set_dataset_results] = useState<
-		Array<{ id: string; name: string; project_id: string }>
-	>([])
-	const [search_project_results, set_search_project_results] = useState<
-		Array<{ id: string; name: string }>
-	>([])
+	const [dataset_results, set_dataset_results] = useState<DatasetSearchResult[]>([])
+	const [search_project_results, set_search_project_results] = useState<ProjectSearchResult[]>([])
 	const search_ref = useRef<HTMLDivElement>(undefined!)
 	const alert_ref = useRef<HTMLDivElement>(undefined!)
+	const search_query_ref = useRef('')
+	const user_email = user?.email ?? ''
 
 	useEffect(() => {
-		const current_key = alerts
-			.map((a) => a.id)
-			.sort()
-			.join(',')
-		const last_viewed = localStorage.getItem('last_viewed_alert_ids') ?? ''
+		const current_key = alert_ids_key(alerts)
+		const last_viewed = localStorage.getItem(`last_viewed_alert_ids_${user_email}`) ?? ''
 		if (alerts.length > 0 && current_key !== last_viewed) {
 			set_has_unviewed_alerts(true)
 		} else if (alerts.length === 0) {
 			set_has_unviewed_alerts(false)
 		}
-	}, [alerts])
+	}, [alerts, user_email])
 
 	useEffect(() => {
 		if (!search_query.trim()) {
 			set_dataset_results([])
 			set_search_project_results([])
+			search_query_ref.current = ''
 			return
 		}
+
+		search_query_ref.current = search_query
+
 		const timer = setTimeout(async () => {
-			const [{ data: ds_data }, { data: proj_data }] = await Promise.all([
+			const query = search_query
+
+			const { data: user_projects } = await supabase
+				.from('projects')
+				.select('id')
+				.eq('user_id', user?.id)
+			const project_ids = (user_projects ?? []).map((p) => p.id)
+
+			if (query !== search_query_ref.current) return
+
+			const [proj_result, ds_result] = await Promise.all([
 				supabase
-					.from('datasets')
-					.select('id, name, project_id')
-					.ilike('name', `%${search_query}%`)
+					.from('projects')
+					.select('id, name')
+					.eq('user_id', user?.id)
+					.ilike('name', `%${query}%`)
 					.limit(10),
-				projects.length === 0
+				project_ids.length > 0
 					? supabase
-							.from('projects')
-							.select('id, name')
-							.ilike('name', `%${search_query}%`)
+							.from('datasets')
+							.select('id, name, project_id')
+							.in('project_id', project_ids)
+							.ilike('name', `%${query}%`)
 							.limit(10)
-					: Promise.resolve({ data: undefined })
+					: Promise.resolve({ data: [] })
 			])
-			if (ds_data) set_dataset_results(ds_data)
-			if (proj_data) set_search_project_results(proj_data)
+
+			if (query !== search_query_ref.current) return
+
+			if (proj_result.data) {
+				set_search_project_results(proj_result.data as ProjectSearchResult[])
+			}
+			if (ds_result.data) {
+				set_dataset_results(ds_result.data as DatasetSearchResult[])
+			}
 		}, 200)
 		return () => clearTimeout(timer)
-	}, [search_query, projects.length])
+	}, [search_query, user?.id])
 
 	useEffect(() => {
 		function handle_click_outside(e: MouseEvent) {
@@ -674,7 +704,7 @@ export function header_content() {
 				sign_out,
 				initials,
 				user_name,
-				user_email: user?.email,
+				user_email,
 				alerts,
 				is_loading
 			})}
