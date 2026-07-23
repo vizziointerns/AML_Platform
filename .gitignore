@@ -14,5 +14,5 @@ backend/stderr.txt
 backend/stdout.txt
 backend/*.json
 backend/cache/
-*report.md
+
 2026-07-21.md
