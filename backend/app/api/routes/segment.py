@@ -1,4 +1,5 @@
 import logging
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from PIL import Image
 
 from app.schemas.segment import SegmentRequest, SegmentResponse
+from app.training.cog_utils import _resolve_cache_url
 from app.training.inference import _validate_image_url
 from app.training.segment import auto_segment as auto_segment_sam2
 from app.training.segment import run_segmentation
@@ -23,10 +25,15 @@ MAX_IMAGE_SIZE = 200 * 1024 * 1024
 def segment_endpoint(body: SegmentRequest) -> SegmentResponse:
     tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
     try:
-        _validate_image_url(body.image_url)
-        image_data = download_image_bytes(body.image_url, MAX_IMAGE_SIZE)
-        tmp.write(image_data)
-        tmp.close()
+        if body.image_url.startswith("cache://"):
+            cached_path = _resolve_cache_url(body.image_url)
+            shutil.copy2(cached_path, tmp.name)
+            tmp.close()
+        else:
+            _validate_image_url(body.image_url)
+            image_data = download_image_bytes(body.image_url, MAX_IMAGE_SIZE)
+            tmp.write(image_data)
+            tmp.close()
 
         image = np.array(Image.open(tmp.name).convert("RGB"))
 
