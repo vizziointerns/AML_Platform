@@ -1,7 +1,11 @@
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus } from 'lucide-react'
 import VirtualGallery from '../../../../components/VirtualGallery'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
 import type { DatasetImage } from '../../../../hooks/use_dataset_images'
+import { is_drive_url } from '../../../../utils/drive_image'
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 export function dataset_explorer_view({
 	dataset,
@@ -33,6 +37,52 @@ export function dataset_explorer_view({
 	const hover_bg_subtle = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 	const hover_border_subtle = is_dark_mode ? 'hover:border-zinc-800' : 'hover:border-zinc-200'
 
+	const [drive_statuses, set_drive_statuses] = useState<
+		Record<string, 'uploaded' | 'uploading' | 'failed'>
+	>({})
+
+	useEffect(() => {
+		const cache_urls = images
+			.filter((img) => img.file_url.startsWith('cache://'))
+			.map((img) => img.file_url)
+
+		if (cache_urls.length === 0) return
+
+		set_drive_statuses((prev) => {
+			const next = { ...prev }
+			for (const url of cache_urls) {
+				if (!next[url]) next[url] = 'uploading'
+			}
+			return next
+		})
+
+		const intervals: ReturnType<typeof setInterval>[] = []
+		for (const cache_url of cache_urls) {
+			const interval = setInterval(async () => {
+				try {
+					const resp = await fetch(
+						`${API_BASE}/upload/drive/status?cache_url=${encodeURIComponent(cache_url)}`,
+						{ signal: AbortSignal.timeout(5000) }
+					)
+					if (!resp.ok) return
+					const data = await resp.json()
+					if (data.status === 'completed') {
+						set_drive_statuses((prev) => ({ ...prev, [cache_url]: 'uploaded' }))
+						clearInterval(interval)
+					} else if (data.status === 'failed') {
+						set_drive_statuses((prev) => ({ ...prev, [cache_url]: 'failed' }))
+						clearInterval(interval)
+					}
+				} catch {
+					// ignore network errors, keep polling
+				}
+			}, 5000)
+			intervals.push(interval)
+		}
+
+		return () => intervals.forEach(clearInterval)
+	}, [images])
+
 	const gallery_images = images.map((img) => ({
 		id: img.id,
 		url: img.file_url,
@@ -40,7 +90,10 @@ export function dataset_explorer_view({
 		height: img.height,
 		classes: img.class_labels,
 		status: (img.class_labels?.length ?? 0) > 0 ? 'annotated' : 'unannotated',
-		file_extension: img.file_extension
+		file_extension: img.file_extension,
+		drive_status: is_drive_url(img.file_url)
+			? ('uploaded' as const)
+			: (drive_statuses[img.file_url] ?? 'uploading')
 	}))
 
 	const handle_open_annotation = (img: { id: string | number }) => {
