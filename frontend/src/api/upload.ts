@@ -203,6 +203,7 @@ async function poll_drive_upload(
 		const data = await response.json()
 		if (data.status === 'completed' && data.file_url) {
 			await update_image_url(dataset_id, file_name, data.file_url)
+			window.dispatchEvent(new CustomEvent('datasets-changed'))
 			return
 		}
 
