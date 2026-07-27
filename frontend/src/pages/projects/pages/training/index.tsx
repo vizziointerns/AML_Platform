@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { use_project_store } from '../../../../store/projectStore'
 import type { TaskType } from '../../../../constants/models'
-import { Activity, Plus, FileDown } from 'lucide-react'
+import { Activity, Plus } from 'lucide-react'
 import {
 	fetch_training_runs,
 	delete_training_run,
@@ -154,18 +154,6 @@ function render_training_header(props: RenderTrainingProps) {
 				</p>
 			</div>
 			<div className="flex items-center gap-2">
-				<button
-					onClick={props.handle_export}
-					disabled={props.is_exporting || props.datasets.length === 0 || !props.task_type}
-					className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-						props.is_dark_mode
-							? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-							: 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'
-					}`}
-				>
-					<FileDown size={16} className="inline mr-1.5" />
-					{props.is_exporting ? 'Exporting...' : 'Export Dataset'}
-				</button>
 				<button
 					className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
 					onClick={() => props.set_is_new_dialog_open(true)}
