@@ -188,5 +188,8 @@ export function get_cog_thumbnail_url(url: string, file_extension?: string): str
 		})
 		return `${API_BASE}/cog/render?${params}`
 	}
+	if (url.startsWith('cache://')) {
+		return `${API_BASE}/cache/file?url=${encodeURIComponent(url)}`
+	}
 	return url
 }
