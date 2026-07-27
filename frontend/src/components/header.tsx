@@ -418,20 +418,10 @@ function search_bar({
 						}
 					}}
 				/>
-				{search_query ? (
+				{search_query && (
 					<button onClick={() => set_search_query('')} className="shrink-0">
 						<X size={14} className={text_muted} />
 					</button>
-				) : (
-					<kbd
-						className={`pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 shrink-0 ${
-							is_dark_mode
-								? 'bg-zinc-800 border-zinc-700 text-zinc-400'
-								: 'bg-white border-zinc-200 text-zinc-500'
-						}`}
-					>
-						<span className="text-xs">⌘</span>K
-					</kbd>
 				)}
 			</div>
 			{search_dropdown({
