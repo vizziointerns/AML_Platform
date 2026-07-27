@@ -17,6 +17,10 @@ class SegmentRequest(BaseModel):
     class_name: str | None = None
     auto_mode: bool = False
     model_version: str = "sam2.1"
+    crop_x: float | None = None
+    crop_y: float | None = None
+    crop_width: float | None = None
+    crop_height: float | None = None
 
 
 class SegmentResponse(BaseModel):

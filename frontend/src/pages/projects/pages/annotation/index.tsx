@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MousePointer2, Hand, Square, Hexagon, Pencil, Eraser, WandSparkles } from 'lucide-react'
 import type { Annotation, Mode, ClassInfo } from './types'
-import type { Project } from '../../../../store/projectStore'
 import {
 	class_create,
 	class_rename,
@@ -28,7 +27,7 @@ import { use_cog_layers } from '../../../../hooks/use_cog_layers'
 import { use_cog_background } from '../../../../hooks/use_cog_background'
 import { use_cog_image_info } from '../../../../hooks/use_cog_image_info'
 import type { TiledBackgroundConfig } from '../../../../components/AnnotationCanvas/types'
-import { get_cog_thumbnail_url } from '../../../../utils/cog'
+import { is_tiff_url, get_cog_thumbnail_url } from '../../../../utils/cog'
 import { use_annotation_history } from '../../../../hooks/use_annotation_history'
 import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
 import { type PaletteName } from '../../../../utils/colormaps'
@@ -53,7 +52,6 @@ interface AnnotationStudioProps {
 	isDarkMode: boolean
 	imageId?: string
 	projectId?: string
-	project?: Project
 }
 
 const tools = [
@@ -66,7 +64,7 @@ const tools = [
 	{ id: 'segment' as Mode, icon: WandSparkles, label: 'Auto Segment (S)' }
 ]
 
-export default function annotation_studio({ isDarkMode, imageId, project }: AnnotationStudioProps) {
+export default function annotation_studio({ isDarkMode, imageId }: AnnotationStudioProps) {
 	const navigate = useNavigate()
 	const params = useParams()
 	const project_id = params.projectId
@@ -104,12 +102,16 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	image_url_ref.current = api_image_url
 	const is_loading_image = is_loading_images
 
-	const is_cog_project = project?.type === 'COG'
+	const is_tiff_image =
+		current_image?.file_extension === 'tif' ||
+		current_image?.file_extension === 'tiff' ||
+		(image_name ? is_tiff_url(image_name) : false) ||
+		(image_url ? is_tiff_url(image_url) : false)
 
 	const cog_image_info = use_cog_image_info(image_url, image_name, current_image?.file_extension)
 
 	const tiled_background_config: TiledBackgroundConfig | undefined = useMemo(() => {
-		if (!is_cog_project || !cog_image_info || !image_url) return undefined
+		if (!cog_image_info || !image_url) return undefined
 		return {
 			url: image_url,
 			band: bg_band,
@@ -117,7 +119,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 			image_width: cog_image_info.width,
 			image_height: cog_image_info.height
 		}
-	}, [is_cog_project, cog_image_info, image_url, bg_band, bg_palette])
+	}, [cog_image_info, image_url, bg_band, bg_palette])
 
 	const display_image_url = use_cog_background(
 		image_url,
@@ -440,7 +442,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	const get_class_name = (id: string) => theme_get_class_name(classes, id)
 	const get_current_count = (id: string) => theme_current_count(id, annotations)
 
-	const is_cog_loading = is_cog_project && !!current_image && !cog_image_info && !!image_url
+	const is_cog_loading = is_tiff_image && !!current_image && !cog_image_info && !!image_url
 
 	const canvas = render_canvas_content(
 		is_loading_image,
@@ -552,7 +554,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 					)}
 					{canvas}
 					{render_palette_dropdown(
-						is_cog_project,
+						is_tiff_image,
 						is_palette_open,
 						set_is_palette_open,
 						bg_palette,
@@ -581,7 +583,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 					/>
 
 					{render_right_properties_panel(
-						is_cog_project,
+						is_tiff_image,
 						selected_ann_id,
 						selected_prediction_id,
 						annotations,
@@ -625,7 +627,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 						() => set_is_add_cog_open(true),
 						is_satellite_layers_open,
 						set_is_satellite_layers_open,
-						is_cog_project,
+						is_tiff_image,
 						isDarkMode,
 						text_heading,
 						text_muted,

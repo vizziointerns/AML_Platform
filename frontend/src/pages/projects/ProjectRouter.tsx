@@ -86,7 +86,7 @@ export default function project_router() {
 			)
 		}
 		if (is_annotation) {
-			return <AnnotationStudio isDarkMode={is_dark_mode} imageId={image_id} project={project} />
+			return <AnnotationStudio isDarkMode={is_dark_mode} imageId={image_id} />
 		}
 		if (sub_route === 'dashboard') {
 			return project ? (
