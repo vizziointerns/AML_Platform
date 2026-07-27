@@ -583,33 +583,7 @@ function right_actions({
 	)
 }
 
-export function header_content() {
-	const { is_dark_mode, toggle_theme, open_mobile_menu } = use_app_context()
-	const { user, sign_out } = use_auth()
-	const { alerts, is_loading } = use_alerts()
-	const navigate = useNavigate()
-	const [is_menu_open, set_is_menu_open] = useState(false)
-	const [menu_el, set_menu_el] = useState<HTMLDivElement | undefined>(undefined)
-	const menu_ref = useCallback((el: HTMLDivElement | null) => {
-		set_menu_el(el ?? undefined)
-	}, [])
-	const location = useLocation()
-	const path_parts = location.pathname.split('/').filter(Boolean)
-	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
-	const projects = use_project_store((s) => s.projects)
-	const project = project_id ? projects.find((p) => p.id === project_id) : undefined
-	const breadcrumbs = build_breadcrumbs(path_parts, project?.name, project_id)
-
-	const user_name = user?.user_metadata?.full_name as string | undefined
-	const initials = user_name
-		? user_name
-				.split(' ')
-				.map((s) => s[0])
-				.join('')
-				.toUpperCase()
-				.slice(0, 2)
-		: (user?.email?.[0]?.toUpperCase() ?? '?')
-
+function use_header_search(user: { id: string } | null | undefined) {
 	const [search_query, set_search_query] = useState('')
 	const [dataset_results, set_dataset_results] = useState<DatasetSearchResult[]>([])
 	const [search_project_results, set_search_project_results] = useState<ProjectSearchResult[]>([])
@@ -709,7 +683,7 @@ export function header_content() {
 	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
 	const projects = use_project_store((s) => s.projects)
 	const project = project_id ? projects.find((p) => p.id === project_id) : undefined
-	const breadcrumbs = build_breadcrumbs(path_parts, project?.name)
+	const breadcrumbs = build_breadcrumbs(path_parts, project?.name, project_id)
 	const is_home_page = location.pathname === '/home' || location.pathname === '/'
 
 	const user_name = user?.user_metadata?.full_name as string | undefined
