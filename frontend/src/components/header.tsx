@@ -20,15 +20,21 @@ import { supabase } from '../utils/supabase'
 
 function build_breadcrumbs(
 	path_parts: string[],
-	project_name: string | undefined
-): { label: string }[] {
-	const is_in_project = path_parts[0] === 'projects' && path_parts.length >= 3
-	if (is_in_project) {
-		const label = (path_parts[2]?.charAt(0).toUpperCase() ?? '') + (path_parts[2]?.slice(1) ?? '')
-		return [{ label: 'Workspace' }, { label: project_name ?? 'Project' }, { label }]
+	project_name: string | undefined,
+	project_id?: string
+): { label: string; path?: string }[] {
+	if (path_parts[0] === 'projects' && path_parts.length >= 3 && project_id) {
+		const sub_label =
+			(path_parts[2]?.charAt(0).toUpperCase() ?? '') + (path_parts[2]?.slice(1) ?? '')
+		return [
+			{ label: 'Workspace' },
+			{ label: 'Project', path: '/projects' },
+			{ label: project_name ?? 'Project', path: `/projects/${project_id}/dashboard` },
+			{ label: sub_label }
+		]
 	}
 	const label = (path_parts[0]?.charAt(0).toUpperCase() ?? '') + (path_parts[0]?.slice(1) ?? '')
-	return [{ label: 'Workspace' }, { label }]
+	return [{ label: 'Workspace' }, { label, path: path_parts[0] === 'home' ? '/home' : undefined }]
 }
 
 function user_menu_dropdown({
@@ -324,11 +330,13 @@ function alerts_dropdown({
 function left_section({
 	is_dark_mode,
 	breadcrumbs,
-	open_mobile_menu
+	open_mobile_menu,
+	navigate
 }: {
 	is_dark_mode: boolean
-	breadcrumbs: { label: string }[]
+	breadcrumbs: { label: string; path?: string }[]
 	open_mobile_menu: () => void
+	navigate: (path: string) => void
 }) {
 	return (
 		<div className="flex items-center gap-4">
@@ -342,15 +350,24 @@ function left_section({
 				{breadcrumbs.map((crumb, i) => (
 					<span key={i} className="flex items-center gap-2">
 						{i > 0 && <ChevronRight size={14} className="text-zinc-600" />}
-						<span
-							className={
-								i === breadcrumbs.length - 1
-									? `${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'} font-medium`
-									: 'text-zinc-500'
-							}
-						>
-							{crumb.label}
-						</span>
+						{crumb.path && i < breadcrumbs.length - 1 ? (
+							<button
+								onClick={() => navigate(crumb.path!)}
+								className={`cursor-pointer hover:text-zinc-300 dark:hover:text-zinc-600 ${'text-zinc-500'}`}
+							>
+								{crumb.label}
+							</button>
+						) : (
+							<span
+								className={
+									i === breadcrumbs.length - 1
+										? `${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'} font-medium`
+										: 'text-zinc-500'
+								}
+							>
+								{crumb.label}
+							</span>
+						)}
 					</span>
 				))}
 			</div>
@@ -566,7 +583,33 @@ function right_actions({
 	)
 }
 
-function use_header_search(user: { id: string } | null | undefined) {
+export function header_content() {
+	const { is_dark_mode, toggle_theme, open_mobile_menu } = use_app_context()
+	const { user, sign_out } = use_auth()
+	const { alerts, is_loading } = use_alerts()
+	const navigate = useNavigate()
+	const [is_menu_open, set_is_menu_open] = useState(false)
+	const [menu_el, set_menu_el] = useState<HTMLDivElement | undefined>(undefined)
+	const menu_ref = useCallback((el: HTMLDivElement | null) => {
+		set_menu_el(el ?? undefined)
+	}, [])
+	const location = useLocation()
+	const path_parts = location.pathname.split('/').filter(Boolean)
+	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
+	const projects = use_project_store((s) => s.projects)
+	const project = project_id ? projects.find((p) => p.id === project_id) : undefined
+	const breadcrumbs = build_breadcrumbs(path_parts, project?.name, project_id)
+
+	const user_name = user?.user_metadata?.full_name as string | undefined
+	const initials = user_name
+		? user_name
+				.split(' ')
+				.map((s) => s[0])
+				.join('')
+				.toUpperCase()
+				.slice(0, 2)
+		: (user?.email?.[0]?.toUpperCase() ?? '?')
+
 	const [search_query, set_search_query] = useState('')
 	const [dataset_results, set_dataset_results] = useState<DatasetSearchResult[]>([])
 	const [search_project_results, set_search_project_results] = useState<ProjectSearchResult[]>([])
@@ -717,7 +760,7 @@ export function header_content() {
 		<header
 			className={`flex h-16 shrink-0 items-center justify-between border-b px-4 lg:px-8 backdrop-blur-md z-10 box-border ${header_classes}`}
 		>
-			{left_section({ is_dark_mode, breadcrumbs, open_mobile_menu })}
+			{left_section({ is_dark_mode, breadcrumbs, open_mobile_menu, navigate })}
 			{right_actions({
 				is_dark_mode,
 				is_home_page,
