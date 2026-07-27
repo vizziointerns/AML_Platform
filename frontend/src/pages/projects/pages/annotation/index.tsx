@@ -680,24 +680,6 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				</div>
 			)}
 
-			<div
-				className={`h-8 border-t ${border_subtle} ${bg_panel} flex items-center justify-between px-3 text-[11px] shrink-0 z-10 box-border`}
-			>
-				<div className={`flex items-center gap-4 ${text_muted}`}>
-					<span className="flex items-center gap-1.5">
-						<MousePointer2 size={12} /> X: 452, Y: 1024
-					</span>
-					<span>|</span>
-					<span className="font-medium">
-						Active Tool: {tools.find((t) => t.id === active_tool)?.label}
-					</span>
-				</div>
-				<div className={`flex items-center gap-4 ${text_muted}`}>
-					<span>Press 'H' to pan, 'V' to select, '+/-' to zoom, 'W/E' for Brush/Eraser</span>
-					<button className="hover:text-blue-500 font-medium">Shortcuts</button>
-				</div>
-			</div>
-
 			{render_model_selection_dialog(
 				is_model_selector_open,
 				custom_models,
