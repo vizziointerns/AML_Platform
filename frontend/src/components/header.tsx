@@ -432,6 +432,7 @@ function search_bar({
 
 function right_actions({
 	is_dark_mode,
+	is_home_page,
 	toggle_theme,
 	search_query,
 	set_search_query,
@@ -456,6 +457,7 @@ function right_actions({
 	is_loading
 }: {
 	is_dark_mode: boolean
+	is_home_page: boolean
 	toggle_theme: () => void
 	search_query: string
 	set_search_query: (v: string) => void
@@ -481,7 +483,7 @@ function right_actions({
 }) {
 	return (
 		<div className="flex items-center gap-3 lg:gap-4">
-			{search_bar({
+			{is_home_page && search_bar({
 				is_dark_mode,
 				search_query,
 				set_search_query,
@@ -492,11 +494,13 @@ function right_actions({
 				navigate
 			})}
 
-			<button
-				className={`sm:hidden p-2 rounded-full ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}
-			>
-				<Search size={18} />
-			</button>
+			{is_home_page && (
+				<button
+					className={`sm:hidden p-2 rounded-full ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}
+				>
+					<Search size={18} />
+				</button>
+			)}
 
 			<button
 				onClick={toggle_theme}
@@ -577,6 +581,7 @@ export function header_content() {
 	const projects = use_project_store((s) => s.projects)
 	const project = project_id ? projects.find((p) => p.id === project_id) : undefined
 	const breadcrumbs = build_breadcrumbs(path_parts, project?.name)
+	const is_home_page = location.pathname === '/home' || location.pathname === '/'
 
 	const user_name = user?.user_metadata?.full_name as string | undefined
 	const initials = user_name
@@ -685,6 +690,7 @@ export function header_content() {
 			{left_section({ is_dark_mode, breadcrumbs, open_mobile_menu })}
 			{right_actions({
 				is_dark_mode,
+				is_home_page,
 				toggle_theme,
 				search_query,
 				set_search_query,
