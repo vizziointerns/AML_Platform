@@ -1,7 +1,7 @@
 import { Database, Image as ImageIcon, Tag, MoreVertical, Pencil, Trash } from 'lucide-react'
 import type { DatasetInfo } from '../../hooks/use_datasets'
 
-function card_menu({
+export function dataset_action_menu({
 	dataset,
 	on_rename,
 	on_delete,
@@ -20,7 +20,7 @@ function card_menu({
 	return (
 		<div className="relative shrink-0" onMouseDown={(e) => e.stopPropagation()}>
 			<button
-				className={`p-1 rounded-md text-zinc-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
+				className={`p-1 rounded-md text-zinc-400 hover:text-blue-500 cursor-pointer`}
 				aria-label="Open dataset menu"
 				onClick={(e) => {
 					e.stopPropagation()
@@ -128,7 +128,14 @@ export function dataset_card({
 					<h3 className={`font-semibold tracking-tight truncate ${text_heading}`}>
 						{dataset.name}
 					</h3>
-					{card_menu({ dataset, on_rename, on_delete, is_menu_open, on_menu_toggle, menu_bg })}
+					{dataset_action_menu({
+						dataset,
+						on_rename,
+						on_delete,
+						is_menu_open,
+						on_menu_toggle,
+						menu_bg
+					})}
 				</div>
 				<div className={`flex flex-wrap gap-4 text-xs ${text_muted} mb-4`}>
 					<span className="flex items-center gap-1.5">

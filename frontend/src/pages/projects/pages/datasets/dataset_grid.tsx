@@ -56,6 +56,7 @@ export function dataset_grid_view({
 						<th className="px-6 py-4 font-medium">Status</th>
 						<th className="px-6 py-4 font-medium">Tags</th>
 						<th className="px-6 py-4 font-medium text-right">Last Updated</th>
+						<th className="px-6 py-4 font-medium w-12"></th>
 					</tr>
 				</thead>
 				<tbody className="divide-y divide-zinc-800/20">
@@ -64,7 +65,11 @@ export function dataset_grid_view({
 							key: ds.id,
 							dataset: ds,
 							is_dark_mode,
-							on_select
+							on_select,
+							on_rename,
+							on_delete,
+							is_menu_open: open_menu_id === ds.id,
+							on_menu_toggle: () => on_menu_toggle(ds.id)
 						})
 					)}
 				</tbody>
