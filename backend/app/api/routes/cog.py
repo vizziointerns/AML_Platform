@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -71,7 +72,12 @@ def _assert_allowed_url(url: str) -> None:
 CACHE_DIR = Path(__file__).parent.parent.parent.parent / "cache" / "cog"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+TILE_CACHE_DIR = CACHE_DIR / "tiles"
+TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
 MAX_CACHE_MB = 2048
+
+_tile_executor = ThreadPoolExecutor(max_workers=4)
 
 _download_locks: dict[str, asyncio.Event] = {}
 _download_locks_lock = threading.Lock()
@@ -237,6 +243,62 @@ def _pick_overview_page(
     target_log2 = math.log2(image_max_dim) - 8  # log2(W / 256)
     best = round(target_log2 - z)
     return max(0, min(num_pages - 1, best))
+
+
+def _tile_cache_path(
+    cache_path: Path, z: int, x: int, y: int,
+    band: int, palette: str,
+    min_val: float | None, max_val: float | None,
+) -> Path:
+    key = hashlib.sha256(
+        f"{cache_path.name}|{z}|{x}|{y}|{band}|{palette}|{min_val}|{max_val}".encode()
+    ).hexdigest()[:32]
+    return TILE_CACHE_DIR / f"{key}.png"
+
+
+def _render_tile_sync(
+    cache_path: Path, z: int, x: int, y: int,
+    band: int, palette: str,
+    min_val: float | None, max_val: float | None,
+) -> bytes:
+    num_pages, full_w, full_h, is_pyramid = _infer_page_structure(cache_path)
+    if is_pyramid:
+        page_idx = _pick_overview_page(num_pages, max(full_w, full_h), z)
+    else:
+        page_idx = min(band, num_pages - 1)
+    band_data, orig_w, orig_h, band_min, band_max = _read_band_page(cache_path, page_idx)
+
+    tiles_at_z = 2 ** z
+    tile_w = max(1, orig_w // tiles_at_z)
+    tile_h = max(1, orig_h // tiles_at_z)
+    x_start = x * tile_w
+    y_start = y * tile_h
+    x_end = min(orig_w, x_start + tile_w)
+    y_end = min(orig_h, y_start + tile_h)
+    if x_start >= orig_w or y_start >= orig_h:
+        img = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    tile_data = band_data[y_start:y_end, x_start:x_end]
+    actual_min = min_val if min_val is not None else band_min
+    actual_max = max_val if max_val is not None else band_max
+    if actual_max - actual_min < 1e-10:
+        actual_max = actual_min + 1.0
+    rgb_tile = PALETTES.get(palette, PALETTES["grayscale"])[
+        np.clip(
+            (tile_data - actual_min) / (actual_max - actual_min) * 255,
+            0, 255,
+        ).astype(np.uint8)
+    ]
+    rgba_tile = np.zeros((rgb_tile.shape[0], rgb_tile.shape[1], 4), dtype=np.uint8)
+    rgba_tile[:, :, :3] = rgb_tile
+    rgba_tile[:, :, 3] = 255
+    tile_img = Image.fromarray(rgba_tile, "RGBA").resize((256, 256), LANCZOS)
+    buf = io.BytesIO()
+    tile_img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def _evict_cache_if_needed() -> None:
@@ -412,6 +474,9 @@ async def cog_info(url: str = Query(...)) -> dict[str, Any]:
         }
 
 
+CACHE_HEADERS = {"Cache-Control": "public, max-age=31536000, immutable"}
+
+
 @router.get("/cog/render")
 async def cog_render(
     url: str = Query(...),
@@ -435,7 +500,7 @@ async def cog_render(
     actual_min = min_val if min_val is not None else float(band_data.min())
     actual_max = max_val if max_val is not None else float(band_data.max())
     png_bytes = _apply_palette(band_data, palette, actual_min, actual_max)
-    return Response(png_bytes, media_type="image/png")
+    return Response(png_bytes, media_type="image/png", headers=CACHE_HEADERS)
 
 
 @router.get("/cog/tile/{z}/{x}/{y}.png")
@@ -451,46 +516,22 @@ async def cog_tile(
 ) -> Response:
     cache_path = await _ensure_cached(url)
 
-    num_pages, full_w, full_h, is_pyramid = _infer_page_structure(cache_path)
-    if is_pyramid:
-        page_idx = _pick_overview_page(num_pages, max(full_w, full_h), z)
-    else:
-        page_idx = min(band, num_pages - 1)
-    band_data, orig_w, orig_h, band_min, band_max = _read_band_page(cache_path, page_idx)
+    tile_cache_key = _tile_cache_path(cache_path, z, x, y, band, palette, min_val, max_val)
+    if tile_cache_key.exists():
+        return Response(
+            tile_cache_key.read_bytes(),
+            media_type="image/png",
+            headers=CACHE_HEADERS,
+        )
 
-    tiles_at_z = 2**z
-    tile_w = max(1, orig_w // tiles_at_z)
-    tile_h = max(1, orig_h // tiles_at_z)
-    x_start = x * tile_w
-    y_start = y * tile_h
-    x_end = min(orig_w, x_start + tile_w)
-    y_end = min(orig_h, y_start + tile_h)
-    if x_start >= orig_w or y_start >= orig_h:
-        img = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return Response(buf.getvalue(), media_type="image/png")
-    tile_data = band_data[y_start:y_end, x_start:x_end]
-    actual_min = min_val if min_val is not None else band_min
-    actual_max = max_val if max_val is not None else band_max
-    if actual_max - actual_min < 1e-10:
-        actual_max = actual_min + 1.0
-    rgb_tile = PALETTES.get(palette, PALETTES["grayscale"])[
-        np.clip(
-            (tile_data - actual_min) / (actual_max - actual_min) * 255,
-            0,
-            255,
-        ).astype(np.uint8)
-    ]
-    rgba_tile = np.zeros(
-        (rgb_tile.shape[0], rgb_tile.shape[1], 4), dtype=np.uint8
+    png_bytes = await asyncio.get_event_loop().run_in_executor(
+        _tile_executor,
+        _render_tile_sync,
+        cache_path, z, x, y, band, palette, min_val, max_val,
     )
-    rgba_tile[:, :, :3] = rgb_tile
-    rgba_tile[:, :, 3] = 255
-    tile_img = Image.fromarray(rgba_tile, "RGBA").resize((256, 256), LANCZOS)
-    buf = io.BytesIO()
-    tile_img.save(buf, format="PNG")
-    return Response(buf.getvalue(), media_type="image/png")
+
+    tile_cache_key.write_bytes(png_bytes)
+    return Response(png_bytes, media_type="image/png", headers=CACHE_HEADERS)
 
 
 @router.post("/cog/convert", status_code=201)
