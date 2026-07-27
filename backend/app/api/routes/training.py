@@ -48,7 +48,7 @@ def _ensure_table(db: Session) -> None:
 def _row_to_out(row: TrainingRun) -> TrainingRunOut | None:
     try:
         metrics_val = row.metrics
-    except Exception:
+    except AttributeError:
         metrics_val = None
 
     if row.task_type not in ("detect", "segment"):

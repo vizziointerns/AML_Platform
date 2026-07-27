@@ -190,6 +190,12 @@ export function cog_tile_layer_component({
 			})
 		}
 
+		const snapshot_pending = (): string[] => {
+			const keys = Array.from(pending_updates)
+			pending_updates.clear()
+			return keys
+		}
+
 		const tick = () => {
 			if (skip_ref.current) {
 				current_raf = requestAnimationFrame(tick)
@@ -242,9 +248,10 @@ export function cog_tile_layer_component({
 				delete current_loaded[key]
 				pending_updates.delete(key)
 			}
+			if (batch_raf) cancelAnimationFrame(batch_raf)
+			batch_raf = 0
+			const pending_snapshot = snapshot_pending()
 			set_loaded_tiles((prev) => {
-				if (batch_raf) cancelAnimationFrame(batch_raf)
-				batch_raf = 0
 				const next = { ...prev }
 				for (const key of Object.keys(next)) {
 					if (still_valid.has(key)) continue
@@ -254,11 +261,10 @@ export function cog_tile_layer_component({
 					if (key_z >= next_z - 2 && key_z <= next_z + 1) continue
 					delete next[key]
 				}
-				for (const key of pending_updates) {
+				for (const key of pending_snapshot) {
 					const v = current_loaded[key]
 					if (v) next[key] = v
 				}
-				pending_updates.clear()
 				return next
 			})
 

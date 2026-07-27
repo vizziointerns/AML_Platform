@@ -245,13 +245,22 @@ def _pick_overview_page(
     return max(0, min(num_pages - 1, best))
 
 
+_QUANTIZE_DECIMALS = 6
+
+
+def _quantize(val: float | None) -> float | None:
+    if val is None:
+        return None
+    return round(val, _QUANTIZE_DECIMALS)
+
+
 def _tile_cache_path(
     cache_path: Path, z: int, x: int, y: int,
     band: int, palette: str,
     min_val: float | None, max_val: float | None,
 ) -> Path:
     key = hashlib.sha256(
-        f"{cache_path.name}|{z}|{x}|{y}|{band}|{palette}|{min_val}|{max_val}".encode()
+        f"{cache_path.name}|{z}|{x}|{y}|{band}|{palette}|{_quantize(min_val)}|{_quantize(max_val)}".encode()
     ).hexdigest()[:32]
     return TILE_CACHE_DIR / f"{key}.png"
 
@@ -282,10 +291,11 @@ def _render_tile_sync(
         return buf.getvalue()
 
     tile_data = band_data[y_start:y_end, x_start:x_end]
-    actual_min = min_val if min_val is not None else band_min
-    actual_max = max_val if max_val is not None else band_max
-    if actual_max - actual_min < 1e-10:
-        actual_max = actual_min + 1.0
+    actual_min = _quantize(min_val if min_val is not None else band_min)
+    actual_max = _quantize(max_val if max_val is not None else band_max)
+    if actual_max is None or actual_min is None or actual_max - actual_min < 1e-10:
+        actual_max = (actual_min or 0.0) + 1.0
+        actual_min = actual_min or 0.0
     rgb_tile = PALETTES.get(palette, PALETTES["grayscale"])[
         np.clip(
             (tile_data - actual_min) / (actual_max - actual_min) * 255,
