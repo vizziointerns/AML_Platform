@@ -31,20 +31,24 @@ api_client.interceptors.response.use(
 		}
 
 		const status = error.response?.status
-		const message =
-			status === 401
-				? 'Session expired. Please sign in again.'
-				: status === 403
-					? 'You do not have permission to perform this action.'
-					: status === 404
-						? 'The requested resource was not found.'
-						: status === 429
-							? 'Too many requests. Please try again later.'
-							: status && status >= 500
-								? 'Server error. Please try again later.'
-								: 'An unexpected error occurred. Please try again.'
+		const detail = error.response?.data?.detail
 
-		console.error(`[API Error ${status ?? 'unknown'}]`, error.message)
+		const message =
+			typeof detail === 'string' && detail
+				? detail
+				: status === 401
+					? 'Session expired. Please sign in again.'
+					: status === 403
+						? 'You do not have permission to perform this action.'
+						: status === 404
+							? 'The requested resource was not found.'
+							: status === 429
+								? 'Too many requests. Please try again later.'
+								: status && status >= 500
+									? 'Server error. Please try again later.'
+									: 'An unexpected error occurred. Please try again.'
+
+		console.error(`[API Error ${status ?? 'unknown'}]`, detail || error.message)
 
 		const enhanced = new Error(message)
 		enhanced.cause = error
