@@ -483,16 +483,17 @@ function right_actions({
 }) {
 	return (
 		<div className="flex items-center gap-3 lg:gap-4">
-			{is_home_page && search_bar({
-				is_dark_mode,
-				search_query,
-				set_search_query,
-				search_ref,
-				projects,
-				search_project_results,
-				dataset_results,
-				navigate
-			})}
+			{is_home_page &&
+				search_bar({
+					is_dark_mode,
+					search_query,
+					set_search_query,
+					search_ref,
+					projects,
+					search_project_results,
+					dataset_results,
+					navigate
+				})}
 
 			{is_home_page && (
 				<button
@@ -678,8 +679,10 @@ export function header_content() {
 				.slice(0, 2)
 		: (user?.email?.[0]?.toUpperCase() ?? '?')
 
-	const { search_query, set_search_query, dataset_results, search_project_results, search_ref } = use_header_search(user)
-	const { is_alert_open, set_alert_open, has_unviewed_alerts, set_has_unviewed_alerts, alert_ref } = use_header_alerts(alerts, user_email)
+	const { search_query, set_search_query, dataset_results, search_project_results, search_ref } =
+		use_header_search(user)
+	const { is_alert_open, set_alert_open, has_unviewed_alerts, set_has_unviewed_alerts, alert_ref } =
+		use_header_alerts(alerts, user_email)
 	const { is_menu_open, set_is_menu_open, menu_el, menu_ref } = use_header_menu()
 
 	useEffect(() => {
@@ -696,7 +699,15 @@ export function header_content() {
 		}
 		document.addEventListener('mousedown', handle_click_outside)
 		return () => document.removeEventListener('mousedown', handle_click_outside)
-	}, [menu_el, search_query, search_ref, alert_ref, set_is_menu_open, set_search_query, set_alert_open])
+	}, [
+		menu_el,
+		search_query,
+		search_ref,
+		alert_ref,
+		set_is_menu_open,
+		set_search_query,
+		set_alert_open
+	])
 
 	const header_classes = is_dark_mode
 		? 'bg-zinc-950/80 border-zinc-800'
