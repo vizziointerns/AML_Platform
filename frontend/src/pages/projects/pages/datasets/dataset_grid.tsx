@@ -44,19 +44,19 @@ export function dataset_grid_view({
 	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
 	return (
 		<div
-			className={`rounded-xl border ${border_subtle} ${is_dark_mode ? 'bg-zinc-900' : 'bg-white'} overflow-hidden`}
+			className={`rounded-xl border ${border_subtle} ${is_dark_mode ? 'bg-zinc-900' : 'bg-white'} overflow-visible`}
 		>
 			<table className="w-full text-sm text-left">
 				<thead
 					className={`text-xs uppercase ${bg_subtle} ${is_dark_mode ? 'text-zinc-400 border-b border-zinc-800' : 'text-zinc-500 border-b border-zinc-200'}`}
 				>
 					<tr>
-						<th className="px-6 py-4 font-medium">Dataset</th>
+						<th className="px-6 py-4 font-medium first:rounded-tl-xl">Dataset</th>
 						<th className="px-6 py-4 font-medium">Size</th>
 						<th className="px-6 py-4 font-medium">Status</th>
 						<th className="px-6 py-4 font-medium">Tags</th>
 						<th className="px-6 py-4 font-medium text-right">Last Updated</th>
-						<th className="px-6 py-4 font-medium w-12"></th>
+						<th className="px-6 py-4 font-medium w-12 last:rounded-tr-xl"></th>
 					</tr>
 				</thead>
 				<tbody className="divide-y divide-zinc-800/20">
