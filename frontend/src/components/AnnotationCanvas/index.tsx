@@ -130,13 +130,14 @@ export default function annotation_canvas({
 	}, [])
 
 	useEffect(() => {
-		if (tiled_background) return
-		if (image && stage_size.width > 0 && stage_size.height > 0) {
-			const scale = Math.min(
-				(stage_size.width * 0.9) / image.width,
-				(stage_size.height * 0.9) / image.height
-			)
-			on_zoom_change(scale / base_zoom)
+		if (!image && !tiled_background) return
+		if (stage_size.width === 0 || stage_size.height === 0) return
+		const img_w = tiled_background ? tiled_background.image_width : image!.width
+		const img_h = tiled_background ? tiled_background.image_height : image!.height
+		const scale = Math.min((stage_size.width * 0.9) / img_w, (stage_size.height * 0.9) / img_h)
+		const new_zoom = scale / base_zoom
+		if (Math.abs(new_zoom - zoom_level) > 0.01) {
+			on_zoom_change(new_zoom)
 		}
 	}, [image, stage_size, tiled_background, base_zoom])
 

@@ -45,18 +45,15 @@ def _ensure_table(db: Session) -> None:
         pass
 
 
-def _row_to_out(row: TrainingRun) -> TrainingRunOut:
+def _row_to_out(row: TrainingRun) -> TrainingRunOut | None:
     try:
         metrics_val = row.metrics
-    except Exception:
+    except AttributeError:
         metrics_val = None
 
     if row.task_type not in ("detect", "segment"):
-        from fastapi import HTTPException
-
-        raise HTTPException(
-            status_code=400, detail=f"Invalid task_type in DB: {row.task_type}"
-        )
+        logger.warning("Skipping training run %s: invalid task_type '%s'", row.id, row.task_type)
+        return None
 
     return TrainingRunOut(
         id=row.id,
@@ -89,7 +86,7 @@ def list_training_runs(
         .order_by(TrainingRun.id.desc())
         .all()
     )
-    return TrainingRunListOut(runs=[_row_to_out(r) for r in rows])
+    return TrainingRunListOut(runs=[r for r in (_row_to_out(r) for r in rows) if r is not None])
 
 
 @router.get("/training/{project_id}/{run_id}", response_model=TrainingRunOut)
@@ -106,7 +103,10 @@ def get_training_run(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="Training run not found")
-    return _row_to_out(row)
+    result = _row_to_out(row)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Training run has invalid data")
+    return result
 
 
 @router.post("/training/{project_id}", response_model=TrainingRunOut, status_code=201)
@@ -125,7 +125,9 @@ def create_training_run(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _row_to_out(row)
+    result = _row_to_out(row)
+    assert result is not None, "Newly created run should have valid task_type"
+    return result
 
 
 @router.patch("/training/{project_id}/{run_id}", response_model=TrainingRunOut)
@@ -148,7 +150,9 @@ def update_training_run(
         setattr(row, key, value)
     db.commit()
     db.refresh(row)
-    return _row_to_out(row)
+    result = _row_to_out(row)
+    assert result is not None, "Updated run should have valid task_type"
+    return result
 
 
 @router.post("/training/{project_id}/{run_id}/start", response_model=TrainingRunOut)
@@ -205,7 +209,9 @@ def start_training(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Failed to start training: {e}") from e
 
-    return _row_to_out(row)
+    result = _row_to_out(row)
+    assert result is not None, "Started run should have valid task_type"
+    return result
 
 
 @router.get("/training/{project_id}/{run_id}/weights")

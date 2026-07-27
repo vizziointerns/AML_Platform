@@ -220,6 +220,8 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		set_predictions([])
 		set_is_showing_predictions(false)
 		set_selected_prediction_id(undefined)
+		set_zoom_level(1)
+		set_offset({ x: 0, y: 0 })
 	}, [imageId])
 
 	const set_annotations = useCallback(
@@ -655,9 +657,23 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 							}`}
 						>
 							<img
-								src={get_cog_thumbnail_url(img.file_url, img.file_extension)}
+								src={
+									idx === current_index
+										? get_cog_thumbnail_url(img.file_url, img.file_extension)
+										: undefined
+								}
+								data-src={
+									idx !== current_index
+										? get_cog_thumbnail_url(img.file_url, img.file_extension)
+										: undefined
+								}
 								alt={img.file_name}
+								loading="lazy"
 								className="w-full h-full object-cover"
+								onMouseEnter={(e) => {
+									const el = e.currentTarget
+									if (!el.src && el.dataset.src) el.src = el.dataset.src
+								}}
 							/>
 						</button>
 					))}

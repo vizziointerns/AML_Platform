@@ -172,6 +172,29 @@ export function cog_tile_layer_component({
 		let last_z = -1
 		let last_tiles_key = ''
 		let current_raf = 0
+		let batch_raf = 0
+		const pending_updates = new Set<string>()
+
+		const flush_batch = () => {
+			batch_raf = 0
+			if (pending_updates.size === 0) return
+			const keys = Array.from(pending_updates)
+			pending_updates.clear()
+			set_loaded_tiles((prev) => {
+				const next = { ...prev }
+				for (const k of keys) {
+					const v = current_loaded[k]
+					if (v) next[k] = v
+				}
+				return next
+			})
+		}
+
+		const snapshot_pending = (): string[] => {
+			const keys = Array.from(pending_updates)
+			pending_updates.clear()
+			return keys
+		}
 
 		const tick = () => {
 			if (skip_ref.current) {
@@ -202,8 +225,12 @@ export function cog_tile_layer_component({
 				img.crossOrigin = 'anonymous'
 				img.onload = () => {
 					current_loading.delete(tile_key)
+					const current_z = current_z_ref.current
+					const tile_z = parseInt(tile_key.split('/')[0]!, 10)
+					if (Math.abs(tile_z - current_z) > 2) return
 					current_loaded[tile_key] = img
-					set_loaded_tiles((prev) => ({ ...prev, [tile_key]: img }))
+					pending_updates.add(tile_key)
+					if (!batch_raf) batch_raf = requestAnimationFrame(flush_batch)
 				}
 				img.onerror = () => {
 					current_loading.delete(tile_key)
@@ -219,7 +246,11 @@ export function cog_tile_layer_component({
 				const key_z = parseInt(z_part, 10)
 				if (key_z >= next_z - 2 && key_z <= next_z + 1) continue
 				delete current_loaded[key]
+				pending_updates.delete(key)
 			}
+			if (batch_raf) cancelAnimationFrame(batch_raf)
+			batch_raf = 0
+			const pending_snapshot = snapshot_pending()
 			set_loaded_tiles((prev) => {
 				const next = { ...prev }
 				for (const key of Object.keys(next)) {
@@ -230,6 +261,10 @@ export function cog_tile_layer_component({
 					if (key_z >= next_z - 2 && key_z <= next_z + 1) continue
 					delete next[key]
 				}
+				for (const key of pending_snapshot) {
+					const v = current_loaded[key]
+					if (v) next[key] = v
+				}
 				return next
 			})
 
@@ -237,7 +272,10 @@ export function cog_tile_layer_component({
 		}
 
 		current_raf = requestAnimationFrame(tick)
-		return () => cancelAnimationFrame(current_raf)
+		return () => {
+			cancelAnimationFrame(current_raf)
+			if (batch_raf) cancelAnimationFrame(batch_raf)
+		}
 	}, [config_key])
 
 	if (skip || !config.visible) return undefined
