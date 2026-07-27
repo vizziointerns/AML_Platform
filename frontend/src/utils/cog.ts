@@ -178,6 +178,9 @@ export function is_tiff_url(url: string): boolean {
 }
 
 export function get_cog_thumbnail_url(url: string, file_extension?: string): string {
+	if (url.startsWith('cache://')) {
+		return `${API_BASE}/cache/file?url=${encodeURIComponent(url)}`
+	}
 	if (file_extension === 'tif' || file_extension === 'tiff' || is_tiff_url(url)) {
 		const params = new URLSearchParams({
 			url,
