@@ -44,7 +44,6 @@ export default function root_layout() {
 					is_expanded: is_l1_expanded,
 					is_hover_expanded: is_in_project && is_l1_hovered && !is_l1_expanded,
 					is_hovered: is_l1_hovered,
-					on_toggle: () => set_is_l1_expanded((prev) => !prev),
 					on_navigate: (route) => {
 						navigate(`/${route}`)
 					},

@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { PanelLeftClose, PanelLeftOpen, Box } from 'lucide-react'
+import { Box } from 'lucide-react'
 import { APP_NAV_ITEMS, APP_BOTTOM_ITEMS } from '../../config/navigation'
 import { nav_section } from './shared'
 
@@ -8,7 +8,6 @@ export function app_sidebar({
 	is_hover_expanded,
 	is_hovered,
 	is_dark_mode,
-	on_toggle,
 	on_navigate,
 	on_logo_click
 }: {
@@ -16,7 +15,6 @@ export function app_sidebar({
 	is_hover_expanded: boolean
 	is_hovered?: boolean
 	is_dark_mode: boolean
-	on_toggle: () => void
 	on_navigate: (route: string) => void
 	on_logo_click: () => void
 }) {
@@ -77,17 +75,6 @@ export function app_sidebar({
 					})}
 				</div>
 			</nav>
-
-			<div className={`p-4 border-t ${border_color} shrink-0 flex flex-col gap-2`}>
-				<button
-					onClick={on_toggle}
-					className={`hidden lg:flex items-center gap-2 p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-100 ${is_now_expanded ? '' : 'justify-center'}`}
-					title="Toggle Sidebar (Cmd+B)"
-				>
-					{is_now_expanded ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-					{is_now_expanded && <span className="text-sm font-medium">Collapse Sidebar</span>}
-				</button>
-			</div>
 		</aside>
 	)
 }
