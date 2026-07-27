@@ -375,7 +375,7 @@ export default function annotation_canvas({
 							}}
 							image_width={tiled_background!.image_width}
 							image_height={tiled_background!.image_height}
-							skip={zoom_level < 2}
+							skip={zoom_level < 0.3}
 						/>
 					</Layer>
 				)}
