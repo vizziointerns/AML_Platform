@@ -109,7 +109,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	const cog_image_info = use_cog_image_info(image_url, image_name, current_image?.file_extension)
 
 	const tiled_background_config: TiledBackgroundConfig | undefined = useMemo(() => {
-		if (!is_cog_project || !cog_image_info || !image_url) return undefined
+		if (!cog_image_info || !image_url) return undefined
 		return {
 			url: image_url,
 			band: bg_band,
@@ -117,7 +117,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 			image_width: cog_image_info.width,
 			image_height: cog_image_info.height
 		}
-	}, [is_cog_project, cog_image_info, image_url, bg_band, bg_palette])
+	}, [cog_image_info, image_url, bg_band, bg_palette])
 
 	const display_image_url = use_cog_background(
 		image_url,
