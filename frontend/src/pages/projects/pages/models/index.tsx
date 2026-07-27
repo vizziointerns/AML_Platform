@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Box, Plus, Search, Filter, Cpu } from 'lucide-react'
+import { Box, Plus, Search, Cpu } from 'lucide-react'
 import { use_project_store } from '../../../../store/projectStore'
 
 import { SUPPORTED_MODELS } from '../../../../constants/models'
@@ -77,11 +77,6 @@ export default function models_page({ is_dark_mode }: { is_dark_mode: boolean })
 							onChange={(e) => set_search_query(e.target.value)}
 						/>
 					</div>
-					<button
-						className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
-					>
-						<Filter size={16} /> Filter
-					</button>
 				</div>
 
 				{error && (
