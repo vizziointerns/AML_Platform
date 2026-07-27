@@ -657,23 +657,10 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 							}`}
 						>
 							<img
-								src={
-									idx === current_index
-										? get_cog_thumbnail_url(img.file_url, img.file_extension)
-										: undefined
-								}
-								data-src={
-									idx !== current_index
-										? get_cog_thumbnail_url(img.file_url, img.file_extension)
-										: undefined
-								}
+								src={get_cog_thumbnail_url(img.file_url, img.file_extension)}
 								alt={img.file_name}
 								loading="lazy"
 								className="w-full h-full object-cover"
-								onMouseEnter={(e) => {
-									const el = e.currentTarget
-									if (!el.src && el.dataset.src) el.src = el.dataset.src
-								}}
 							/>
 						</button>
 					))}
