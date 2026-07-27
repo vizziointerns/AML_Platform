@@ -1,7 +1,39 @@
 import { useState, useEffect } from 'react'
-import { Check, Maximize, X, PenTool } from 'lucide-react'
+import { AlertCircle, Check, Loader2, Maximize, X, PenTool } from 'lucide-react'
 import type { MockImage } from './types'
 import { get_cog_thumbnail_url } from '../../utils/cog'
+
+function render_status_badges(img: MockImage) {
+	return (
+		<div className="absolute top-2 right-2 flex items-center gap-1">
+			{img.drive_status && img.drive_status !== 'uploaded' && (
+				<span
+					className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium backdrop-blur-md border shadow-sm ${
+						img.drive_status === 'uploading'
+							? 'bg-blue-500/80 text-white border-blue-400/30'
+							: 'bg-red-500/80 text-white border-red-400/30'
+					}`}
+				>
+					{img.drive_status === 'uploading' ? (
+						<Loader2 size={10} className="animate-spin" />
+					) : (
+						<AlertCircle size={10} />
+					)}
+					{img.drive_status === 'uploading' ? 'Uploading' : 'Failed'}
+				</span>
+			)}
+			<span
+				className={`px-1.5 py-0.5 rounded text-[10px] font-medium backdrop-blur-md border shadow-sm ${
+					img.status === 'annotated'
+						? 'bg-emerald-500/80 text-white border-emerald-400/30'
+						: 'bg-amber-500/80 text-white border-amber-400/30'
+				}`}
+			>
+				{img.status === 'annotated' ? 'Annotated' : 'Unannotated'}
+			</span>
+		</div>
+	)
+}
 
 export function gallery_image({
 	img,
@@ -70,17 +102,7 @@ export function gallery_image({
 					<div className="absolute inset-0 ring-4 ring-inset ring-white/30 dark:ring-white/20 pointer-events-none" />
 				)}
 
-				<div className="absolute top-2 right-2">
-					<span
-						className={`px-1.5 py-0.5 rounded text-[10px] font-medium backdrop-blur-md border shadow-sm ${
-							img.status === 'annotated'
-								? 'bg-emerald-500/80 text-white border-emerald-400/30'
-								: 'bg-amber-500/80 text-white border-amber-400/30'
-						}`}
-					>
-						{img.status === 'annotated' ? 'Annotated' : 'Unannotated'}
-					</span>
-				</div>
+				{render_status_badges(img)}
 
 				<div
 					className={`absolute inset-0 transition-all duration-200 ${is_selected ? 'bg-blue-500/10' : 'bg-black/0 group-hover:bg-black/10 dark:group-hover:bg-black/20'}`}

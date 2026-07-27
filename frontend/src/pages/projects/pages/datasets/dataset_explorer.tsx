@@ -2,8 +2,10 @@ import { ArrowLeft, Plus } from 'lucide-react'
 import VirtualGallery from '../../../../components/VirtualGallery'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
 import type { DatasetImage } from '../../../../hooks/use_dataset_images'
+import { is_drive_url } from '../../../../utils/drive_image'
 
 export function dataset_explorer_view({
+	drive_statuses = {},
 	dataset,
 	is_dark_mode,
 	on_back,
@@ -15,6 +17,7 @@ export function dataset_explorer_view({
 	is_deleting_images,
 	on_open_annotation
 }: {
+	drive_statuses?: Record<string, 'uploading' | 'uploaded' | 'failed'>
 	dataset: DatasetInfo
 	is_dark_mode: boolean
 	on_back: () => void
@@ -40,7 +43,10 @@ export function dataset_explorer_view({
 		height: img.height,
 		classes: img.class_labels,
 		status: (img.class_labels?.length ?? 0) > 0 ? 'annotated' : 'unannotated',
-		file_extension: img.file_extension
+		file_extension: img.file_extension,
+		drive_status: is_drive_url(img.file_url)
+			? ('uploaded' as const)
+			: (drive_statuses[img.file_url] ?? undefined)
 	}))
 
 	const handle_open_annotation = (img: { id: string | number }) => {
