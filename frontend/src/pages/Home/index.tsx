@@ -9,6 +9,11 @@ import { Plus, ChevronRight, Database } from 'lucide-react'
 import { stats_grid } from './stats_grid'
 import { alerts_widget } from './alerts_widget'
 import { team_activity_widget } from './activity_widget'
+import { type Project } from '../../store/projectStore'
+import DeleteProjectDialog from '../../components/DeleteProjectDialog'
+import { rename_dialog } from '../projects/rename_dialog'
+import { toast_bar } from '../../components/toast_bar'
+import { use_project_actions } from '../../hooks/use_project_actions'
 
 function greeting(name: string | undefined): string {
 	const hour = new Date().getHours()
@@ -65,9 +70,15 @@ function recent_projects_section({
 	text_muted,
 	card_classes,
 	on_open_new_project,
-	on_navigate
+	on_navigate,
+	menu_open,
+	on_menu_toggle,
+	on_rename,
+	on_duplicate,
+	on_add_cover,
+	on_delete
 }: {
-	recent: import('../../store/projectStore').Project[]
+	recent: Project[]
 	is_loading: boolean
 	error: string | undefined
 	is_dark_mode: boolean
@@ -75,6 +86,12 @@ function recent_projects_section({
 	card_classes: string
 	on_open_new_project?: () => void
 	on_navigate: (id: string) => void
+	menu_open?: string | undefined
+	on_menu_toggle?: (id: string | undefined) => void
+	on_rename?: (p: Project) => void
+	on_duplicate?: (id: string) => void
+	on_add_cover?: (id: string) => void
+	on_delete?: (p: Project) => void
 }) {
 	return (
 		<div>
@@ -118,6 +135,12 @@ function recent_projects_section({
 							project={project}
 							is_dark_mode={is_dark_mode}
 							on_click={on_navigate}
+							menu_open={menu_open}
+							on_menu_toggle={on_menu_toggle}
+							on_rename={on_rename}
+							on_duplicate={on_duplicate}
+							on_add_cover={on_add_cover}
+							on_delete={on_delete}
 						/>
 					))}
 				</div>
@@ -163,6 +186,27 @@ export default function home({
 	const { items: activity_items, is_loading: is_activity_loading } = use_activity_feed()
 	const { alerts, is_loading: is_alerts_loading } = use_alerts()
 
+	const {
+		menu_open,
+		set_menu_open,
+		delete_target,
+		set_delete_target,
+		rename_target,
+		set_rename_target,
+		rename_name,
+		set_rename_name,
+		toast,
+		set_toast,
+		show_toast,
+		file_input_ref,
+		handle_rename_open,
+		handle_rename_save,
+		handle_add_cover,
+		handle_cover_upload,
+		handle_delete,
+		duplicate_project
+	} = use_project_actions()
+
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const card_classes = is_dark_mode
 		? 'bg-zinc-900 border-zinc-800'
@@ -191,7 +235,13 @@ export default function home({
 				text_muted,
 				card_classes,
 				on_open_new_project,
-				on_navigate: (id) => navigate(id ? `/projects/${id}/dashboard` : '/projects')
+				on_navigate: (id) => navigate(id ? `/projects/${id}/dashboard` : '/projects'),
+				menu_open,
+				on_menu_toggle: set_menu_open,
+				on_rename: handle_rename_open,
+				on_duplicate: duplicate_project,
+				on_add_cover: handle_add_cover,
+				on_delete: handle_delete
 			})}
 
 			<div className={`rounded-xl border ${card_classes} p-5`}>
@@ -228,6 +278,32 @@ export default function home({
 					card_classes
 				})}
 			</div>
+
+			<input
+				type="file"
+				ref={file_input_ref}
+				accept="image/*,.tif,.tiff"
+				onChange={handle_cover_upload}
+				hidden
+			/>
+
+			{rename_dialog({
+				target: rename_target,
+				name: rename_name,
+				on_name_change: set_rename_name,
+				on_save: handle_rename_save,
+				on_close: () => set_rename_target(undefined),
+				is_dark_mode
+			})}
+
+			<DeleteProjectDialog
+				delete_target={delete_target}
+				on_close={() => set_delete_target(undefined)}
+				on_success={(name) => show_toast(`"${name}" has been deleted.`)}
+				is_dark_mode={is_dark_mode}
+			/>
+
+			{toast && toast_bar({ toast, on_dismiss: () => set_toast(undefined) })}
 		</div>
 	)
 }

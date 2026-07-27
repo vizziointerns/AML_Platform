@@ -1,10 +1,17 @@
 import { Clock } from 'lucide-react'
 import type { Project } from '../../store/projectStore'
+import { project_action_menu as ProjectActionMenu } from '../project_action_menu'
 
 interface RecentProjectCardProps {
 	project: Project
 	is_dark_mode: boolean
 	on_click: (id: string) => void
+	menu_open?: string
+	on_menu_toggle?: (id: string | undefined) => void
+	on_rename?: (p: Project) => void
+	on_duplicate?: (id: string) => void
+	on_add_cover?: (id: string) => void
+	on_delete?: (p: Project) => void
 }
 
 function format_count(n: number): string {
@@ -13,7 +20,18 @@ function format_count(n: number): string {
 	return n.toString()
 }
 
-export function recent_project_card({ project, is_dark_mode, on_click }: RecentProjectCardProps) {
+export function recent_project_card({
+	project,
+	is_dark_mode,
+	on_click,
+	menu_open,
+	on_menu_toggle,
+	on_rename,
+	on_duplicate,
+	on_add_cover,
+	on_delete
+}: RecentProjectCardProps) {
+	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const card_classes = is_dark_mode
 		? 'bg-zinc-900 border-zinc-800'
@@ -30,12 +48,12 @@ export function recent_project_card({ project, is_dark_mode, on_click }: RecentP
 	return (
 		<div
 			onClick={() => on_click(project.id)}
-			className={`rounded-xl border ${border_subtle} ${card_classes} p-4 hover:shadow-lg transition-all cursor-pointer`}
+			className={`rounded-xl border ${border_subtle} ${card_classes} p-4 hover:shadow-lg transition-all cursor-pointer relative`}
 		>
 			<div className="flex items-start justify-between mb-3">
 				<div className="flex items-center gap-3">
 					<div
-						className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'} ${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'}`}
+						className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold ${is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'} ${text_heading}`}
 					>
 						{project.name[0]}
 					</div>
@@ -44,12 +62,24 @@ export function recent_project_card({ project, is_dark_mode, on_click }: RecentP
 						<span className={`text-xs ${text_muted}`}>{project.type}</span>
 					</div>
 				</div>
-				<div
-					className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-						status_colors[project.status] ?? 'bg-zinc-500/10 text-zinc-500'
-					}`}
-				>
-					{project.status}
+				<div className="flex items-center gap-1 shrink-0">
+					<div
+						className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+							status_colors[project.status] ?? 'bg-zinc-500/10 text-zinc-500'
+						}`}
+					>
+						{project.status}
+					</div>
+					<ProjectActionMenu
+						project={project}
+						is_dark_mode={is_dark_mode}
+						menu_open={menu_open}
+						on_menu_toggle={on_menu_toggle}
+						on_rename={on_rename}
+						on_duplicate={on_duplicate}
+						on_add_cover={on_add_cover}
+						on_delete={on_delete}
+					/>
 				</div>
 			</div>
 
