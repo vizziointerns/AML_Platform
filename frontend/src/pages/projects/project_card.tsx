@@ -1,20 +1,6 @@
-import {
-	MoreVertical,
-	Pin,
-	Clock,
-	Pencil,
-	Copy,
-	ImagePlus,
-	Trash2,
-	ScanLine,
-	Shapes,
-	Tags,
-	Crosshair,
-	FileText,
-	Video,
-	Box
-} from 'lucide-react'
+import { Pin, Clock, ScanLine, Shapes, Tags, Crosshair, FileText, Video, Box } from 'lucide-react'
 import type { Project } from '../../store/projectStore'
+import { project_action_menu as ProjectActionMenu } from '../../components/project_action_menu'
 
 const TYPE_ICON: Record<string, typeof Crosshair> = {
 	'Object Detection': ScanLine,
@@ -34,7 +20,7 @@ export function project_card_cover(project: Project, is_dark_mode: boolean) {
 	const icon_color = is_dark_mode ? 'text-white/30' : 'text-black/20'
 
 	return (
-		<div className={`h-32 relative overflow-hidden ${cover_class}`}>
+		<div className={`h-32 relative overflow-hidden rounded-t-xl ${cover_class}`}>
 			{project.thumbnail ? (
 				<img src={project.thumbnail} alt="" className="w-full h-full object-cover" />
 			) : (
@@ -73,6 +59,7 @@ export function project_card_grid(
 		<div
 			key={project.id}
 			onClick={() => on_navigate(project.id)}
+			style={menu_open === project.id ? { zIndex: 999 } : undefined}
 			className={`rounded-xl border ${border_subtle} ${bg_card} transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative cursor-pointer`}
 		>
 			{project_card_cover(project, is_dark_mode)}
@@ -89,59 +76,16 @@ export function project_card_grid(
 						<span className={`text-xs ${text_muted}`}>{project.type}</span>
 					</div>
 					<div className="relative shrink-0">
-						<button
-							onMouseDown={(e) => e.stopPropagation()}
-							onClick={(e) => {
-								e.stopPropagation()
-								on_menu_toggle(menu_open === project.id ? undefined : project.id)
-							}}
-							className={`p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${text_heading}`}
-						>
-							<MoreVertical size={16} />
-						</button>
-						{menu_open === project.id && (
-							<div
-								className={`absolute right-0 top-8 w-44 rounded-lg border shadow-xl z-20 py-1 ${border_subtle} ${bg_card}`}
-								onMouseDown={(e) => e.stopPropagation()}
-								onClick={(e) => e.stopPropagation()}
-							>
-								<button
-									onClick={() => on_rename(project)}
-									className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-								>
-									<Pencil size={14} /> Rename
-								</button>
-								<button
-									onClick={() => {
-										on_duplicate(project.id)
-										on_menu_toggle(undefined)
-									}}
-									className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-								>
-									<Copy size={14} /> Duplicate
-								</button>
-								<button
-									onClick={() => {
-										on_add_cover(project.id)
-										on_menu_toggle(undefined)
-									}}
-									className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-								>
-									<ImagePlus size={14} /> Add Cover Photo
-								</button>
-								<button
-									onClick={(e) => {
-										e.stopPropagation()
-										e.preventDefault()
-										on_delete(project)
-										on_menu_toggle(undefined)
-									}}
-									className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2"
-								>
-									<Trash2 size={14} /> Delete
-								</button>
-							</div>
-						)}
+						<ProjectActionMenu
+							project={project}
+							is_dark_mode={is_dark_mode}
+							menu_open={menu_open}
+							on_menu_toggle={on_menu_toggle}
+							on_rename={on_rename}
+							on_duplicate={on_duplicate}
+							on_add_cover={on_add_cover}
+							on_delete={on_delete}
+						/>
 					</div>
 				</div>
 

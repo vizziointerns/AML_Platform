@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { use_dashboard_stats } from '../../hooks/use_dashboard_stats'
 import { use_recent_projects } from '../../hooks/use_recent_projects'
@@ -10,56 +9,11 @@ import { Plus, ChevronRight, Database } from 'lucide-react'
 import { stats_grid } from './stats_grid'
 import { alerts_widget } from './alerts_widget'
 import { team_activity_widget } from './activity_widget'
-import { use_project_store, type Project } from '../../store/projectStore'
-import { supabase } from '../../utils/supabase'
+import { type Project } from '../../store/projectStore'
 import DeleteProjectDialog from '../../components/DeleteProjectDialog'
 import { rename_dialog } from '../projects/rename_dialog'
-import { convert_tiff_to_png, tiff_data_url_to_file } from '../../utils/tiff'
-
-function toast_bar({
-	toast,
-	on_dismiss
-}: {
-	toast: { type: 'success' | 'error'; message: string }
-	on_dismiss: () => void
-}) {
-	return (
-		<div
-			className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-2xl border text-sm font-medium animate-in slide-in-from-bottom-4 duration-300 flex items-center gap-3 ${
-				toast.type === 'success'
-					? 'bg-emerald-900/90 border-emerald-700/50 text-emerald-200 backdrop-blur-sm'
-					: 'bg-red-900/90 border-red-700/50 text-red-200 backdrop-blur-sm'
-			}`}
-			onClick={on_dismiss}
-		>
-			{toast.type === 'success' ? (
-				<svg
-					className="w-5 h-5 text-emerald-400"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-				</svg>
-			) : (
-				<svg
-					className="w-5 h-5 text-red-400 shrink-0"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth={2}
-						d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-			)}
-			{toast.message}
-		</div>
-	)
-}
+import { toast_bar } from '../../components/toast_bar'
+import { use_project_actions } from '../../hooks/use_project_actions'
 
 function greeting(name: string | undefined): string {
 	const hour = new Date().getHours()
@@ -232,113 +186,26 @@ export default function home({
 	const { items: activity_items, is_loading: is_activity_loading } = use_activity_feed()
 	const { alerts, is_loading: is_alerts_loading } = use_alerts()
 
-	const { duplicateProject: duplicate_project, updateProject: update_project } = use_project_store()
-
-	const [menu_open, set_menu_open] = useState<string | undefined>(undefined)
-	const [delete_target, set_delete_target] = useState<Project | undefined>(undefined)
-	const [rename_target, set_rename_target] = useState<Project | undefined>(undefined)
-	const [rename_name, set_rename_name] = useState('')
-	const file_input_ref = useRef<HTMLInputElement>(undefined!)
-	const cover_project_id = useRef<string | undefined>(undefined)
-
-	const [toast, set_toast] = useState<{ type: 'success' | 'error'; message: string } | undefined>(
-		undefined
-	)
-
-	useEffect(() => {
-		if (!toast) return
-		const timer = setTimeout(() => set_toast(undefined), 4000)
-		return () => clearTimeout(timer)
-	}, [toast])
-
-	const show_toast = (message: string, type: 'success' | 'error' = 'success') => {
-		set_toast({ type, message })
-	}
-
-	useEffect(() => {
-		if (!menu_open) return
-		const handler = () => set_menu_open(undefined)
-		document.addEventListener('mousedown', handler)
-		return () => document.removeEventListener('mousedown', handler)
-	}, [menu_open])
-
-	const handle_rename_open = (project: Project) => {
-		set_rename_target(project)
-		set_rename_name(project.name)
-		set_menu_open(undefined)
-	}
-
-	const handle_rename_save = async () => {
-		if (!rename_target || !rename_name.trim()) return
-		const new_name = rename_name.trim()
-		const { error: rename_err } = await supabase
-			.from('projects')
-			.update({ name: new_name })
-			.eq('id', rename_target.id)
-		if (rename_err) {
-			show_toast(`Failed to rename: ${rename_err.message}`, 'error')
-			return
-		}
-		update_project(rename_target.id, { name: new_name })
-		set_rename_target(undefined)
-		show_toast(`Project renamed to "${new_name}"`)
-	}
-
-	const handle_add_cover = (project_id: string) => {
-		cover_project_id.current = project_id
-		file_input_ref.current?.click()
-	}
-
-	const handle_cover_upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0]
-		if (!file || !cover_project_id.current) return
-		const pid = cover_project_id.current
-		let file_to_upload: File = file
-		const is_tiff = /\.tiff?$/i.test(file.name)
-		if (is_tiff) {
-			try {
-				const png_data_url = await convert_tiff_to_png(file)
-				file_to_upload = await tiff_data_url_to_file(png_data_url, file.name)
-			} catch {
-				show_toast('Failed to convert TIFF cover to PNG', 'error')
-				e.target.value = ''
-				cover_project_id.current = undefined
-				return
-			}
-		}
-		const file_path = `${pid}/${Date.now()}-${file_to_upload.name}`
-		const { error: upload_err } = await supabase.storage
-			.from('project-covers')
-			.upload(file_path, file_to_upload)
-		if (upload_err) {
-			show_toast(`Failed to upload cover: ${upload_err.message}`, 'error')
-			e.target.value = ''
-			cover_project_id.current = undefined
-			return
-		}
-		const {
-			data: { publicUrl: public_url }
-		} = supabase.storage.from('project-covers').getPublicUrl(file_path)
-		const { error: db_err } = await supabase
-			.from('projects')
-			.update({ thumbnail: public_url })
-			.eq('id', pid)
-		if (db_err) {
-			show_toast(`Failed to save cover: ${db_err.message}`, 'error')
-			e.target.value = ''
-			cover_project_id.current = undefined
-			return
-		}
-		update_project(pid, { thumbnail: public_url })
-		show_toast('Cover photo added')
-		e.target.value = ''
-		cover_project_id.current = undefined
-	}
-
-	const handle_delete = (project: Project) => {
-		set_delete_target(project)
-		set_menu_open(undefined)
-	}
+	const {
+		menu_open,
+		set_menu_open,
+		delete_target,
+		set_delete_target,
+		rename_target,
+		set_rename_target,
+		rename_name,
+		set_rename_name,
+		toast,
+		set_toast,
+		show_toast,
+		file_input_ref,
+		handle_rename_open,
+		handle_rename_save,
+		handle_add_cover,
+		handle_cover_upload,
+		handle_delete,
+		duplicate_project
+	} = use_project_actions()
 
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const card_classes = is_dark_mode

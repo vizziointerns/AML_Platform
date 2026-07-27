@@ -1,5 +1,6 @@
-import { Pin, Clock, MoreVertical, Pencil, Copy, ImagePlus, Trash2 } from 'lucide-react'
+import { Pin, Clock } from 'lucide-react'
 import type { Project } from '../../store/projectStore'
+import { project_action_menu as ProjectActionMenu } from '../../components/project_action_menu'
 
 export function project_card_list(
 	project: Project,
@@ -63,61 +64,16 @@ export function project_card_list(
 			>
 				<Pin size={14} />
 			</button>
-			<div className="relative">
-				<button
-					onMouseDown={(e) => e.stopPropagation()}
-					onClick={(e) => {
-						e.stopPropagation()
-						on_menu_toggle(menu_open === project.id ? undefined : project.id)
-					}}
-					className={`p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800/50`}
-				>
-					<MoreVertical size={16} className={text_muted} />
-				</button>
-				{menu_open === project.id && (
-					<div
-						className={`absolute right-0 top-8 w-44 rounded-lg border shadow-xl z-30 py-1 ${border_subtle} ${bg_card}`}
-						onMouseDown={(e) => e.stopPropagation()}
-						onClick={(e) => e.stopPropagation()}
-					>
-						<button
-							onClick={() => on_rename(project)}
-							className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-						>
-							<Pencil size={14} /> Rename
-						</button>
-						<button
-							onClick={() => {
-								on_duplicate(project.id)
-								on_menu_toggle(undefined)
-							}}
-							className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-						>
-							<Copy size={14} /> Duplicate
-						</button>
-						<button
-							onClick={() => {
-								on_add_cover(project.id)
-								on_menu_toggle(undefined)
-							}}
-							className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-						>
-							<ImagePlus size={14} /> Add Cover Photo
-						</button>
-						<button
-							onClick={(e) => {
-								e.stopPropagation()
-								e.preventDefault()
-								on_delete(project)
-								on_menu_toggle(undefined)
-							}}
-							className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2"
-						>
-							<Trash2 size={14} /> Delete
-						</button>
-					</div>
-				)}
-			</div>
+			<ProjectActionMenu
+				project={project}
+				is_dark_mode={is_dark_mode}
+				menu_open={menu_open}
+				on_menu_toggle={on_menu_toggle}
+				on_rename={on_rename}
+				on_duplicate={on_duplicate}
+				on_add_cover={on_add_cover}
+				on_delete={on_delete}
+			/>
 		</div>
 	)
 }
