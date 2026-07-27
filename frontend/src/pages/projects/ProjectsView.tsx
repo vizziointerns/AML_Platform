@@ -104,6 +104,13 @@ export default function projects_view() {
 		)
 	}
 
+	useEffect(() => {
+		if (!menu_open) return
+		const handler = () => set_menu_open(undefined)
+		document.addEventListener('mousedown', handler)
+		return () => document.removeEventListener('mousedown', handler)
+	}, [menu_open])
+
 	const [delete_target, set_delete_target] = useState<Project | undefined>(undefined)
 	const [toast, set_toast] = useState<{ type: 'success' | 'error'; message: string } | undefined>(
 		undefined

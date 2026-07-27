@@ -27,26 +27,14 @@ const TYPE_ICON: Record<string, typeof Crosshair> = {
 	'3D Vision': Box
 }
 
-export function project_card_cover(
-	project: Project,
-	is_dark_mode: boolean,
-	menu_open: string | undefined,
-	on_menu_toggle: (id: string | undefined) => void,
-	on_rename: (p: Project) => void,
-	on_duplicate: (id: string) => void,
-	on_add_cover: (id: string) => void,
-	on_delete: (p: Project) => void
-) {
-	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
-	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
-	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
+export function project_card_cover(project: Project, is_dark_mode: boolean) {
 	const cover_class = is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'
 	const ICON_COMP = TYPE_ICON[project.type]
 	const dot_color = is_dark_mode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'
 	const icon_color = is_dark_mode ? 'text-white/30' : 'text-black/20'
 
 	return (
-		<div className={`h-32 relative ${cover_class}`}>
+		<div className={`h-32 relative overflow-hidden ${cover_class}`}>
 			{project.thumbnail ? (
 				<img src={project.thumbnail} alt="" className="w-full h-full object-cover" />
 			) : (
@@ -60,59 +48,6 @@ export function project_card_cover(
 					{ICON_COMP && <ICON_COMP size={48} className={icon_color} strokeWidth={1.5} />}
 				</div>
 			)}
-			<div className="absolute top-2 right-2">
-				<button
-					onClick={(e) => {
-						e.stopPropagation()
-						on_menu_toggle(menu_open === project.id ? undefined : project.id)
-					}}
-					className={`p-1.5 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white`}
-				>
-					<MoreVertical size={16} />
-				</button>
-				{menu_open === project.id && (
-					<div
-						className={`absolute right-0 top-10 w-44 rounded-lg border shadow-xl z-10 py-1 ${border_subtle} ${bg_card}`}
-						onClick={(e) => e.stopPropagation()}
-					>
-						<button
-							onClick={() => on_rename(project)}
-							className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-						>
-							<Pencil size={14} /> Rename
-						</button>
-						<button
-							onClick={() => {
-								on_duplicate(project.id)
-								on_menu_toggle(undefined)
-							}}
-							className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-						>
-							<Copy size={14} /> Duplicate
-						</button>
-						<button
-							onClick={() => {
-								on_add_cover(project.id)
-								on_menu_toggle(undefined)
-							}}
-							className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
-						>
-							<ImagePlus size={14} /> Add Cover Photo
-						</button>
-						<button
-							onClick={(e) => {
-								e.stopPropagation()
-								e.preventDefault()
-								on_delete(project)
-								on_menu_toggle(undefined)
-							}}
-							className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2"
-						>
-							<Trash2 size={14} /> Delete
-						</button>
-					</div>
-				)}
-			</div>
 		</div>
 	)
 }
@@ -138,18 +73,9 @@ export function project_card_grid(
 		<div
 			key={project.id}
 			onClick={() => on_navigate(project.id)}
-			className={`rounded-xl border ${border_subtle} ${bg_card} transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative cursor-pointer overflow-hidden`}
+			className={`rounded-xl border ${border_subtle} ${bg_card} transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative cursor-pointer`}
 		>
-			{project_card_cover(
-				project,
-				is_dark_mode,
-				menu_open,
-				on_menu_toggle,
-				on_rename,
-				on_duplicate,
-				on_add_cover,
-				on_delete
-			)}
+			{project_card_cover(project, is_dark_mode)}
 
 			<div className="p-4">
 				<div className="flex items-center gap-3 mb-3">
@@ -161,6 +87,61 @@ export function project_card_grid(
 					<div className="min-w-0 flex-1">
 						<h3 className={`font-medium text-sm truncate ${text_heading}`}>{project.name}</h3>
 						<span className={`text-xs ${text_muted}`}>{project.type}</span>
+					</div>
+					<div className="relative shrink-0">
+						<button
+							onMouseDown={(e) => e.stopPropagation()}
+							onClick={(e) => {
+								e.stopPropagation()
+								on_menu_toggle(menu_open === project.id ? undefined : project.id)
+							}}
+							className={`p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${text_heading}`}
+						>
+							<MoreVertical size={16} />
+						</button>
+						{menu_open === project.id && (
+							<div
+								className={`absolute right-0 top-8 w-44 rounded-lg border shadow-xl z-20 py-1 ${border_subtle} ${bg_card}`}
+								onMouseDown={(e) => e.stopPropagation()}
+								onClick={(e) => e.stopPropagation()}
+							>
+								<button
+									onClick={() => on_rename(project)}
+									className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
+								>
+									<Pencil size={14} /> Rename
+								</button>
+								<button
+									onClick={() => {
+										on_duplicate(project.id)
+										on_menu_toggle(undefined)
+									}}
+									className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
+								>
+									<Copy size={14} /> Duplicate
+								</button>
+								<button
+									onClick={() => {
+										on_add_cover(project.id)
+										on_menu_toggle(undefined)
+									}}
+									className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${text_heading} flex items-center gap-2`}
+								>
+									<ImagePlus size={14} /> Add Cover Photo
+								</button>
+								<button
+									onClick={(e) => {
+										e.stopPropagation()
+										e.preventDefault()
+										on_delete(project)
+										on_menu_toggle(undefined)
+									}}
+									className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2"
+								>
+									<Trash2 size={14} /> Delete
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
 

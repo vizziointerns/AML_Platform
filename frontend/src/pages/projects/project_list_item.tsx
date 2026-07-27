@@ -22,6 +22,7 @@ export function project_card_list(
 		<div
 			key={project.id}
 			onClick={() => on_navigate(project.id)}
+			style={menu_open === project.id ? { zIndex: 999 } : undefined}
 			className={`rounded-xl border ${border_subtle} ${bg_card} p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/30 relative cursor-pointer flex items-center gap-4`}
 		>
 			<div
@@ -64,6 +65,7 @@ export function project_card_list(
 			</button>
 			<div className="relative">
 				<button
+					onMouseDown={(e) => e.stopPropagation()}
 					onClick={(e) => {
 						e.stopPropagation()
 						on_menu_toggle(menu_open === project.id ? undefined : project.id)
@@ -74,7 +76,8 @@ export function project_card_list(
 				</button>
 				{menu_open === project.id && (
 					<div
-						className={`absolute right-0 top-8 w-44 rounded-lg border shadow-xl z-10 py-1 ${border_subtle} ${bg_card}`}
+						className={`absolute right-0 top-8 w-44 rounded-lg border shadow-xl z-30 py-1 ${border_subtle} ${bg_card}`}
+						onMouseDown={(e) => e.stopPropagation()}
 						onClick={(e) => e.stopPropagation()}
 					>
 						<button
