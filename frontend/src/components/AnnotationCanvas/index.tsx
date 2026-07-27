@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Stage, Layer, Image as KonvaImage } from 'react-konva'
 import useImage from 'use-image'
 import type Konva from 'konva'
@@ -319,12 +320,19 @@ export default function annotation_canvas({
 		update_cursor_style(container_ref.current, active_tool)
 	}, [active_tool])
 
+	const is_background_loading = !!image_url && !tiled_background && !loaded_render
+
 	return (
 		<div
 			ref={container_ref}
-			className="w-full h-full bg-zinc-200/50 dark:bg-[#18181b] overflow-hidden"
+			className="w-full h-full bg-zinc-200/50 dark:bg-[#18181b] overflow-hidden relative"
 			tabIndex={0}
 		>
+			{is_background_loading && (
+				<div className="absolute inset-0 flex items-center justify-center z-50 bg-zinc-200/50 dark:bg-[#18181b]/80">
+					<Loader2 size={32} className="animate-spin text-blue-500" />
+				</div>
+			)}
 			<Stage
 				ref={stage_ref}
 				width={stage_size.width}
