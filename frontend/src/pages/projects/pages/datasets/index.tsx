@@ -5,9 +5,9 @@ import { supabase } from '../../../../utils/supabase'
 import { use_datasets } from '../../../../hooks/use_datasets'
 import { use_dataset_images } from '../../../../hooks/use_dataset_images'
 import { dataset_toolbar } from '../../../../components/datasets/dataset_toolbar'
-import { create_dataset_dialog } from '../../../../components/datasets/create_dataset_dialog'
+import { CreateDatasetDialog } from '../../../../components/datasets/create_dataset_dialog'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
-import { dataset_explorer_view } from './dataset_explorer'
+import { DatasetExplorerView } from './dataset_explorer'
 import { dataset_grid_view } from './dataset_grid'
 
 interface Toast {
@@ -190,7 +190,7 @@ export default function datasets_view({
 	const { projectId: project_id } = useParams()
 	const navigate = useNavigate()
 	const location = useLocation()
-	const { datasets, is_loading, refresh } = use_datasets(project_id)
+	const { datasets, is_loading, error: datasets_error, refresh } = use_datasets(project_id)
 
 	const path_segments = location.pathname.split('/').filter(Boolean)
 	const url_dataset_id =
@@ -343,40 +343,29 @@ export default function datasets_view({
 		[delete_images, is_deleting_images, refresh, selected_dataset, show_toast]
 	)
 
-	const dialog_element = create_dataset_dialog({
-		is_open: is_create_dialog_open,
-		on_close: () => set_is_create_dialog_open(false),
-		project_id,
-		is_dark_mode,
-		on_created: () => {
-			window.dispatchEvent(new CustomEvent('datasets-changed'))
-			refresh()
-			show_toast('Dataset created')
-		}
-	})
-
 	if (selected_dataset) {
 		return (
 			<>
 				{toast_container(toasts, set_toasts, is_dark_mode)}
-				{dataset_explorer_view({
-					dataset: selected_dataset,
-					is_dark_mode,
-					on_back: deselect_dataset,
-					on_add_data: handle_import,
-					on_start_annotating: () => {
-						const first_image = images[0]
-						if (first_image) {
-							navigate(`/projects/${project_id}/annotation/${first_image.id}`)
-						}
-					},
-					on_start_training: () => navigate(`/projects/${project_id}/models`),
-					images,
-					on_delete_images: handle_delete_images,
-					is_deleting_images,
-					on_open_annotation: (image_id: string) =>
-						navigate(`/projects/${project_id}/annotation/${image_id}`)
-				})}
+			<DatasetExplorerView
+				dataset={selected_dataset}
+				is_dark_mode={is_dark_mode}
+				on_back={deselect_dataset}
+				on_add_data={handle_import}
+				on_start_annotating={() => {
+					const first_image = images[0]
+					if (first_image) {
+						navigate(`/projects/${project_id}/annotation/${first_image.id}`)
+					}
+				}}
+				on_start_training={() => navigate(`/projects/${project_id}/models`)}
+				images={images}
+				on_delete_images={handle_delete_images}
+				is_deleting_images={is_deleting_images}
+				on_open_annotation={(image_id: string) =>
+					navigate(`/projects/${project_id}/annotation/${image_id}`)
+				}
+			/>
 			</>
 		)
 	}
@@ -393,6 +382,14 @@ export default function datasets_view({
 				on_import: handle_import,
 				on_create: () => set_is_create_dialog_open(true)
 			})}
+
+			{datasets_error && (
+				<div
+					className={`p-4 rounded-xl border text-sm mb-4 ${is_dark_mode ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-700'}`}
+				>
+					{datasets_error}
+				</div>
+			)}
 
 			<div className="mt-6">
 				{is_loading ? (
@@ -419,7 +416,17 @@ export default function datasets_view({
 				)}
 			</div>
 
-			{dialog_element}
+			<CreateDatasetDialog
+				is_open={is_create_dialog_open}
+				on_close={() => set_is_create_dialog_open(false)}
+				project_id={project_id}
+				is_dark_mode={is_dark_mode}
+				on_created={() => {
+					window.dispatchEvent(new CustomEvent('datasets-changed'))
+					refresh()
+					show_toast('Dataset created')
+				}}
+			/>
 			{rename_dialog({
 				is_dark_mode,
 				target: rename_target,

@@ -7,7 +7,7 @@ import { stat_card } from '../../../../components/dashboard/stat_card'
 import { progress_card } from '../../../../components/dashboard/progress_card'
 import { quick_actions_card } from '../../../../components/dashboard/quick_actions_card'
 import { team_members_card } from '../../../../components/dashboard/team_members_card'
-import { create_dataset_dialog } from '../../../../components/datasets/create_dataset_dialog'
+import { CreateDatasetDialog } from '../../../../components/datasets/create_dataset_dialog'
 import type { ActionItem } from '../../../../components/dashboard/quick_actions_card'
 import { useNavigate } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
@@ -154,16 +154,16 @@ export function project_dashboard({
 
 				{team_members_card({ members: project.members, is_dark_mode })}
 
-				{create_dataset_dialog({
-					is_open: is_create_dialog_open,
-					on_close: () => set_is_create_dialog_open(false),
-					project_id,
-					is_dark_mode,
-					on_created: () => {
-						window.dispatchEvent(new CustomEvent('datasets-changed'))
-						if (project_id) navigate(`/projects/${project_id}/datasets`)
-					}
-				})}
+			<CreateDatasetDialog
+				is_open={is_create_dialog_open}
+				on_close={() => set_is_create_dialog_open(false)}
+				project_id={project_id}
+				is_dark_mode={is_dark_mode}
+				on_created={() => {
+					window.dispatchEvent(new CustomEvent('datasets-changed'))
+					if (project_id) navigate(`/projects/${project_id}/datasets`)
+				}}
+			/>
 			</div>
 		</div>
 	)

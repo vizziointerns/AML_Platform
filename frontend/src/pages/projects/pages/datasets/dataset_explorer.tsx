@@ -7,7 +7,7 @@ import { is_drive_url } from '../../../../utils/drive_image'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
-export function dataset_explorer_view({
+export function DatasetExplorerView({
 	dataset,
 	is_dark_mode,
 	on_back,

@@ -22,7 +22,7 @@ async function resolve_dataset_drive_folder_id(params: {
 	return ensure_new_dataset_drive_folder(google_access_token, project_id, dataset_name)
 }
 
-export function create_dataset_dialog({
+export function CreateDatasetDialog({
 	is_open,
 	on_close,
 	project_id,
