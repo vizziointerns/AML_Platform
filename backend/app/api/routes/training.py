@@ -125,7 +125,9 @@ def create_training_run(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _row_to_out(row)
+    result = _row_to_out(row)
+    assert result is not None, "Newly created run should have valid task_type"
+    return result
 
 
 @router.patch("/training/{project_id}/{run_id}", response_model=TrainingRunOut)
@@ -148,7 +150,9 @@ def update_training_run(
         setattr(row, key, value)
     db.commit()
     db.refresh(row)
-    return _row_to_out(row)
+    result = _row_to_out(row)
+    assert result is not None, "Updated run should have valid task_type"
+    return result
 
 
 @router.post("/training/{project_id}/{run_id}/start", response_model=TrainingRunOut)
@@ -205,7 +209,9 @@ def start_training(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Failed to start training: {e}") from e
 
-    return _row_to_out(row)
+    result = _row_to_out(row)
+    assert result is not None, "Started run should have valid task_type"
+    return result
 
 
 @router.get("/training/{project_id}/{run_id}/weights")

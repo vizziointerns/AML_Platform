@@ -226,7 +226,7 @@ export function cog_tile_layer_component({
 				img.onload = () => {
 					current_loading.delete(tile_key)
 					const current_z = current_z_ref.current
-					const tile_z = parseInt(tile_key.split('/')[0], 10)
+					const tile_z = parseInt(tile_key.split('/')[0]!, 10)
 					if (Math.abs(tile_z - current_z) > 2) return
 					current_loaded[tile_key] = img
 					pending_updates.add(tile_key)
