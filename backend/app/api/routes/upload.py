@@ -17,6 +17,8 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.utils.download import extract_drive_id
 from app.utils.google_drive_auth import async_get_drive_access_token
+import re
+import mimetypes
 
 # Simple in-memory upload status tracking
 _upload_status: dict[str, str] = {}  # cache_url -> 'pending' | 'completed' | 'failed'
@@ -342,6 +344,54 @@ async def create_dataset_folder(
         except Exception:
             logger.exception("Failed to parse Drive error response body")
         raise HTTPException(status_code=e.response.status_code, detail=detail) from e
+
+
+_MIME_MAGIC: dict[bytes, str] = {
+	b"\x89PNG": "image/png",
+	b"\xff\xd8": "image/jpeg",
+	b"GIF8": "image/gif",
+	b"RIFF": "image/webp",
+	b"BM": "image/bmp",
+}
+
+
+def _detect_mime(data: bytes) -> str:
+	for magic, mime in _MIME_MAGIC.items():
+		if data.startswith(magic):
+			return mime
+	return "application/octet-stream"
+
+
+@router.get("/cache/file")
+async def serve_cache_file(url: str = Query(...)) -> Response:
+	if not url.startswith("cache://"):
+		raise HTTPException(status_code=400, detail="Invalid cache URL")
+	hash_part = url.removeprefix("cache://")
+	if hash_part.endswith(".tif"):
+		hash_part = hash_part[:-4]
+		ext = ".tif"
+	elif hash_part.endswith(".bin"):
+		hash_part = hash_part[:-4]
+		ext = ".bin"
+	else:
+		ext = ".bin"
+	if not re.fullmatch(r"[0-9a-f]{16}", hash_part):
+		raise HTTPException(status_code=400, detail=f"Invalid cache ID: {hash_part}")
+	cached = COG_CACHE_DIR / f"{hash_part}{ext}"
+	if not cached.exists():
+		cached = COG_CACHE_DIR / f"{hash_part}.bin"
+	if not cached.exists():
+		raise HTTPException(status_code=404, detail=f"Cached file not found: {url}")
+	data = cached.read_bytes()
+	content_type = _detect_mime(data)
+	return Response(
+		content=data,
+		media_type=content_type,
+		headers={
+			"Cache-Control": "public, max-age=86400",
+			"Access-Control-Allow-Origin": "*",
+		},
+	)
 
 
 @router.get("/images/drive/{file_id}")

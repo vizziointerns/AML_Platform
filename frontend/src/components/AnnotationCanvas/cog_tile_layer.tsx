@@ -197,10 +197,6 @@ export function cog_tile_layer_component({
 		}
 
 		const tick = () => {
-			if (skip_ref.current) {
-				current_raf = requestAnimationFrame(tick)
-				return
-			}
 			const vp = viewport_ref.current
 			const iw = image_width_ref.current
 			const ih = image_height_ref.current

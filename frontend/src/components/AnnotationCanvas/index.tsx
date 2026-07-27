@@ -319,6 +319,8 @@ export default function annotation_canvas({
 		update_cursor_style(container_ref.current, active_tool)
 	}, [active_tool])
 
+	const tiles_active = !!background_cog_config && zoom_level >= 0.3
+
 	return (
 		<div
 			ref={container_ref}
@@ -352,7 +354,7 @@ export default function annotation_canvas({
 				scaleY={pixel_scale}
 			>
 				<Layer imageSmoothingEnabled={true} listening={false}>
-					{loaded_render && (
+					{loaded_render && !tiles_active && (
 						<KonvaImage
 							image={loaded_render}
 							name="background-image"
@@ -375,7 +377,7 @@ export default function annotation_canvas({
 							}}
 							image_width={tiled_background!.image_width}
 							image_height={tiled_background!.image_height}
-							skip={zoom_level < 2}
+							skip={zoom_level < 0.3}
 						/>
 					</Layer>
 				)}
