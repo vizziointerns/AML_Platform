@@ -44,22 +44,3 @@ export const button_component = React.forwardRef<
 		</button>
 	)
 })
-
-export const social_button = ({
-	icon,
-	provider,
-	onClick
-}: {
-	icon: React.ReactNode
-	provider: string
-	onClick?: () => void
-}) => (
-	<button
-		type="button"
-		onClick={onClick}
-		className="w-full flex items-center justify-center gap-3 bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-800 rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-300 transition-colors"
-	>
-		{icon}
-		Continue with {provider}
-	</button>
-)
