@@ -38,7 +38,82 @@ async function create_dataset_for_upload(params: {
 	return data.id
 }
 
-export function use_upload(on_close: () => void, initial_dataset_id?: string) {
+function read_all_entries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+	return new Promise((resolve, reject) => {
+		const all: FileSystemEntry[] = []
+		const read_batch = () => {
+			reader.readEntries((entries) => {
+				if (entries.length === 0) {
+					resolve(all)
+				} else {
+					all.push(...entries)
+					read_batch()
+				}
+			}, reject)
+		}
+		read_batch()
+	})
+}
+
+async function traverse_entry(entry: FileSystemEntry): Promise<File[]> {
+	if (entry.isFile) {
+		const file_entry = entry as FileSystemFileEntry
+		return new Promise((resolve, reject) => {
+			file_entry.file((f) => resolve([f]), reject)
+		})
+	}
+	if (entry.isDirectory) {
+		const dir_entry = entry as FileSystemDirectoryEntry
+		const entries = await read_all_entries(dir_entry.createReader())
+		const nested = await Promise.all(entries.map(traverse_entry))
+		return nested.flat()
+	}
+	return []
+}
+
+function classify_drop_item(
+	item: DataTransferItem,
+	loose_files: File[],
+	folder_promises: Promise<File[]>[]
+) {
+	if (item.kind !== 'file') return
+	const entry = item.webkitGetAsEntry?.()
+	if (entry?.isDirectory) {
+		folder_promises.push(traverse_entry(entry))
+		return
+	}
+	const f = item.getAsFile()
+	if (f) loose_files.push(f)
+}
+
+function collect_folder_drop_files(
+	e: React.DragEvent,
+	on_loose_files: (files: File[]) => void,
+	on_folder_files: (files: File[]) => void
+) {
+	const items = Array.from(e.dataTransfer.items)
+	const loose_files: File[] = []
+	const folder_promises: Promise<File[]>[] = []
+
+	for (const item of items) {
+		classify_drop_item(item, loose_files, folder_promises)
+	}
+
+	if (items.length === 0 && e.dataTransfer.files.length > 0) {
+		loose_files.push(...Array.from(e.dataTransfer.files))
+	}
+
+	if (loose_files.length > 0) {
+		on_loose_files(loose_files)
+	}
+
+	void Promise.all(folder_promises).then((nested) => {
+		const collected = nested.flat()
+		if (collected.length > 0) on_folder_files(collected)
+	})
+}
+
+export function use_upload(on_close: () => void, initial_dataset_id?: string, folder_only = false) {
 	const [is_minimized, set_is_minimized] = useState(false)
 	const [files, set_files] = useState<UploadFile[]>([])
 	const [is_drag_active, set_is_drag_active] = useState(false)
@@ -118,6 +193,19 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 		}
 	}, [])
 
+	const process_loose_files_as_errors = useCallback((new_files: File[]) => {
+		const processed: UploadFile[] = new_files.map((f) => ({
+			id: crypto.randomUUID(),
+			file: f,
+			name: f.name,
+			size: f.size,
+			progress: 0,
+			status: 'error' as const,
+			error: 'Folders only. Please upload a folder instead.'
+		}))
+		set_files((prev) => [...prev, ...processed])
+	}, [])
+
 	const handle_file_change = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			if (e.target.files && e.target.files.length > 0) {
@@ -149,11 +237,17 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string) {
 			e.preventDefault()
 			e.stopPropagation()
 			set_is_drag_active(false)
+
+			if (folder_only) {
+				collect_folder_drop_files(e, process_loose_files_as_errors, process_files)
+				return
+			}
+
 			if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
 				process_files(Array.from(e.dataTransfer.files))
 			}
 		},
-		[process_files]
+		[process_files, process_loose_files_as_errors, folder_only]
 	)
 
 	const make_callbacks = useCallback(

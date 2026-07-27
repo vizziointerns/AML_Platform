@@ -14,7 +14,8 @@ export default function drag_drop_zone({
 	on_drag_over,
 	on_drag_leave,
 	on_drop,
-	on_file_change
+	on_file_change,
+	folder_only = false
 }: {
 	is_drag_active: boolean
 	is_dark_mode: boolean
@@ -30,6 +31,7 @@ export default function drag_drop_zone({
 	on_drag_leave: (e: React.DragEvent) => void
 	on_drop: (e: React.DragEvent) => void
 	on_file_change: (e: React.ChangeEvent<HTMLInputElement>) => void
+	folder_only?: boolean
 }) {
 	const drag_bg = is_drag_active
 		? `border-blue-500 ${bg_drag}`
@@ -48,14 +50,16 @@ export default function drag_drop_zone({
 			onDrop={on_drop}
 			className={`relative border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group ${drag_bg}`}
 		>
-			<input
-				type="file"
-				multiple
-				accept="image/*,.zip,.tif,.tiff"
-				className="hidden"
-				ref={file_input_ref}
-				onChange={on_file_change}
-			/>
+			{!folder_only && (
+				<input
+					type="file"
+					multiple
+					accept="image/*,.zip,.tif,.tiff"
+					className="hidden"
+					ref={file_input_ref}
+					onChange={on_file_change}
+				/>
+			)}
 			<input
 				type="file"
 				{...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
@@ -72,20 +76,23 @@ export default function drag_drop_zone({
 			</div>
 
 			<h3 className={`text-lg font-medium mb-1 ${text_heading}`}>
-				Click to browse or drag and drop
+				{folder_only ? 'Drag and drop a folder here' : 'Click to browse or drag and drop'}
 			</h3>
 			<p className={`text-sm ${text_muted} max-w-[300px] mb-6`}>
-				Support for JPG, PNG, WEBP, TIFF, or ZIP archives containing images. Folders preserve
-				hierarchy.
+				{folder_only
+					? 'Import a folder of JPG, PNG, WEBP, or TIFF images as a new dataset. Folder hierarchy is preserved.'
+					: 'Support for JPG, PNG, WEBP, TIFF, or ZIP archives containing images. Folders preserve hierarchy.'}
 			</p>
 
 			<div className="flex gap-3">
-				<button
-					onClick={() => file_input_ref.current?.click()}
-					className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${text_heading}`}
-				>
-					Browse Files
-				</button>
+				{!folder_only && (
+					<button
+						onClick={() => file_input_ref.current?.click()}
+						className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${text_heading}`}
+					>
+						Browse Files
+					</button>
+				)}
 				<button
 					onClick={() => folder_input_ref.current?.click()}
 					className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${text_heading} flex items-center gap-2`}

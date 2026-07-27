@@ -1,4 +1,84 @@
-import { Search, Filter, LayoutGrid, List as ListIcon, Download, Plus } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { Search, Filter, LayoutGrid, List as ListIcon, Download, Plus, Check } from 'lucide-react'
+
+const STATUS_OPTIONS = ['all', 'Processing', 'Completed'] as const
+export type StatusFilter = (typeof STATUS_OPTIONS)[number]
+
+function filter_dropdown({
+	current,
+	on_change,
+	is_dark_mode
+}: {
+	current: StatusFilter
+	on_change: (v: StatusFilter) => void
+	is_dark_mode: boolean
+}) {
+	const [is_open, set_is_open] = useState(false)
+	const [pos, set_pos] = useState<{ top: number; right: number } | undefined>(undefined)
+	const btn_ref = useRef<HTMLButtonElement>(undefined!)
+	const menu_ref = useRef<HTMLDivElement>(undefined!)
+
+	useEffect(() => {
+		if (!is_open) return
+		const handler = (e: MouseEvent) => {
+			const t = e.target as Node
+			if (!btn_ref.current?.contains(t) && !menu_ref.current?.contains(t)) set_is_open(false)
+		}
+		document.addEventListener('mousedown', handler)
+		return () => document.removeEventListener('mousedown', handler)
+	}, [is_open])
+
+	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
+	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
+	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
+	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
+
+	return (
+		<>
+			<button
+				ref={btn_ref}
+				onClick={() => {
+					const will_open = !is_open
+					if (will_open) {
+						const r = btn_ref.current.getBoundingClientRect()
+						set_pos({ top: r.bottom + 4, right: window.innerWidth - r.right })
+					}
+					set_is_open(will_open)
+				}}
+				className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+			>
+				<Filter size={16} /> {current === 'all' ? 'Filter' : current}
+			</button>
+			{is_open &&
+				pos &&
+				createPortal(
+					<div
+						ref={menu_ref}
+						style={{ position: 'fixed', top: pos.top, right: pos.right }}
+						className={`w-40 rounded-lg border ${border_subtle} ${bg_card} shadow-lg z-50 py-1`}
+					>
+						{STATUS_OPTIONS.map((opt) => (
+							<button
+								key={opt}
+								onClick={() => {
+									on_change(opt)
+									set_is_open(false)
+								}}
+								className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors ${text_heading} ${hover_bg}`}
+							>
+								<span className="w-4 shrink-0">
+									{current === opt && <Check size={14} className="text-blue-500" />}
+								</span>
+								{opt === 'all' ? 'All Datasets' : opt}
+							</button>
+						))}
+					</div>,
+					document.body
+				)}
+		</>
+	)
+}
 
 export function dataset_toolbar({
 	search_query,
@@ -7,7 +87,9 @@ export function dataset_toolbar({
 	on_view_mode_change,
 	is_dark_mode,
 	on_import,
-	on_create
+	on_create,
+	status_filter,
+	on_status_filter_change
 }: {
 	search_query: string
 	on_search_change: (value: string) => void
@@ -16,13 +98,15 @@ export function dataset_toolbar({
 	is_dark_mode: boolean
 	on_import?: () => void
 	on_create?: () => void
+	status_filter?: StatusFilter
+	on_status_filter_change?: (v: StatusFilter) => void
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 
-	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
+	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50'
 	const actions_bar =
 		on_import || on_create ? (
 			<div className="flex gap-2">
@@ -78,11 +162,11 @@ export function dataset_toolbar({
 				</div>
 
 				<div className="flex gap-2 shrink-0">
-					<button
-						className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
-					>
-						<Filter size={16} /> Filter
-					</button>
+					{filter_dropdown({
+						current: status_filter ?? 'all',
+						on_change: on_status_filter_change ?? (() => {}),
+						is_dark_mode
+					})}
 					<div
 						className={`inline-flex rounded-lg border p-1 ${is_dark_mode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}
 					>

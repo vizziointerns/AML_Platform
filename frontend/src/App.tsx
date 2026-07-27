@@ -5,7 +5,7 @@ import AuthFlow from './pages/AuthFlow'
 import Uploader from './components/Uploader'
 import CreateProjectWizard from './components/CreateProjectWizard'
 import { APP_CONTEXT } from './contexts/app_context'
-import type { AppContextValue } from './contexts/app_context'
+import type { AppContextValue, UploaderOptions } from './contexts/app_context'
 import { auth_provider as AuthProvider, use_auth } from './contexts/auth_context'
 import RootLayout from './components/RootLayout'
 import HomeShell from './pages/Home/Shell'
@@ -26,6 +26,7 @@ function app_content() {
 	const [upload_initial_dataset_id, set_upload_initial_dataset_id] = useState<string | undefined>(
 		undefined
 	)
+	const [upload_options, set_upload_options] = useState<UploaderOptions>({})
 	const [is_new_project_open, set_is_new_project_open] = useState(false)
 	const [toasts, set_toasts] = useState<Toast[]>([])
 
@@ -55,8 +56,9 @@ function app_content() {
 	const context_value: AppContextValue = {
 		is_dark_mode,
 		toggle_theme: () => set_is_dark_mode((prev) => !prev),
-		open_uploader: (datasetId?: string) => {
+		open_uploader: (datasetId?: string, options?: UploaderOptions) => {
 			set_upload_initial_dataset_id(datasetId)
+			set_upload_options(options ?? {})
 			set_is_uploader_open(true)
 		},
 		open_new_project: () => set_is_new_project_open(true),
@@ -109,9 +111,12 @@ function app_content() {
 								on_close={() => {
 									set_is_uploader_open(false)
 									set_upload_initial_dataset_id(undefined)
+									set_upload_options({})
 								}}
 								is_dark_mode={is_dark_mode}
 								initial_dataset_id={upload_initial_dataset_id}
+								title={upload_options.title ?? 'Import Dataset'}
+								folder_only={upload_options.folder_only ?? false}
 							/>
 
 							{toasts.length > 0 && (

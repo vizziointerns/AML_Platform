@@ -254,7 +254,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 			const all_annotations = [...annotations, ...preds_as_annotations]
 			await save_annotations(imageId, all_annotations)
 			const class_ids = [...new Set(all_annotations.map((a) => a.classId).filter(Boolean))]
-			await save_image_class_labels(imageId, class_ids)
+			await save_image_class_labels(imageId, class_ids, dataset_id)
 			if (preds_as_annotations.length > 0) {
 				set_history((prev) => {
 					const updated = [...(prev[history_step] ?? []), ...preds_as_annotations]
@@ -276,7 +276,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		} finally {
 			set_is_saving(false)
 		}
-	}, [imageId, annotations, predictions, is_saving, history_step])
+	}, [imageId, annotations, predictions, is_saving, history_step, dataset_id])
 
 	const undo = useCallback(() => {
 		set_history_step((prev) => Math.max(0, prev - 1))

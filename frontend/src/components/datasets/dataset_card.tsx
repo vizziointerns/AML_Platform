@@ -1,6 +1,67 @@
 import { Database, Image as ImageIcon, Tag, MoreVertical, Pencil, Trash } from 'lucide-react'
 import type { DatasetInfo } from '../../hooks/use_datasets'
 
+function card_menu({
+	dataset,
+	on_rename,
+	on_delete,
+	is_menu_open,
+	on_menu_toggle,
+	menu_bg
+}: {
+	dataset: DatasetInfo
+	on_rename?: (ds: DatasetInfo) => void
+	on_delete?: (ds: DatasetInfo) => void
+	is_menu_open?: boolean
+	on_menu_toggle?: () => void
+	menu_bg: string
+}) {
+	if (!on_rename && !on_delete) return undefined
+	return (
+		<div className="relative shrink-0" onMouseDown={(e) => e.stopPropagation()}>
+			<button
+				className={`p-1 rounded-md text-zinc-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer`}
+				onClick={(e) => {
+					e.stopPropagation()
+					on_menu_toggle?.()
+				}}
+			>
+				<MoreVertical size={16} />
+			</button>
+			{is_menu_open && (
+				<div
+					className={`absolute right-0 top-full mt-1 w-36 rounded-lg border shadow-lg ${menu_bg} py-1 z-50`}
+				>
+					{on_rename && (
+						<button
+							onMouseDown={(e) => e.stopPropagation()}
+							onClick={(e) => {
+								e.stopPropagation()
+								on_rename(dataset)
+							}}
+							className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+						>
+							<Pencil size={14} /> Rename
+						</button>
+					)}
+					{on_delete && (
+						<button
+							onMouseDown={(e) => e.stopPropagation()}
+							onClick={(e) => {
+								e.stopPropagation()
+								on_delete(dataset)
+							}}
+							className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+						>
+							<Trash size={14} /> Delete
+						</button>
+					)}
+				</div>
+			)}
+		</div>
+	)
+}
+
 export function dataset_card({
 	key,
 	dataset,
@@ -27,7 +88,7 @@ export function dataset_card({
 	const menu_bg = is_dark_mode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-zinc-200'
 
 	const status_color =
-		dataset.status === 'Ready'
+		dataset.status === 'Ready' || dataset.status === 'Completed'
 			? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
 			: 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
 
@@ -66,49 +127,7 @@ export function dataset_card({
 					<h3 className={`font-semibold tracking-tight truncate ${text_heading}`}>
 						{dataset.name}
 					</h3>
-					{(on_rename || on_delete) && (
-						<div className="relative shrink-0" onMouseDown={(e) => e.stopPropagation()}>
-							<button
-								className={`p-1 rounded-md text-zinc-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer`}
-								onClick={(e) => {
-									e.stopPropagation()
-									on_menu_toggle?.()
-								}}
-							>
-								<MoreVertical size={16} />
-							</button>
-							{is_menu_open && (
-								<div
-									className={`absolute right-0 top-full mt-1 w-36 rounded-lg border shadow-lg ${menu_bg} py-1 z-50`}
-								>
-									{on_rename && (
-										<button
-											onMouseDown={(e) => e.stopPropagation()}
-											onClick={(e) => {
-												e.stopPropagation()
-												on_rename(dataset)
-											}}
-											className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-										>
-											<Pencil size={14} /> Rename
-										</button>
-									)}
-									{on_delete && (
-										<button
-											onMouseDown={(e) => e.stopPropagation()}
-											onClick={(e) => {
-												e.stopPropagation()
-												on_delete(dataset)
-											}}
-											className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-										>
-											<Trash size={14} /> Delete
-										</button>
-									)}
-								</div>
-							)}
-						</div>
-					)}
+					{card_menu({ dataset, on_rename, on_delete, is_menu_open, on_menu_toggle, menu_bg })}
 				</div>
 				<div className={`flex flex-wrap gap-4 text-xs ${text_muted} mb-4`}>
 					<span className="flex items-center gap-1.5">

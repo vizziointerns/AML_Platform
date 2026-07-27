@@ -12,12 +12,39 @@ import {
 	handle_undo_redo_shortcut
 } from './utils'
 
-export async function save_image_class_labels(imageId: string, class_ids: string[]) {
+export async function save_image_class_labels(
+	imageId: string,
+	class_ids: string[],
+	dataset_id?: string
+) {
 	const { error } = await supabase.rpc('update_image_class_labels', {
 		p_image_id: imageId,
 		p_class_labels: class_ids
 	})
 	if (error) throw error
+
+	let ds_id = dataset_id
+	if (!ds_id) {
+		const { data: img_row, error: img_err } = await supabase
+			.from('dataset_images')
+			.select('dataset_id')
+			.eq('id', imageId)
+			.maybeSingle()
+		if (img_err || !img_row?.dataset_id) return
+		ds_id = img_row.dataset_id
+	}
+
+	const { data: all_images, error: query_err } = await supabase
+		.from('dataset_images')
+		.select('class_labels')
+		.eq('dataset_id', ds_id)
+	if (query_err || !all_images) return
+
+	const is_all_annotated = all_images.every((img) => (img.class_labels?.length ?? 0) > 0)
+	await supabase
+		.from('datasets')
+		.update({ status: is_all_annotated ? 'Completed' : 'Processing' })
+		.eq('id', ds_id)
 }
 
 export function handle_segment_click(

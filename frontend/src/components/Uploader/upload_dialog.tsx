@@ -4,6 +4,12 @@ import DragDropZone from './drag_drop_zone'
 import FileItem from './file_item'
 import UploadFooter from './upload_footer'
 
+function get_subtitle(is_all_complete: boolean, folder_only: boolean): string {
+	if (is_all_complete) return 'Upload complete. You can close this dialog.'
+	if (folder_only) return 'Drag a folder to import it as a new dataset.'
+	return 'Drag images or folders to ingest into your active project.'
+}
+
 export default function upload_dialog({
 	on_close,
 	on_minimize,
@@ -41,8 +47,11 @@ export default function upload_dialog({
 	new_dataset_description,
 	on_new_dataset_description_change,
 	is_all_complete,
-	hide_dataset_selector
+	hide_dataset_selector,
+	folder_only = false,
+	title = 'Upload to Dataset'
 }: {
+	title?: string
 	on_close: () => void
 	on_minimize: () => void
 	is_dark_mode: boolean
@@ -80,6 +89,7 @@ export default function upload_dialog({
 	on_new_dataset_description_change: (v: string) => void
 	is_all_complete: boolean
 	hide_dataset_selector?: boolean
+	folder_only?: boolean
 }) {
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
@@ -112,13 +122,9 @@ export default function upload_dialog({
 						className={`px-6 py-4 border-b ${border_subtle} flex justify-between items-center shrink-0`}
 					>
 						<div>
-							<h2 className={`text-lg font-semibold tracking-tight ${text_heading}`}>
-								Upload to Dataset
-							</h2>
+							<h2 className={`text-lg font-semibold tracking-tight ${text_heading}`}>{title}</h2>
 							<p className={`text-sm ${text_muted}`}>
-								{is_all_complete
-									? 'Upload complete. You can close this dialog.'
-									: 'Drag images or folders to ingest into your active project.'}
+								{get_subtitle(is_all_complete, folder_only)}
 							</p>
 						</div>
 						<div className="flex items-center gap-2 text-zinc-400">
@@ -157,7 +163,7 @@ export default function upload_dialog({
 							</div>
 						)}
 
-						{!hide_dataset_selector && target_dataset === '__new__' && (
+						{target_dataset === '__new__' && (
 							<div className="space-y-3 p-4 rounded-lg border border-dashed border-blue-500/40">
 								<span
 									className={`text-sm font-medium ${is_dark_mode ? 'text-blue-300' : 'text-blue-700'}`}
@@ -196,6 +202,7 @@ export default function upload_dialog({
 							on_drag_leave={on_drag_leave}
 							on_drop={on_drop}
 							on_file_change={on_file_change}
+							folder_only={folder_only}
 						/>
 
 						{files.length > 0 && (

@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search, Filter, Trash } from 'lucide-react'
+import { Search, Trash } from 'lucide-react'
 import type { MockImage } from './types'
 import { generate_mock_images, is_input_focused, navigate_gallery } from './utils'
 import { gallery_image as GalleryImage, render_preview_modal } from './render'
+import { filter_bar as FilterBar, type StatusFilter } from './filter_bar'
 
 interface VirtualGalleryProps {
 	is_dark_mode: boolean
@@ -21,6 +22,7 @@ export default function virtual_gallery({
 	is_deleting_selected = false
 }: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
+	const [status_filter, set_status_filter] = useState<StatusFilter>('all')
 	const [images, set_images] = useState<MockImage[]>([])
 	const [selected_images, set_selected_images] = useState<Set<MockImage['id']>>(new Set())
 	const [focused_index, set_focused_index] = useState<number | undefined>(undefined)
@@ -41,14 +43,16 @@ export default function virtual_gallery({
 	}, [external_images])
 
 	const filtered_images = useMemo(() => {
-		if (!search_query) return images
-		const lower_q = search_query.toLowerCase()
-		return images.filter(
-			(img) =>
+		return images.filter((img) => {
+			if (status_filter !== 'all' && img.status !== status_filter) return false
+			if (!search_query) return true
+			const lower_q = search_query.toLowerCase()
+			return (
 				img.classes.some((c: string) => c.toLowerCase().includes(lower_q)) ||
 				img.status.includes(lower_q)
-		)
-	}, [images, search_query])
+			)
+		})
+	}, [images, search_query, status_filter])
 
 	useEffect(() => {
 		const valid_ids = new Set(images.map((image) => image.id))
@@ -237,11 +241,11 @@ export default function virtual_gallery({
 								className={`bg-transparent border-none outline-none text-sm ml-2 w-24 xl:w-40 ${is_dark_mode ? 'text-white placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'}`}
 							/>
 						</div>
-						<button
-							className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border ${border_subtle} bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'}`}
-						>
-							<Filter size={16} /> Filters
-						</button>
+						<FilterBar
+							current={status_filter}
+							onChange={set_status_filter}
+							is_dark_mode={is_dark_mode}
+						/>
 					</div>
 				</div>
 
