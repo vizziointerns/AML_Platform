@@ -364,11 +364,58 @@ export default function datasets_view({
 		}
 	})
 
+	const [drive_statuses, set_drive_statuses] = useState<
+		Record<string, 'uploading' | 'uploaded' | 'failed'>
+	>({})
+
+	useEffect(() => {
+		const cache_urls = images
+			.filter((img) => img.file_url.startsWith('cache://'))
+			.map((img) => img.file_url)
+
+		if (cache_urls.length === 0) return
+
+		set_drive_statuses((prev) => {
+			const next = { ...prev }
+			for (const url of cache_urls) {
+				if (!next[url]) next[url] = 'uploading'
+			}
+			return next
+		})
+
+		const intervals: ReturnType<typeof setInterval>[] = []
+		for (const cache_url of cache_urls) {
+			const interval = setInterval(async () => {
+				try {
+					const resp = await fetch(
+						`${import.meta.env.VITE_API_BASE_URL ?? '/api'}/upload/drive/status?cache_url=${encodeURIComponent(cache_url)}`,
+						{ signal: AbortSignal.timeout(5000) }
+					)
+					if (!resp.ok) return
+					const data = await resp.json()
+					if (data.status === 'completed') {
+						set_drive_statuses((prev) => ({ ...prev, [cache_url]: 'uploaded' }))
+						clearInterval(interval)
+					} else if (data.status === 'failed') {
+						set_drive_statuses((prev) => ({ ...prev, [cache_url]: 'failed' }))
+						clearInterval(interval)
+					}
+				} catch {
+					/* keep polling */
+				}
+			}, 5000)
+			intervals.push(interval)
+		}
+
+		return () => intervals.forEach(clearInterval)
+	}, [images])
+
 	if (selected_dataset) {
 		return (
 			<>
 				{toast_container(toasts, set_toasts, is_dark_mode)}
 				{dataset_explorer_view({
+					drive_statuses,
 					dataset: selected_dataset,
 					is_dark_mode,
 					on_back: deselect_dataset,

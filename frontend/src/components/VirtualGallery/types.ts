@@ -10,4 +10,5 @@ export interface MockImage {
 	height: number
 	url: string
 	file_extension?: string
+	drive_status?: 'uploading' | 'uploaded' | 'failed'
 }
