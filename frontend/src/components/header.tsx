@@ -449,6 +449,7 @@ function search_bar({
 
 function right_actions({
 	is_dark_mode,
+	is_home_page,
 	toggle_theme,
 	search_query,
 	set_search_query,
@@ -473,6 +474,7 @@ function right_actions({
 	is_loading
 }: {
 	is_dark_mode: boolean
+	is_home_page: boolean
 	toggle_theme: () => void
 	search_query: string
 	set_search_query: (v: string) => void
@@ -498,22 +500,25 @@ function right_actions({
 }) {
 	return (
 		<div className="flex items-center gap-3 lg:gap-4">
-			{search_bar({
-				is_dark_mode,
-				search_query,
-				set_search_query,
-				search_ref,
-				projects,
-				search_project_results,
-				dataset_results,
-				navigate
-			})}
+			{is_home_page &&
+				search_bar({
+					is_dark_mode,
+					search_query,
+					set_search_query,
+					search_ref,
+					projects,
+					search_project_results,
+					dataset_results,
+					navigate
+				})}
 
-			<button
-				className={`sm:hidden p-2 rounded-full ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}
-			>
-				<Search size={18} />
-			</button>
+			{is_home_page && (
+				<button
+					className={`sm:hidden p-2 rounded-full ${is_dark_mode ? 'hover:bg-zinc-800/50 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}
+				>
+					<Search size={18} />
+				</button>
+			)}
 
 			<button
 				onClick={toggle_theme}
@@ -578,52 +583,12 @@ function right_actions({
 	)
 }
 
-export function header_content() {
-	const { is_dark_mode, toggle_theme, open_mobile_menu } = use_app_context()
-	const { user, sign_out } = use_auth()
-	const { alerts, is_loading } = use_alerts()
-	const navigate = useNavigate()
-	const [is_menu_open, set_is_menu_open] = useState(false)
-	const [menu_el, set_menu_el] = useState<HTMLDivElement | undefined>(undefined)
-	const menu_ref = useCallback((el: HTMLDivElement | null) => {
-		set_menu_el(el ?? undefined)
-	}, [])
-	const location = useLocation()
-	const path_parts = location.pathname.split('/').filter(Boolean)
-	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
-	const projects = use_project_store((s) => s.projects)
-	const project = project_id ? projects.find((p) => p.id === project_id) : undefined
-	const breadcrumbs = build_breadcrumbs(path_parts, project?.name, project_id)
-
-	const user_name = user?.user_metadata?.full_name as string | undefined
-	const initials = user_name
-		? user_name
-				.split(' ')
-				.map((s) => s[0])
-				.join('')
-				.toUpperCase()
-				.slice(0, 2)
-		: (user?.email?.[0]?.toUpperCase() ?? '?')
-
+function use_header_search(user: { id: string } | null | undefined) {
 	const [search_query, set_search_query] = useState('')
-	const [is_alert_open, set_alert_open] = useState(false)
-	const [has_unviewed_alerts, set_has_unviewed_alerts] = useState(false)
 	const [dataset_results, set_dataset_results] = useState<DatasetSearchResult[]>([])
 	const [search_project_results, set_search_project_results] = useState<ProjectSearchResult[]>([])
 	const search_ref = useRef<HTMLDivElement>(undefined!)
-	const alert_ref = useRef<HTMLDivElement>(undefined!)
 	const search_query_ref = useRef('')
-	const user_email = user?.email ?? ''
-
-	useEffect(() => {
-		const current_key = alert_ids_key(alerts)
-		const last_viewed = localStorage.getItem(`last_viewed_alert_ids_${user_email}`) ?? ''
-		if (alerts.length > 0 && current_key !== last_viewed) {
-			set_has_unviewed_alerts(true)
-		} else if (alerts.length === 0) {
-			set_has_unviewed_alerts(false)
-		}
-	}, [alerts, user_email])
 
 	useEffect(() => {
 		if (!search_query.trim()) {
@@ -675,6 +640,68 @@ export function header_content() {
 		return () => clearTimeout(timer)
 	}, [search_query, user?.id])
 
+	return { search_query, set_search_query, dataset_results, search_project_results, search_ref }
+}
+
+function use_header_alerts(alerts: Alert[], user_email: string) {
+	const [is_alert_open, set_alert_open] = useState(false)
+	const [has_unviewed_alerts, set_has_unviewed_alerts] = useState(false)
+	const alert_ref = useRef<HTMLDivElement>(undefined!)
+
+	useEffect(() => {
+		const current_key = alert_ids_key(alerts)
+		const last_viewed = localStorage.getItem(`last_viewed_alert_ids_${user_email}`) ?? ''
+		if (alerts.length > 0 && current_key !== last_viewed) {
+			set_has_unviewed_alerts(true)
+		} else if (alerts.length === 0) {
+			set_has_unviewed_alerts(false)
+		}
+	}, [alerts, user_email])
+
+	return { is_alert_open, set_alert_open, has_unviewed_alerts, set_has_unviewed_alerts, alert_ref }
+}
+
+function use_header_menu() {
+	const [is_menu_open, set_is_menu_open] = useState(false)
+	const [menu_el, set_menu_el] = useState<HTMLDivElement | undefined>(undefined)
+	const menu_ref = useCallback((el: HTMLDivElement | null) => {
+		set_menu_el(el ?? undefined)
+	}, [])
+
+	return { is_menu_open, set_is_menu_open, menu_el, menu_ref }
+}
+
+export function header_content() {
+	const { is_dark_mode, toggle_theme, open_mobile_menu } = use_app_context()
+	const { user, sign_out } = use_auth()
+	const { alerts, is_loading } = use_alerts()
+	const navigate = useNavigate()
+	const location = useLocation()
+	const user_email = user?.email ?? ''
+
+	const path_parts = location.pathname.split('/').filter(Boolean)
+	const project_id = path_parts[0] === 'projects' ? path_parts[1] : undefined
+	const projects = use_project_store((s) => s.projects)
+	const project = project_id ? projects.find((p) => p.id === project_id) : undefined
+	const breadcrumbs = build_breadcrumbs(path_parts, project?.name, project_id)
+	const is_home_page = location.pathname === '/home' || location.pathname === '/'
+
+	const user_name = user?.user_metadata?.full_name as string | undefined
+	const initials = user_name
+		? user_name
+				.split(' ')
+				.map((s) => s[0])
+				.join('')
+				.toUpperCase()
+				.slice(0, 2)
+		: (user?.email?.[0]?.toUpperCase() ?? '?')
+
+	const { search_query, set_search_query, dataset_results, search_project_results, search_ref } =
+		use_header_search(user)
+	const { is_alert_open, set_alert_open, has_unviewed_alerts, set_has_unviewed_alerts, alert_ref } =
+		use_header_alerts(alerts, user_email)
+	const { is_menu_open, set_is_menu_open, menu_el, menu_ref } = use_header_menu()
+
 	useEffect(() => {
 		function handle_click_outside(e: MouseEvent) {
 			if (menu_el && !menu_el.contains(e.target as Node)) {
@@ -689,7 +716,15 @@ export function header_content() {
 		}
 		document.addEventListener('mousedown', handle_click_outside)
 		return () => document.removeEventListener('mousedown', handle_click_outside)
-	}, [menu_el, search_query])
+	}, [
+		menu_el,
+		search_query,
+		search_ref,
+		alert_ref,
+		set_is_menu_open,
+		set_search_query,
+		set_alert_open
+	])
 
 	const header_classes = is_dark_mode
 		? 'bg-zinc-950/80 border-zinc-800'
@@ -702,6 +737,7 @@ export function header_content() {
 			{left_section({ is_dark_mode, breadcrumbs, open_mobile_menu, navigate })}
 			{right_actions({
 				is_dark_mode,
+				is_home_page,
 				toggle_theme,
 				search_query,
 				set_search_query,
