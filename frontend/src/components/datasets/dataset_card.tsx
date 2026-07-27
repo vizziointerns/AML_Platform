@@ -20,7 +20,8 @@ function card_menu({
 	return (
 		<div className="relative shrink-0" onMouseDown={(e) => e.stopPropagation()}>
 			<button
-				className={`p-1 rounded-md text-zinc-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer`}
+				className={`p-1 rounded-md text-zinc-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
+				aria-label="Open dataset menu"
 				onClick={(e) => {
 					e.stopPropagation()
 					on_menu_toggle?.()

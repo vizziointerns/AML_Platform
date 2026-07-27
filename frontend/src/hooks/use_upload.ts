@@ -89,7 +89,8 @@ function classify_drop_item(
 function collect_folder_drop_files(
 	e: React.DragEvent,
 	on_loose_files: (files: File[]) => void,
-	on_folder_files: (files: File[]) => void
+	on_folder_files: (files: File[]) => void,
+	is_active?: () => boolean
 ) {
 	const items = Array.from(e.dataTransfer.items)
 	const loose_files: File[] = []
@@ -108,6 +109,7 @@ function collect_folder_drop_files(
 	}
 
 	void Promise.all(folder_promises).then((nested) => {
+		if (is_active && !is_active()) return
 		const collected = nested.flat()
 		if (collected.length > 0) on_folder_files(collected)
 	})
@@ -129,6 +131,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string, fo
 	const [new_dataset_name, set_new_dataset_name] = useState('')
 	const [new_dataset_description, set_new_dataset_description] = useState('')
 	const resolved_dataset_id_ref = useRef<string | undefined>(undefined)
+	const is_active_ref = useRef(true)
 	const files_ref = useRef(files)
 	files_ref.current = files
 
@@ -239,7 +242,12 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string, fo
 			set_is_drag_active(false)
 
 			if (folder_only) {
-				collect_folder_drop_files(e, process_loose_files_as_errors, process_files)
+				collect_folder_drop_files(
+					e,
+					process_loose_files_as_errors,
+					process_files,
+					() => is_active_ref.current
+				)
 				return
 			}
 
@@ -373,6 +381,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string, fo
 	}, [])
 
 	const clear_all = useCallback(() => {
+		is_active_ref.current = false
 		cancel_all_uploads(files.map((f) => f.id))
 		for (const f of files) {
 			if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
@@ -381,6 +390,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string, fo
 	}, [files])
 
 	const close_and_clear = useCallback(() => {
+		is_active_ref.current = false
 		const completed = files.filter((f) => f.status === 'success').length
 		const total = files.length
 		const ds_id = resolved_dataset_id_ref.current
@@ -403,6 +413,7 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string, fo
 
 	useEffect(() => {
 		return () => {
+			is_active_ref.current = false
 			for (const f of files_ref.current) {
 				if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
 			}

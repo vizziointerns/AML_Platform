@@ -30,7 +30,8 @@ export async function save_image_class_labels(
 			.select('dataset_id')
 			.eq('id', imageId)
 			.maybeSingle()
-		if (img_err || !img_row?.dataset_id) return
+		if (img_err) throw img_err
+		if (!img_row?.dataset_id) throw new Error('Dataset not found for image')
 		ds_id = img_row.dataset_id
 	}
 
@@ -38,13 +39,15 @@ export async function save_image_class_labels(
 		.from('dataset_images')
 		.select('class_labels')
 		.eq('dataset_id', ds_id)
-	if (query_err || !all_images) return
+	if (query_err) throw query_err
+	if (!all_images) throw new Error('Failed to load dataset images')
 
 	const is_all_annotated = all_images.every((img) => (img.class_labels?.length ?? 0) > 0)
-	await supabase
+	const { error: update_err } = await supabase
 		.from('datasets')
 		.update({ status: is_all_annotated ? 'Completed' : 'Processing' })
 		.eq('id', ds_id)
+	if (update_err) throw update_err
 }
 
 export function handle_segment_click(

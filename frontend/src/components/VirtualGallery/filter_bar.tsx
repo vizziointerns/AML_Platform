@@ -24,12 +24,22 @@ export function filter_bar({ current, onChange, is_dark_mode }: FilterBarProps) 
 
 	useEffect(() => {
 		if (!is_open) return
-		const handler = (e: MouseEvent) => {
+		const recalc = () => {
+			const rect = btn_ref.current?.getBoundingClientRect()
+			if (rect) set_position({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+		}
+		const on_mousedown = (e: MouseEvent) => {
 			const t = e.target as Node
 			if (!btn_ref.current?.contains(t) && !menu_ref.current?.contains(t)) set_is_open(false)
 		}
-		document.addEventListener('mousedown', handler)
-		return () => document.removeEventListener('mousedown', handler)
+		document.addEventListener('mousedown', on_mousedown)
+		window.addEventListener('resize', recalc)
+		window.addEventListener('scroll', recalc, { capture: true, passive: true })
+		return () => {
+			document.removeEventListener('mousedown', on_mousedown)
+			window.removeEventListener('resize', recalc)
+			window.removeEventListener('scroll', recalc, { capture: true } as EventListenerOptions)
+		}
 	}, [is_open])
 
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
