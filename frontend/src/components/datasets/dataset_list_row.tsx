@@ -1,20 +1,30 @@
 import { Database, ArrowUpRight } from 'lucide-react'
 import type { DatasetInfo } from '../../hooks/use_datasets'
+import { dataset_action_menu } from './dataset_card'
 
 export function dataset_list_row({
 	key,
 	dataset,
 	is_dark_mode,
-	on_select
+	on_select,
+	on_rename,
+	on_delete,
+	is_menu_open,
+	on_menu_toggle
 }: {
 	key?: string
 	dataset: DatasetInfo
 	is_dark_mode: boolean
 	on_select: (ds: DatasetInfo) => void
+	on_rename?: (ds: DatasetInfo) => void
+	on_delete?: (ds: DatasetInfo) => void
+	is_menu_open?: boolean
+	on_menu_toggle?: () => void
 }) {
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const row_hover = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
+	const menu_bg = is_dark_mode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-zinc-200'
 
 	const storage_gb = (dataset.storage_bytes / (1024 * 1024 * 1024)).toFixed(1)
 
@@ -72,6 +82,16 @@ export function dataset_list_row({
 					size={14}
 					className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500"
 				/>
+			</td>
+			<td className="px-6 py-4 text-right">
+				{dataset_action_menu({
+					dataset,
+					on_rename,
+					on_delete,
+					is_menu_open,
+					on_menu_toggle,
+					menu_bg
+				})}
 			</td>
 		</tr>
 	)
