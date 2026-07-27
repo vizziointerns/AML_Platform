@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } 
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { supabase } from '../../../../utils/supabase'
+import type { UploaderOptions } from '../../../../contexts/app_context'
 import { use_datasets } from '../../../../hooks/use_datasets'
 import { use_dataset_images } from '../../../../hooks/use_dataset_images'
-import { dataset_toolbar } from '../../../../components/datasets/dataset_toolbar'
+import { DatasetToolbar, type StatusFilter } from '../../../../components/datasets'
 import { create_dataset_dialog } from '../../../../components/datasets/create_dataset_dialog'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
 import { dataset_explorer_view } from './dataset_explorer'
@@ -185,7 +186,7 @@ export default function datasets_view({
 	on_upload
 }: {
 	is_dark_mode: boolean
-	on_upload: (datasetId?: string) => void
+	on_upload: (datasetId?: string, options?: UploaderOptions) => void
 }) {
 	const { projectId: project_id } = useParams()
 	const navigate = useNavigate()
@@ -261,13 +262,21 @@ export default function datasets_view({
 	}, [refresh, show_toast])
 
 	const handle_import = () => {
-		on_upload(selected_dataset?.id)
+		on_upload('__new__', { folder_only: true, title: 'Import Dataset' })
+	}
+
+	const handle_add_data = () => {
+		if (!selected_dataset) return
+		on_upload(selected_dataset.id, { title: 'Add Data' })
 	}
 
 	const [search_query, set_search_query] = useState('')
-	const filtered_datasets = search_query
-		? datasets.filter((ds) => ds.name.toLowerCase().includes(search_query.toLowerCase()))
-		: datasets
+	const [status_filter, set_status_filter] = useState<StatusFilter>('all')
+	const filtered_datasets = datasets.filter((ds) => {
+		if (status_filter !== 'all' && ds.status !== status_filter) return false
+		if (search_query && !ds.name.toLowerCase().includes(search_query.toLowerCase())) return false
+		return true
+	})
 	const [open_menu_id, set_open_menu_id] = useState<string | undefined>(undefined)
 	const [delete_target, set_delete_target] = useState<DatasetInfo | undefined>(undefined)
 	const [is_deleting, set_is_deleting] = useState(false)
@@ -363,7 +372,7 @@ export default function datasets_view({
 					dataset: selected_dataset,
 					is_dark_mode,
 					on_back: deselect_dataset,
-					on_add_data: handle_import,
+					on_add_data: handle_add_data,
 					on_start_annotating: () => {
 						const first_image = images[0]
 						if (first_image) {
@@ -384,15 +393,17 @@ export default function datasets_view({
 	return (
 		<>
 			{toast_container(toasts, set_toasts, is_dark_mode)}
-			{dataset_toolbar({
-				search_query,
-				on_search_change: set_search_query,
-				view_mode,
-				on_view_mode_change: set_view_mode,
-				is_dark_mode,
-				on_import: handle_import,
-				on_create: () => set_is_create_dialog_open(true)
-			})}
+			<DatasetToolbar
+				search_query={search_query}
+				on_search_change={set_search_query}
+				status_filter={status_filter}
+				on_status_filter_change={set_status_filter}
+				view_mode={view_mode}
+				on_view_mode_change={set_view_mode}
+				is_dark_mode={is_dark_mode}
+				on_import={handle_import}
+				on_create={() => set_is_create_dialog_open(true)}
+			/>
 
 			<div className="mt-6">
 				{is_loading ? (

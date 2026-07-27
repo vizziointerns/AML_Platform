@@ -49,7 +49,7 @@ export function dataset_list_row({
 			<td className={`px-6 py-4 ${text_muted}`}>{storage_gb} GB</td>
 			<td className="px-6 py-4">
 				<span
-					className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider inline-flex ${dataset.status === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}
+					className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider inline-flex ${dataset.status === 'Ready' || dataset.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}
 				>
 					{dataset.status}
 				</span>

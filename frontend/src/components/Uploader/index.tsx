@@ -6,14 +6,18 @@ export default function uploader({
 	isOpen,
 	on_close,
 	is_dark_mode,
-	initial_dataset_id
+	initial_dataset_id,
+	title = 'Import Dataset',
+	folder_only = false
 }: {
 	isOpen: boolean
 	on_close: () => void
 	is_dark_mode: boolean
 	initial_dataset_id?: string
+	title?: string
+	folder_only?: boolean
 }) {
-	const upload = use_upload(on_close, initial_dataset_id)
+	const upload = use_upload(on_close, initial_dataset_id, folder_only)
 
 	if (!isOpen) return undefined
 
@@ -82,6 +86,8 @@ export default function uploader({
 			on_new_dataset_description_change={upload.set_new_dataset_description}
 			is_all_complete={upload.is_all_complete}
 			hide_dataset_selector={!!initial_dataset_id}
+			title={title}
+			folder_only={folder_only}
 		/>
 	)
 }

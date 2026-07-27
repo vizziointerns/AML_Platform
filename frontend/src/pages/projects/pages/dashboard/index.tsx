@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ImageIcon, PenTool, Download, Database, Tags, HardDrive } from 'lucide-react'
+import { ImageIcon, PenTool, Database, Tags, HardDrive, Upload } from 'lucide-react'
 import type { Project } from '../../../../store/projectStore'
 import { use_project_stats } from '../../../../hooks/use_project_stats'
 import type { ProjectStats } from '../../../../hooks/use_project_stats'
@@ -11,6 +11,7 @@ import { create_dataset_dialog } from '../../../../components/datasets/create_da
 import type { ActionItem } from '../../../../components/dashboard/quick_actions_card'
 import { useNavigate } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
+import Uploader from '../../../../components/Uploader'
 
 function render_skeleton_grid(is_dark_mode: boolean) {
 	const card_cls = is_dark_mode
@@ -102,6 +103,7 @@ export function project_dashboard({
 	const navigate = useNavigate()
 	const { stats, is_loading, error } = use_project_stats(project_id)
 	const [is_create_dialog_open, set_is_create_dialog_open] = useState(false)
+	const [is_upload_dialog_open, set_is_upload_dialog_open] = useState(false)
 
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 
@@ -113,16 +115,9 @@ export function project_dashboard({
 			variant: 'primary'
 		},
 		{
-			label: 'Start Annotation',
-			icon: PenTool,
-			on_click: () => {
-				if (project_id) navigate(`/projects/${project_id}/annotation`)
-			}
-		},
-		{
-			label: 'Export Dataset',
-			icon: Download,
-			on_click: () => {}
+			label: 'Import Dataset',
+			icon: Upload,
+			on_click: () => set_is_upload_dialog_open(true)
 		}
 	]
 
@@ -164,6 +159,17 @@ export function project_dashboard({
 						if (project_id) navigate(`/projects/${project_id}/datasets`)
 					}
 				})}
+
+				{is_upload_dialog_open && (
+					<Uploader
+						isOpen={is_upload_dialog_open}
+						on_close={() => set_is_upload_dialog_open(false)}
+						is_dark_mode={is_dark_mode}
+						initial_dataset_id="__new__"
+						title="Import Dataset"
+						folder_only
+					/>
+				)}
 			</div>
 		</div>
 	)
