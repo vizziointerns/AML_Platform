@@ -13,3 +13,5 @@ export { render_satellite_layer_item, render_satellite_layers_panel } from './sa
 export { render_top_toolbar } from './toolbar'
 export { render_left_panel } from './class_list'
 export { render_model_selection_dialog, type ModelOption } from './model_selector'
+export { render_filmstrip } from './filmstrip'
+export { render_add_cog_dialog } from './add_cog_dialog'

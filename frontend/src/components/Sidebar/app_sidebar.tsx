@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { Box } from 'lucide-react'
+
 import { APP_NAV_ITEMS, APP_BOTTOM_ITEMS } from '../../config/navigation'
 import { nav_section } from './shared'
 
@@ -31,19 +31,21 @@ export function app_sidebar({
 
 	return (
 		<aside
-			className={`fixed lg:static top-0 left-0 z-50 h-full shrink-0 flex flex-col border-r transition-all duration-300 ease-in-out ${sidebar_classes} ${width_expanded} ${aside_shadow}`}
+			className={`hidden lg:flex fixed lg:static top-0 left-0 z-50 h-full shrink-0 flex-col border-r transition-all duration-300 ease-in-out ${sidebar_classes} ${width_expanded} ${aside_shadow}`}
 		>
 			<div className={`h-16 flex items-center border-b ${border_color} shrink-0 ${expanded_pad}`}>
 				<button
 					onClick={on_logo_click}
 					className={`w-full flex items-center gap-3 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${logo_pad}`}
 				>
-					<div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-						<Box size={16} className="text-white" />
-					</div>
+					<img src="/fav.png" alt="AML Platform Logo" className="h-8 w-8 object-contain shrink-0" />
 					{is_now_expanded && (
 						<div className="flex flex-col items-start overflow-hidden">
-							<span className="text-sm font-semibold truncate w-32 text-left">AML Platform</span>
+							<span
+								className={`text-sm font-semibold truncate w-32 text-left ${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'}`}
+							>
+								AML Platform
+							</span>
 							<span className="text-[10px] text-zinc-500 truncate w-32 text-left">
 								Production Workspace
 							</span>

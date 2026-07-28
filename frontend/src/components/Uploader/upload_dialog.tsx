@@ -179,23 +179,24 @@ export default function upload_dialog({
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 	const input_bg = is_dark_mode ? 'bg-zinc-950' : 'bg-white'
 
-	const [upload_mode, set_upload_mode] = useState<'new' | 'existing'>(
-		target_dataset === '__new__' || !target_dataset ? 'new' : 'existing'
-	)
+	const handle_content_click = () => {
+		if (is_all_complete) return
+		;(folder_only ? folder_input_ref : file_input_ref).current?.click()
+	}
 
-	const show_dataset_options =
-		!hide_dataset_selector || target_dataset === '__new__'
-
-	useEffect(() => {
-		if (upload_mode === 'new') {
-			on_target_dataset_change('__new__')
-		} else if (upload_mode === 'existing') {
-			const first = datasets[0]
-			if (first && (!target_dataset || target_dataset === '__new__')) {
-				on_target_dataset_change(first.id)
-			}
-		}
-	}, [upload_mode])
+	const render_complete_banner = () => {
+		if (!is_all_complete) return undefined
+		return (
+			<div
+				className={`flex items-center gap-2 p-3 rounded-lg border ${is_dark_mode ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}
+			>
+				<CheckCircle2 size={18} />
+				<span className="text-sm font-medium">
+					All done — {total_files} file{total_files !== 1 ? 's' : ''} uploaded to Google Drive
+				</span>
+			</div>
+		)
+	}
 
 	return (
 		<>
@@ -234,8 +235,49 @@ export default function upload_dialog({
 						</div>
 					</div>
 
-					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
-						{render_complete_banner(is_all_complete, total_files, is_dark_mode)}
+					<div
+						className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6 cursor-pointer"
+						onDragEnter={on_drag_enter}
+						onDragOver={on_drag_over}
+						onDragLeave={on_drag_leave}
+						onDrop={on_drop}
+						onClick={handle_content_click}
+					>
+						{!folder_only && (
+							<input
+								type="file"
+								multiple
+								accept="image/*,.zip,.tif,.tiff"
+								className="hidden"
+								ref={file_input_ref}
+								onChange={on_file_change}
+							/>
+						)}
+						<input
+							type="file"
+							{...({
+								webkitdirectory: '',
+								directory: ''
+							} as React.InputHTMLAttributes<HTMLInputElement>)}
+							multiple
+							className="hidden"
+							ref={folder_input_ref}
+							onChange={on_file_change}
+						/>
+
+						{render_complete_banner()}
+
+						{!url_project_id &&
+							projects &&
+							projects.length > 0 &&
+							project_selector({
+								projects,
+								target_project_id,
+								on_target_project_id_change,
+								is_dark_mode,
+								text_heading,
+								border_subtle
+							})}
 
 						{show_dataset_options && !is_all_complete && (
 							<div className="space-y-3">
@@ -345,17 +387,8 @@ export default function upload_dialog({
 							is_drag_active={is_drag_active}
 							is_dark_mode={is_dark_mode}
 							bg_drag={bg_drag}
-							bg_card={bg_card}
-							border_subtle={border_subtle}
 							text_heading={text_heading}
 							text_muted={text_muted}
-							file_input_ref={file_input_ref}
-							folder_input_ref={folder_input_ref}
-							on_drag_enter={on_drag_enter}
-							on_drag_over={on_drag_over}
-							on_drag_leave={on_drag_leave}
-							on_drop={on_drop}
-							on_file_change={on_file_change}
 							folder_only={folder_only}
 							accept_images_only={accept_images_only}
 						/>
