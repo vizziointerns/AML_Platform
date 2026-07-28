@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 logger = logging.getLogger(__name__)
 from fastapi.responses import FileResponse
@@ -73,6 +73,23 @@ def _row_to_out(row: TrainingRun) -> TrainingRunOut | None:
         error_message=row.error_message,
         metrics=metrics_val,
     )
+
+
+@router.get("/training/count", response_model=dict[str, int])
+def count_training_runs(
+    project_ids: str = Query(...), db: Session = Depends(get_db)
+) -> dict[str, int]:
+    """Count all training runs across the given project IDs."""
+    _ensure_table(db)
+    ids = [pid.strip() for pid in project_ids.split(",") if pid.strip()]
+    if not ids:
+        return {"total": 0}
+    count = (
+        db.query(TrainingRun)
+        .filter(TrainingRun.project_id.in_(ids))
+        .count()
+    )
+    return {"total": count}
 
 
 @router.get("/training/{project_id}", response_model=TrainingRunListOut)

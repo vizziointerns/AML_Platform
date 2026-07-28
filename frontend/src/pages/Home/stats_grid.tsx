@@ -1,5 +1,5 @@
 import type React from 'react'
-import { Layers, ImageIcon, Users, HardDrive } from 'lucide-react'
+import { Layers, ImageIcon, Box, HardDrive } from 'lucide-react'
 import type { DashboardStats } from '../../hooks/use_dashboard_stats'
 
 function stat_card({
@@ -88,8 +88,8 @@ function stats_grid({
 	const resolved = stats ?? {
 		total_projects: 0,
 		total_images: 0,
-		team_members: 0,
-		storage_used_bytes: 0
+		storage_used_bytes: 0,
+		total_models: 0
 	}
 
 	return (
@@ -125,9 +125,9 @@ function stats_grid({
 							text_muted
 						})}
 						{stat_card({
-							title: 'Team Members',
-							value: format_count(resolved.team_members),
-							icon: Users,
+							title: 'Models Trained',
+							value: format_count(resolved.total_models),
+							icon: Box,
 							is_dark_mode,
 							text_muted
 						})}

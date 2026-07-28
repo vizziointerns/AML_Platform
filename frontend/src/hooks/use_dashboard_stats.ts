@@ -5,8 +5,8 @@ import { use_auth } from '../contexts/auth_context'
 export interface DashboardStats {
 	total_projects: number
 	total_images: number
-	team_members: number
 	storage_used_bytes: number
+	total_models: number
 }
 
 export interface UseDashboardStatsResult {
@@ -47,13 +47,16 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 		set_error(undefined)
 		;(async () => {
 			const { data, error: err } = await supabase.rpc('get_dashboard_stats')
-
 			if (is_cancelled) return
 
 			if (err) {
 				set_error(err.message)
 			} else if (data) {
-				set_stats(data as DashboardStats)
+				const sv = data as DashboardStats
+				const model_count = await fetch_model_count(user!.id)
+				if (!is_cancelled) {
+					set_stats({ ...sv, total_models: model_count })
+				}
 			}
 
 			set_is_loading(false)
@@ -108,6 +111,25 @@ export function use_dashboard_stats(): UseDashboardStatsResult {
 	return { stats, is_loading, is_refreshing, error }
 }
 
+async function fetch_model_count(user_id: string): Promise<number> {
+	const { data: projects } = await supabase.from('projects').select('id').eq('user_id', user_id)
+
+	if (!projects || projects.length === 0) return 0
+
+	const api_base = import.meta.env.VITE_API_BASE_URL ?? '/api'
+	const ids = projects.map((p: { id: string }) => p.id).join(',')
+	try {
+		const resp = await fetch(`${api_base}/training/count?project_ids=${ids}`)
+		if (resp.ok) {
+			const result = await resp.json()
+			return result.total ?? 0
+		}
+	} catch {
+		// non-critical
+	}
+	return 0
+}
+
 /*
 -- Supabase SQL to create the get_dashboard_stats RPC function.
 -- Run this in the Supabase SQL Editor:
@@ -140,17 +162,10 @@ BEGIN
     FROM dataset_images
     WHERE dataset_id IN (SELECT id FROM project_datasets)
   ),
-  member_stats AS (
-    SELECT COUNT(DISTINCT m.value)::INT AS team_members
-    FROM projects p,
-      LATERAL UNNEST(COALESCE(p.members, ARRAY[]::TEXT[])) AS m(value)
-    WHERE p.id IN (SELECT id FROM user_projects)
-  )
   SELECT json_build_object(
     'total_projects', (SELECT COUNT(*)::INT FROM user_projects),
     'total_images', COALESCE((SELECT total_images FROM image_stats), 0),
-    'team_members', COALESCE((SELECT team_members FROM member_stats), 0),
-    'storage_used_bytes', COALESCE((SELECT storage_used_bytes FROM image_stats), 0)
+    'storage_used_bytes', COALESCE((SELECT storage_used_bytes FROM image_stats), 0),
   ) INTO result;
   RETURN result;
 END;
