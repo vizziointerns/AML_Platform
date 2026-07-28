@@ -150,6 +150,41 @@ function recent_projects_section({
 	)
 }
 
+function quick_actions_section(params: {
+	recent: Project[]
+	is_projects_loading: boolean
+	is_dark_mode: boolean
+	card_classes: string
+	on_open_new_project?: () => void
+	on_open_uploader?: (datasetId?: string, options?: UploaderOptions) => void
+}) {
+	if (params.is_projects_loading || params.recent.length === 0) return undefined
+	const btn_border = params.is_dark_mode
+		? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800'
+		: 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+	return (
+		<div className={`rounded-xl border ${params.card_classes} p-5`}>
+			<h3 className="font-semibold text-base tracking-tight mb-4">Quick Actions</h3>
+			<div className="flex flex-wrap gap-3">
+				<button
+					onClick={params.on_open_new_project}
+					className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+				>
+					<Plus size={16} /> New Project
+				</button>
+				<button
+					onClick={() =>
+						params.on_open_uploader?.('__new__', { folder_only: true, title: 'Import Dataset' })
+					}
+					className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${btn_border}`}
+				>
+					<Database size={16} /> Import Dataset
+				</button>
+			</div>
+		</div>
+	)
+}
+
 export default function home({
 	user,
 	is_dark_mode,
@@ -246,27 +281,14 @@ export default function home({
 				on_delete: handle_delete
 			})}
 
-			{!is_projects_loading && recent.length > 0 && (
-				<div className={`rounded-xl border ${card_classes} p-5`}>
-					<h3 className="font-semibold text-base tracking-tight mb-4">Quick Actions</h3>
-					<div className="flex flex-wrap gap-3">
-						<button
-							onClick={on_open_new_project}
-							className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-						>
-							<Plus size={16} /> New Project
-						</button>
-						<button
-							onClick={() =>
-								on_open_uploader?.('__new__', { folder_only: true, title: 'Import Dataset' })
-							}
-							className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
-						>
-							<Database size={16} /> Import Dataset
-						</button>
-					</div>
-				</div>
-			)}
+			{quick_actions_section({
+				recent,
+				is_projects_loading,
+				is_dark_mode,
+				card_classes,
+				on_open_new_project,
+				on_open_uploader
+			})}
 
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{alerts_widget({

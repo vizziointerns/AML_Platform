@@ -10,6 +10,102 @@ function get_subtitle(is_all_complete: boolean, folder_only: boolean): string {
 	return 'Drag images or folders to ingest into your active project.'
 }
 
+function project_selector(params: {
+	projects: { id: string; name: string }[]
+	target_project_id?: string
+	on_target_project_id_change?: (v: string) => void
+	is_dark_mode: boolean
+	text_heading: string
+	border_subtle: string
+}) {
+	const { projects, target_project_id, on_target_project_id_change, is_dark_mode, text_heading, border_subtle } =
+		params
+	return (
+		<div className="flex items-center justify-between text-sm">
+			<span className={`font-medium ${text_heading} flex items-center gap-1.5`}>
+				<FolderOpen size={14} /> Target Project
+			</span>
+			<select
+				value={target_project_id ?? ''}
+				onChange={(e) => on_target_project_id_change?.(e.target.value)}
+				className={`px-3 py-1.5 rounded-lg border ${border_subtle} ${is_dark_mode ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-900'} outline-none focus:border-blue-500`}
+			>
+				{projects.map((p) => (
+					<option key={p.id} value={p.id}>
+						{p.name}
+					</option>
+				))}
+			</select>
+		</div>
+	)
+}
+
+function upload_queue_section(params: {
+	files: UploadFile[]
+	is_all_complete: boolean
+	completed_files: number
+	error_files: number
+	is_dark_mode: boolean
+	text_heading: string
+	text_muted: string
+	border_subtle: string
+	on_retry_upload: (id: string) => void
+	on_remove_file: (id: string) => void
+	format_size: (bytes: number) => string
+}) {
+	const {
+		files,
+		is_all_complete,
+		completed_files,
+		error_files,
+		is_dark_mode,
+		text_heading,
+		text_muted,
+		border_subtle,
+		on_retry_upload,
+		on_remove_file,
+		format_size
+	} = params
+
+	if (files.length === 0) return undefined
+
+	return (
+		<div className="space-y-3">
+			<div className="flex justify-between items-center">
+				<h3 className={`text-sm font-medium ${text_heading}`}>
+					Upload Queue ({files.length} items)
+				</h3>
+				{is_all_complete ? (
+					<span className="text-xs font-medium text-emerald-500 flex items-center gap-1">
+						<CheckCircle2 size={14} /> All complete
+					</span>
+				) : (
+					<span className={`text-xs ${text_muted}`}>
+						{completed_files} completed, {error_files} failed
+					</span>
+				)}
+			</div>
+			<div
+				className={`rounded-xl border ${border_subtle} divide-y ${is_dark_mode ? 'divide-zinc-800' : 'divide-zinc-200'} overflow-hidden`}
+			>
+				{files.map((file) => (
+					<FileItem
+						key={file.id}
+						file={file}
+						is_dark_mode={is_dark_mode}
+						text_heading={text_heading}
+						text_muted={text_muted}
+						border_subtle={border_subtle}
+						on_retry={on_retry_upload}
+						on_remove={on_remove_file}
+						format_size={format_size}
+					/>
+				))}
+			</div>
+		</div>
+	)
+}
+
 export default function upload_dialog({
 	on_close,
 	on_minimize,
@@ -151,24 +247,15 @@ export default function upload_dialog({
 					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
 						{render_complete_banner()}
 
-						{!url_project_id && projects && projects.length > 0 && (
-							<div className="flex items-center justify-between text-sm">
-								<span className={`font-medium ${text_heading} flex items-center gap-1.5`}>
-									<FolderOpen size={14} /> Target Project
-								</span>
-								<select
-									value={target_project_id ?? ''}
-									onChange={(e) => on_target_project_id_change?.(e.target.value)}
-									className={`px-3 py-1.5 rounded-lg border ${border_subtle} ${is_dark_mode ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-900'} outline-none focus:border-blue-500`}
-								>
-									{projects.map((p) => (
-										<option key={p.id} value={p.id}>
-											{p.name}
-										</option>
-									))}
-								</select>
-							</div>
-						)}
+						{!url_project_id && projects && projects.length > 0 &&
+							project_selector({
+								projects,
+								target_project_id,
+								on_target_project_id_change,
+								is_dark_mode,
+								text_heading,
+								border_subtle
+							})}
 
 						{!hide_dataset_selector && (
 							<div className="flex items-center justify-between text-sm">
@@ -232,42 +319,19 @@ export default function upload_dialog({
 							folder_only={folder_only}
 						/>
 
-						{files.length > 0 && (
-							<div className="space-y-3">
-								<div className="flex justify-between items-center">
-									<h3 className={`text-sm font-medium ${text_heading}`}>
-										Upload Queue ({files.length} items)
-									</h3>
-									{is_all_complete ? (
-										<span className="text-xs font-medium text-emerald-500 flex items-center gap-1">
-											<CheckCircle2 size={14} /> All complete
-										</span>
-									) : (
-										<span className={`text-xs ${text_muted}`}>
-											{completed_files} completed, {error_files} failed
-										</span>
-									)}
-								</div>
-
-								<div
-									className={`rounded-xl border ${border_subtle} divide-y ${is_dark_mode ? 'divide-zinc-800' : 'divide-zinc-200'} overflow-hidden`}
-								>
-									{files.map((file) => (
-										<FileItem
-											key={file.id}
-											file={file}
-											is_dark_mode={is_dark_mode}
-											text_heading={text_heading}
-											text_muted={text_muted}
-											border_subtle={border_subtle}
-											on_retry={on_retry_upload}
-											on_remove={on_remove_file}
-											format_size={format_size}
-										/>
-									))}
-								</div>
-							</div>
-						)}
+						{upload_queue_section({
+							files,
+							is_all_complete,
+							completed_files,
+							error_files,
+							is_dark_mode,
+							text_heading,
+							text_muted,
+							border_subtle,
+							on_retry_upload,
+							on_remove_file,
+							format_size
+						})}
 					</div>
 
 					<UploadFooter
