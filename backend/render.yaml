@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: aml-platform-api
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://aml-platform.pages.dev,https://*.pages.dev
+      - key: ENVIRONMENT
+        value: production
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY
+        sync: false
+      - key: GOOGLE_DRIVE_SHARED_DRIVE_ID
+        sync: false
+      - key: GOOGLE_DRIVE_PARENT_FOLDER_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_DRIVE_REFRESH_TOKEN
+        sync: false
+      - key: HF_TOKEN
+        sync: false

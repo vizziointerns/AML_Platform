@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     api_prefix: str = "/api"
 
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,https://aml-platform.pages.dev"
 
     database_url: str = "sqlite:///./dev.db"
     google_service_account_key: str = ""
