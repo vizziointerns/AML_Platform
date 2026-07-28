@@ -203,6 +203,11 @@ export default function upload_dialog({
 }) {
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
+	const handle_content_click = () => {
+		if (is_all_complete) return
+		;(folder_only ? folder_input_ref : file_input_ref).current?.click()
+	}
+
 	const render_complete_banner = () => {
 		if (!is_all_complete) return undefined
 		return (
@@ -250,7 +255,36 @@ export default function upload_dialog({
 						</div>
 					</div>
 
-					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
+					<div
+						className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6 cursor-pointer"
+						onDragEnter={on_drag_enter}
+						onDragOver={on_drag_over}
+						onDragLeave={on_drag_leave}
+						onDrop={on_drop}
+						onClick={handle_content_click}
+					>
+						{!folder_only && (
+							<input
+								type="file"
+								multiple
+								accept="image/*,.zip,.tif,.tiff"
+								className="hidden"
+								ref={file_input_ref}
+								onChange={on_file_change}
+							/>
+						)}
+						<input
+							type="file"
+							{...({
+								webkitdirectory: '',
+								directory: ''
+							} as React.InputHTMLAttributes<HTMLInputElement>)}
+							multiple
+							className="hidden"
+							ref={folder_input_ref}
+							onChange={on_file_change}
+						/>
+
 						{render_complete_banner()}
 
 						{!url_project_id &&
@@ -313,17 +347,8 @@ export default function upload_dialog({
 							is_drag_active={is_drag_active}
 							is_dark_mode={is_dark_mode}
 							bg_drag={bg_drag}
-							bg_card={bg_card}
-							border_subtle={border_subtle}
 							text_heading={text_heading}
 							text_muted={text_muted}
-							file_input_ref={file_input_ref}
-							folder_input_ref={folder_input_ref}
-							on_drag_enter={on_drag_enter}
-							on_drag_over={on_drag_over}
-							on_drag_leave={on_drag_leave}
-							on_drop={on_drop}
-							on_file_change={on_file_change}
 							folder_only={folder_only}
 						/>
 
