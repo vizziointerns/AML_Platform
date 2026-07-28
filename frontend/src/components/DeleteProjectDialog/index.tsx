@@ -54,6 +54,64 @@ export default function delete_project_dialog({
 		set_is_deleting(true)
 		set_confirm_error('')
 
+		// Clean up Google Drive files and folders before DB delete
+		try {
+			const { data: datasets } = await supabase
+				.from('datasets')
+				.select('id, drive_folder_id')
+				.eq('project_id', target.id)
+
+			if (datasets && datasets.length > 0) {
+				const dataset_ids = datasets.map((d: Record<string, string>) => d.id)
+
+				const { data: images } = await supabase
+					.from('dataset_images')
+					.select('file_url')
+					.in('dataset_id', dataset_ids)
+
+				const drive_urls = (images ?? [])
+					.map((i: Record<string, string>) => i.file_url)
+					.filter((url: string) => url && !url.startsWith('cache://'))
+
+				if (drive_urls.length > 0) {
+					await fetch('/api/images/drive/delete', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ file_urls: drive_urls })
+					})
+				}
+
+				for (const ds of datasets) {
+					const folder_id = (ds as Record<string, string | undefined>).drive_folder_id
+					if (folder_id) {
+						await fetch('/api/drive/delete-folder', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ folder_id })
+						})
+					}
+				}
+			}
+
+			const { data: project_row } = await supabase
+				.from('projects')
+				.select('drive_folder_id')
+				.eq('id', target.id)
+				.single()
+
+			const project_folder_id = (project_row as Record<string, string | undefined> | null)
+				?.drive_folder_id
+			if (project_folder_id) {
+				await fetch('/api/drive/delete-folder', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ folder_id: project_folder_id })
+				})
+			}
+		} catch {
+			// Non-critical — Drive files/folders remain but DB is clean
+		}
+
 		const { error: err } = await supabase
 			.from('projects')
 			.delete()

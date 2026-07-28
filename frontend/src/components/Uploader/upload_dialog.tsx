@@ -1,4 +1,4 @@
-import { Minimize2, X, CheckCircle2 } from 'lucide-react'
+import { Minimize2, X, CheckCircle2, FolderOpen } from 'lucide-react'
 import type { UploadFile } from './types'
 import DragDropZone from './drag_drop_zone'
 import FileItem from './file_item'
@@ -49,7 +49,11 @@ export default function upload_dialog({
 	is_all_complete,
 	hide_dataset_selector,
 	folder_only = false,
-	title = 'Upload to Dataset'
+	title = 'Upload to Dataset',
+	projects,
+	target_project_id,
+	on_target_project_id_change,
+	url_project_id
 }: {
 	title?: string
 	on_close: () => void
@@ -90,6 +94,10 @@ export default function upload_dialog({
 	is_all_complete: boolean
 	hide_dataset_selector?: boolean
 	folder_only?: boolean
+	projects?: { id: string; name: string }[]
+	target_project_id?: string
+	on_target_project_id_change?: (v: string) => void
+	url_project_id?: string
 }) {
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 
@@ -142,6 +150,25 @@ export default function upload_dialog({
 
 					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
 						{render_complete_banner()}
+
+						{!url_project_id && projects && projects.length > 0 && (
+							<div className="flex items-center justify-between text-sm">
+								<span className={`font-medium ${text_heading} flex items-center gap-1.5`}>
+									<FolderOpen size={14} /> Target Project
+								</span>
+								<select
+									value={target_project_id ?? ''}
+									onChange={(e) => on_target_project_id_change?.(e.target.value)}
+									className={`px-3 py-1.5 rounded-lg border ${border_subtle} ${is_dark_mode ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-900'} outline-none focus:border-blue-500`}
+								>
+									{projects.map((p) => (
+										<option key={p.id} value={p.id}>
+											{p.name}
+										</option>
+									))}
+								</select>
+							</div>
+						)}
 
 						{!hide_dataset_selector && (
 							<div className="flex items-center justify-between text-sm">

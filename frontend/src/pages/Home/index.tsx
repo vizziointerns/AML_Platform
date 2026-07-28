@@ -14,6 +14,7 @@ import DeleteProjectDialog from '../../components/DeleteProjectDialog'
 import { rename_dialog } from '../projects/rename_dialog'
 import { toast_bar } from '../../components/toast_bar'
 import { use_project_actions } from '../../hooks/use_project_actions'
+import type { UploaderOptions } from '../../contexts/app_context'
 
 function greeting(name: string | undefined): string {
 	const hour = new Date().getHours()
@@ -157,7 +158,7 @@ export default function home({
 }: {
 	user: User | undefined
 	is_dark_mode: boolean
-	on_open_uploader?: () => void
+	on_open_uploader?: (datasetId?: string, options?: UploaderOptions) => void
 	on_open_new_project?: () => void
 }) {
 	const navigate = useNavigate()
@@ -181,7 +182,8 @@ export default function home({
 	const {
 		projects: recent,
 		is_loading: is_projects_loading,
-		error: projects_error
+		error: projects_error,
+		refetch: refetch_recent
 	} = use_recent_projects()
 	const { items: activity_items, is_loading: is_activity_loading } = use_activity_feed()
 	const { alerts, is_loading: is_alerts_loading } = use_alerts()
@@ -244,23 +246,27 @@ export default function home({
 				on_delete: handle_delete
 			})}
 
-			<div className={`rounded-xl border ${card_classes} p-5`}>
-				<h3 className="font-semibold text-base tracking-tight mb-4">Quick Actions</h3>
-				<div className="flex flex-wrap gap-3">
-					<button
-						onClick={on_open_new_project}
-						className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-					>
-						<Plus size={16} /> New Project
-					</button>
-					<button
-						onClick={on_open_uploader}
-						className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
-					>
-						<Database size={16} /> Upload Dataset
-					</button>
+			{!is_projects_loading && recent.length > 0 && (
+				<div className={`rounded-xl border ${card_classes} p-5`}>
+					<h3 className="font-semibold text-base tracking-tight mb-4">Quick Actions</h3>
+					<div className="flex flex-wrap gap-3">
+						<button
+							onClick={on_open_new_project}
+							className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+						>
+							<Plus size={16} /> New Project
+						</button>
+						<button
+							onClick={() =>
+								on_open_uploader?.('__new__', { folder_only: true, title: 'Import Dataset' })
+							}
+							className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${is_dark_mode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+						>
+							<Database size={16} /> Import Dataset
+						</button>
+					</div>
 				</div>
-			</div>
+			)}
 
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{alerts_widget({
@@ -299,7 +305,10 @@ export default function home({
 			<DeleteProjectDialog
 				delete_target={delete_target}
 				on_close={() => set_delete_target(undefined)}
-				on_success={(name) => show_toast(`"${name}" has been deleted.`)}
+				on_success={(name) => {
+					show_toast(`"${name}" has been deleted.`)
+					refetch_recent()
+				}}
 				is_dark_mode={is_dark_mode}
 			/>
 

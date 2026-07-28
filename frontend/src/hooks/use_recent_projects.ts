@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../utils/supabase'
 import { use_auth } from '../contexts/auth_context'
 import { map_project } from '../utils/project_mapping'
@@ -37,13 +37,13 @@ async function enrich_project_counts(
 	return counts
 }
 
-export function use_recent_projects(limit = 4): UseRecentProjectsResult {
+export function use_recent_projects(limit = 4): UseRecentProjectsResult & { refetch: () => void } {
 	const { user } = use_auth()
 	const [projects, set_projects] = useState<Project[]>([])
 	const [is_loading, set_is_loading] = useState(true)
 	const [error, set_error] = useState<string | undefined>()
 
-	useEffect(() => {
+	const fetch_projects = useCallback(async () => {
 		if (!user) {
 			set_projects([])
 			set_error(undefined)
@@ -51,49 +51,45 @@ export function use_recent_projects(limit = 4): UseRecentProjectsResult {
 			return
 		}
 
-		let is_cancelled = false
 		set_is_loading(true)
 		set_error(undefined)
-		;(async () => {
-			const { data, error: err } = await supabase
-				.from('projects')
-				.select('*')
-				.eq('user_id', user.id)
-				.order('last_updated', { ascending: false })
-				.limit(limit)
 
-			if (is_cancelled) return
+		const { data, error: err } = await supabase
+			.from('projects')
+			.select('*')
+			.eq('user_id', user.id)
+			.order('last_updated', { ascending: false })
+			.limit(limit)
 
-			if (err) {
-				if (
-					err.message?.includes('does not exist') ||
-					err.message?.includes('Could not find the table')
-				) {
-					set_projects([])
-				} else {
-					set_error(err.message)
-				}
-				set_is_loading(false)
-				return
+		if (err) {
+			if (
+				err.message?.includes('does not exist') ||
+				err.message?.includes('Could not find the table')
+			) {
+				set_projects([])
+			} else {
+				set_error(err.message)
 			}
-
-			const mapped = (data ?? []).map(map_project)
-			const counts = await enrich_project_counts(mapped.map((p) => p.id))
-
-			for (const proj of mapped) {
-				const c = counts[proj.id]
-				proj.datasetCount = c?.total ?? 0
-				proj.annotationProgress = c?.annotated_pct ?? 0
-			}
-
-			set_projects(mapped)
 			set_is_loading(false)
-		})()
-
-		return () => {
-			is_cancelled = true
+			return
 		}
+
+		const mapped = (data ?? []).map(map_project)
+		const counts = await enrich_project_counts(mapped.map((p) => p.id))
+
+		for (const proj of mapped) {
+			const c = counts[proj.id]
+			proj.datasetCount = c?.total ?? 0
+			proj.annotationProgress = c?.annotated_pct ?? 0
+		}
+
+		set_projects(mapped)
+		set_is_loading(false)
 	}, [user, limit])
 
-	return { projects, is_loading, error }
+	useEffect(() => {
+		fetch_projects()
+	}, [fetch_projects])
+
+	return { projects, is_loading, error, refetch: fetch_projects }
 }
