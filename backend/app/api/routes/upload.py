@@ -459,3 +459,96 @@ async def delete_drive_files(body: DeleteDriveFilesRequest) -> dict[str, int]:
         logger.warning("Drive delete errors (partial): %s", errors)
 
     return {"deleted_count": deleted}
+
+
+class DeleteDriveFolderRequest(BaseModel):
+    folder_id: str
+
+
+@router.post("/drive/delete-folder")
+async def delete_drive_folder(body: DeleteDriveFolderRequest) -> dict[str, Any]:
+    """List all files in a Drive folder, delete them, then delete the folder itself."""
+    access_token = await async_get_drive_access_token()
+    errors: list[str] = []
+
+    async with httpx.AsyncClient() as client:
+        page_token: str | None = None
+        all_files: list[dict[str, Any]] = []
+
+        while True:
+            params = _drive_params({
+                "q": f"'{body.folder_id}' in parents and trashed=false",
+                "fields": "nextPageToken, files(id, mimeType)",
+                "pageSize": "1000",
+            })
+            if page_token:
+                params["pageToken"] = page_token
+
+            list_resp = await client.get(
+                DRIVE_FILES_API,
+                params=params,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if list_resp.status_code != 200:
+                try:
+                    err_body = list_resp.json()
+                    msg = err_body.get("error", {}).get("message", f"HTTP {list_resp.status_code}")
+                except Exception:
+                    msg = f"HTTP {list_resp.status_code}"
+                raise HTTPException(
+                    status_code=list_resp.status_code,
+                    detail=f"Failed to list Drive folder contents: {msg}",
+                )
+
+            data: Any = list_resp.json()
+            files = data.get("files", [])
+            all_files.extend(files)
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+
+        async def _delete_one(file_id: str) -> None:
+            resp = await client.delete(
+                f"{DRIVE_FILES_API}/{file_id}",
+                params=_drive_params(),
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if resp.status_code not in (204, 404):
+                try:
+                    err_body = resp.json()
+                    errors.append(
+                        err_body.get("error", {}).get("message", f"HTTP {resp.status_code}")
+                    )
+                except Exception:
+                    errors.append(f"HTTP {resp.status_code}")
+
+        file_count = len(all_files)
+
+        # Delete all files inside the folder
+        tasks: list[Any] = [_delete_one(f["id"]) for f in all_files]
+        await asyncio.gather(*tasks)
+
+        # Delete the folder itself
+        folder_resp = await client.delete(
+            f"{DRIVE_FILES_API}/{body.folder_id}",
+            params=_drive_params(),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        folder_deleted = folder_resp.status_code == 204
+        if not folder_deleted and folder_resp.status_code != 404:
+            try:
+                err_body = folder_resp.json()
+                errors.append(
+                    f"Folder delete: {err_body.get('error', {}).get('message', f'HTTP {folder_resp.status_code}')}"
+                )
+            except Exception:
+                errors.append(f"Folder delete: HTTP {folder_resp.status_code}")
+
+    if errors:
+        logger.warning("Drive delete-folder errors (partial): %s", errors)
+
+    return {
+        "files_deleted_count": file_count,
+        "folder_deleted": folder_deleted,
+        "folder_id": body.folder_id,
+    }

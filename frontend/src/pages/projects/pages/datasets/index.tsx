@@ -296,6 +296,37 @@ export default function datasets_view({
 	const handle_delete = async () => {
 		if (!delete_target) return
 		set_is_deleting(true)
+
+		// Clean up Google Drive files and folder
+		try {
+			const { data: images } = await supabase
+				.from('dataset_images')
+				.select('file_url')
+				.eq('dataset_id', delete_target.id)
+
+			const drive_urls = (images ?? [])
+				.map((i: { file_url: string }) => i.file_url)
+				.filter((url: string) => url && !url.startsWith('cache://'))
+
+			if (drive_urls.length > 0) {
+				await fetch(`/api/images/drive/delete`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ file_urls: drive_urls })
+				})
+			}
+
+			if (delete_target.drive_folder_id) {
+				await fetch(`/api/drive/delete-folder`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ folder_id: delete_target.drive_folder_id })
+				})
+			}
+		} catch {
+			// Non-critical — Drive files/folder remain but DB is clean
+		}
+
 		const { error: ds_err } = await supabase.from('datasets').delete().eq('id', delete_target.id)
 		if (ds_err) {
 			show_toast(`Failed to delete dataset: ${ds_err.message}`, 'error')

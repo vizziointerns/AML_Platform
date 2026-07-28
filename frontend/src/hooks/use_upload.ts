@@ -115,18 +115,48 @@ function collect_folder_drop_files(
 	})
 }
 
+interface ProjectOption {
+	id: string
+	name: string
+}
+
 export function use_upload(on_close: () => void, initial_dataset_id?: string, folder_only = false) {
 	const [is_minimized, set_is_minimized] = useState(false)
 	const [files, set_files] = useState<UploadFile[]>([])
 	const [is_drag_active, set_is_drag_active] = useState(false)
+	const [projects, set_projects] = useState<ProjectOption[]>([])
+	const [target_project_id, set_target_project_id] = useState<string | undefined>(undefined)
 
-	const project_id = (() => {
+	const url_project_id = (() => {
 		const match = window.location.pathname.match(/\/projects\/([^/]+)/)
 		return match ? match[1] : undefined
 	})()
 
+	const project_id = target_project_id ?? url_project_id
+
 	const navigate = useNavigate()
 	const { datasets } = use_datasets(project_id)
+
+	/* fetch available projects when no project context from URL */
+	useEffect(() => {
+		if (url_project_id) return
+		supabase.auth.getUser().then(({ data: { user } }) => {
+			if (!user) return
+			supabase
+				.from('projects')
+				.select('id, name')
+				.eq('user_id', user.id)
+				.then(({ data }) => {
+					if (data && data.length > 0) {
+						set_projects(data as ProjectOption[])
+						if (!target_project_id) {
+							set_target_project_id((data[0] as ProjectOption).id)
+						}
+					}
+				})
+		})
+	}, [url_project_id])
+
 	const [target_dataset, set_target_dataset] = useState(initial_dataset_id ?? '')
 	const [new_dataset_name, set_new_dataset_name] = useState('')
 	const [new_dataset_description, set_new_dataset_description] = useState('')
@@ -450,6 +480,10 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string, fo
 		set_new_dataset_name,
 		new_dataset_description,
 		set_new_dataset_description,
-		is_all_complete
+		is_all_complete,
+		projects,
+		target_project_id,
+		set_target_project_id,
+		url_project_id
 	}
 }

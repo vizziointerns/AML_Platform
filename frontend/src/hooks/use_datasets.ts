@@ -13,6 +13,7 @@ export interface DatasetInfo {
 	storage_bytes: number
 	created_at: string
 	updated_at: string
+	drive_folder_id?: string
 }
 
 export interface UseDatasetsResult {

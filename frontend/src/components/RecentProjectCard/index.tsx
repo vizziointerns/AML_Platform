@@ -38,13 +38,6 @@ export function recent_project_card({
 		: 'bg-white border-zinc-200 shadow-sm'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 
-	const status_colors: Record<string, string> = {
-		Active: 'bg-emerald-500/10 text-emerald-500',
-		Draft: 'bg-zinc-500/10 text-zinc-500',
-		Completed: 'bg-blue-500/10 text-blue-500',
-		Archived: 'bg-amber-500/10 text-amber-500'
-	}
-
 	return (
 		<div
 			onClick={() => on_click(project.id)}
@@ -63,13 +56,6 @@ export function recent_project_card({
 					</div>
 				</div>
 				<div className="flex items-center gap-1 shrink-0">
-					<div
-						className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-							status_colors[project.status] ?? 'bg-zinc-500/10 text-zinc-500'
-						}`}
-					>
-						{project.status}
-					</div>
 					<ProjectActionMenu
 						project={project}
 						is_dark_mode={is_dark_mode}

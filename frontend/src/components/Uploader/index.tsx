@@ -88,6 +88,10 @@ export default function uploader({
 			hide_dataset_selector={!!initial_dataset_id}
 			title={title}
 			folder_only={folder_only}
+			projects={upload.projects}
+			target_project_id={upload.target_project_id}
+			on_target_project_id_change={upload.set_target_project_id}
+			url_project_id={upload.url_project_id}
 		/>
 	)
 }

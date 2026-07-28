@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, ChevronRight, ChevronLeft, Check, Loader2 } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
@@ -61,6 +61,19 @@ export default function create_project_wizard({
 			reset_form()
 		}
 	}, [isOpen])
+
+	/* when Drive auth completes after a pending project creation, re-submit automatically */
+	const is_pending_drive_auth = useRef(false)
+	useEffect(() => {
+		if (!is_pending_drive_auth.current) return
+		if (google_auth.is_authenticated && !google_auth.is_loading) {
+			is_pending_drive_auth.current = false
+			void handle_create()
+		} else if (google_auth.error) {
+			is_pending_drive_auth.current = false
+			set_is_saving(false)
+		}
+	}, [google_auth.is_authenticated, google_auth.is_loading, google_auth.error])
 
 	async function enrich_with_image_counts(dss: ExistingDataset[]): Promise<ExistingDataset[]> {
 		const dataset_ids = dss.map((d) => d.id)
@@ -293,6 +306,17 @@ export default function create_project_wizard({
 
 	async function handle_create(ds_option?: 'skip' | 'new' | 'existing') {
 		if (!user) return
+
+		/* if Drive is configured but not authenticated, popup once then resume */
+		if (google_auth.is_configured && !google_auth.is_authenticated) {
+			if (!google_auth.is_loading) {
+				set_is_saving(true)
+				is_pending_drive_auth.current = true
+				google_auth.sign_in()
+			}
+			return
+		}
+
 		set_is_saving(true)
 		set_name_error('')
 

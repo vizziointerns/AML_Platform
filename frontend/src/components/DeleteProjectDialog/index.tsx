@@ -41,6 +41,71 @@ export default function delete_project_dialog({
 
 	const target = delete_target
 
+	async function cleanup_dataset_drive(datasets: Record<string, unknown>[]) {
+		const dataset_ids = datasets.map((d) => d.id as string)
+		const { data: images } = await supabase
+			.from('dataset_images')
+			.select('file_url')
+			.in('dataset_id', dataset_ids)
+
+		const drive_urls = (images ?? [])
+			.map((i) => (i as Record<string, string>).file_url)
+			.filter((url) => url && !url.startsWith('cache://'))
+
+		if (drive_urls.length > 0) {
+			await fetch('/api/images/drive/delete', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ file_urls: drive_urls })
+			})
+		}
+
+		const folder_ids = datasets
+			.map((ds) => (ds as Record<string, string | undefined>).drive_folder_id)
+			.filter(Boolean) as string[]
+
+		await Promise.all(
+			folder_ids.map((folder_id) =>
+				fetch('/api/drive/delete-folder', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ folder_id })
+				})
+			)
+		)
+	}
+
+	async function cleanup_drive() {
+		try {
+			const { data: datasets } = await supabase
+				.from('datasets')
+				.select('id, drive_folder_id')
+				.eq('project_id', target.id)
+
+			if (datasets && datasets.length > 0) {
+				await cleanup_dataset_drive(datasets as Record<string, unknown>[])
+			}
+
+			const { data: project_row } = await supabase
+				.from('projects')
+				.select('drive_folder_id')
+				.eq('id', target.id)
+				.single()
+
+			const project_folder_id = (project_row as Record<string, string | undefined> | null)
+				?.drive_folder_id
+			if (project_folder_id) {
+				await fetch('/api/drive/delete-folder', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ folder_id: project_folder_id })
+				})
+			}
+		} catch {
+			// Non-critical — Drive files/folders remain but DB is clean
+		}
+	}
+
 	async function handle_delete(e?: React.FormEvent) {
 		e?.preventDefault()
 		if (!user) return
@@ -53,6 +118,8 @@ export default function delete_project_dialog({
 
 		set_is_deleting(true)
 		set_confirm_error('')
+
+		await cleanup_drive()
 
 		const { error: err } = await supabase
 			.from('projects')
