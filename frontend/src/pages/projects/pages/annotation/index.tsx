@@ -20,6 +20,8 @@ import {
 	render_top_toolbar,
 	render_left_panel,
 	render_model_selection_dialog,
+	render_filmstrip,
+	render_add_cog_dialog,
 	type ModelOption
 } from './render'
 import { save_annotations } from '../../../../api/annotations'
@@ -28,7 +30,7 @@ import { use_cog_layers } from '../../../../hooks/use_cog_layers'
 import { use_cog_background } from '../../../../hooks/use_cog_background'
 import { use_cog_image_info } from '../../../../hooks/use_cog_image_info'
 import type { TiledBackgroundConfig } from '../../../../components/AnnotationCanvas/types'
-import { get_cog_thumbnail_url } from '../../../../utils/cog'
+
 import { use_annotation_history } from '../../../../hooks/use_annotation_history'
 import { use_fetch_annotations } from '../../../../hooks/use_fetch_annotations'
 import { type PaletteName } from '../../../../utils/colormaps'
@@ -48,6 +50,13 @@ import { render_canvas_content } from './canvas_content'
 import { render_processing_overlay } from './overlay'
 import { render_palette_dropdown } from './palette_dropdown'
 import { render_right_properties_panel } from './properties_panel_wrapper'
+import {
+	mobile_toolbar,
+	mobile_panel_buttons,
+	mobile_classes_overlay,
+	mobile_right_overlay,
+	show_satellite_panel
+} from './mobile_overlays'
 
 interface AnnotationStudioProps {
 	isDarkMode: boolean
@@ -154,6 +163,8 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 	const [active_tool, set_active_tool] = useState<Mode>('select')
 	const [is_layers_open, set_is_layers_open] = useState(true)
 	const [is_classes_open, set_is_classes_open] = useState(true)
+	const [is_mob_classes, set_is_mob_classes] = useState(false)
+	const [is_mob_right, set_is_mob_right] = useState(false)
 
 	const [zoom_level, set_zoom_level] = useState(1)
 	const [offset, set_offset] = useState({ x: 0, y: 0 })
@@ -444,6 +455,16 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 
 	const is_cog_loading = is_cog_project && !!current_image && !cog_image_info && !!image_url
 
+	const handle_filmstrip_navigate = useCallback(
+		(image_id: string) => {
+			set_predictions([])
+			set_is_showing_predictions(false)
+			set_selected_prediction_id(undefined)
+			navigate(`/projects/${project_id}/annotation/${image_id}`, { replace: true })
+		},
+		[project_id, navigate, set_predictions, set_is_showing_predictions, set_selected_prediction_id]
+	)
+
 	const canvas = render_canvas_content(
 		is_loading_image,
 		image_error,
@@ -509,39 +530,41 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 			)}
 
 			<div className="flex flex-1 overflow-hidden relative">
-				{render_left_panel(
-					left_width,
-					border_subtle,
-					bg_panel,
-					tools,
-					active_tool,
-					set_active_tool,
-					isDarkMode,
-					brush_size,
-					set_brush_size,
-					brush_opacity,
-					set_brush_opacity,
-					is_classes_open,
-					set_is_classes_open,
-					text_heading,
-					text_muted,
-					bg_hover,
-					classes,
-					active_class,
-					set_active_class,
-					annotations,
-					is_dragging_left,
-					get_current_count,
-					handle_create_class,
-					handle_rename_class,
-					handle_delete_class,
-					renaming_class_id,
-					set_renaming_class_id,
-					delete_class_id,
-					set_delete_class_id,
-					new_class_name,
-					set_new_class_name
-				)}
+				<div className="hidden lg:flex shrink-0">
+					{render_left_panel(
+						left_width,
+						border_subtle,
+						bg_panel,
+						tools,
+						active_tool,
+						set_active_tool,
+						isDarkMode,
+						brush_size,
+						set_brush_size,
+						brush_opacity,
+						set_brush_opacity,
+						is_classes_open,
+						set_is_classes_open,
+						text_heading,
+						text_muted,
+						bg_hover,
+						classes,
+						active_class,
+						set_active_class,
+						annotations,
+						is_dragging_left,
+						get_current_count,
+						handle_create_class,
+						handle_rename_class,
+						handle_delete_class,
+						renaming_class_id,
+						set_renaming_class_id,
+						delete_class_id,
+						set_delete_class_id,
+						new_class_name,
+						set_new_class_name
+					)}
+				</div>
 
 				<div
 					className={`flex-1 relative ${bg_workspace} flex items-center justify-center overflow-hidden flex-col`}
@@ -554,7 +577,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 					)}
 					{canvas}
 					{render_palette_dropdown(
-						is_cog_project,
+						show_satellite_panel(is_cog_project, current_image?.file_extension),
 						is_palette_open,
 						set_is_palette_open,
 						bg_palette,
@@ -572,7 +595,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 
 				<div
 					style={{ width: right_width }}
-					className={`shrink-0 border-l ${border_subtle} ${bg_panel} flex flex-col z-10 relative`}
+					className={`hidden lg:flex shrink-0 border-l ${border_subtle} ${bg_panel} flex-col z-10 relative`}
 				>
 					<div
 						className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20"
@@ -627,7 +650,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 						() => set_is_add_cog_open(true),
 						is_satellite_layers_open,
 						set_is_satellite_layers_open,
-						is_cog_project,
+						show_satellite_panel(is_cog_project, current_image?.file_extension),
 						isDarkMode,
 						text_heading,
 						text_muted,
@@ -637,35 +660,15 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				</div>
 			</div>
 
-			{stable_images.length > 1 && (
-				<div
-					className={`h-16 border-t ${border_subtle} ${bg_panel} flex items-center gap-2 px-4 overflow-x-auto shrink-0 w-full`}
-				>
-					{stable_images.map((img, idx) => (
-						<button
-							key={img.id}
-							onClick={() => {
-								set_predictions([])
-								set_is_showing_predictions(false)
-								set_selected_prediction_id(undefined)
-								navigate(`/projects/${project_id}/annotation/${img.id}`, { replace: true })
-							}}
-							className={`shrink-0 w-14 h-12 rounded-md border-2 overflow-hidden transition-all ${
-								idx === current_index
-									? 'border-blue-500 ring-1 ring-blue-500/30'
-									: `${border_subtle} hover:border-blue-400/50`
-							}`}
-						>
-							<img
-								src={get_cog_thumbnail_url(img.file_url, img.file_extension)}
-								alt={img.file_name}
-								loading="lazy"
-								className="w-full h-full object-cover"
-							/>
-						</button>
-					))}
-				</div>
-			)}
+			{render_filmstrip({
+				images: stable_images,
+				current_index,
+				project_id,
+				is_dark_mode: isDarkMode,
+				border_subtle,
+				bg_panel,
+				on_navigate: handle_filmstrip_navigate
+			})}
 
 			{render_model_selection_dialog(
 				is_model_selector_open,
@@ -719,57 +722,91 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				set_sam3_prompt
 			)}
 
-			{is_add_cog_open && (
-				<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-					<div
-						className={`rounded-lg shadow-xl border ${border_subtle} ${bg_panel} w-full max-w-md p-6`}
-					>
-						<h2 className={`text-lg font-semibold mb-4 ${text_heading}`}>Add COG Layer</h2>
-						<p className={`text-xs ${text_muted} mb-3`}>
-							Enter the URL of a Cloud Optimized GeoTIFF to display as a raster layer.
-						</p>
-						<input
-							autoFocus
-							type="text"
-							value={new_cog_url}
-							onChange={(e) => set_new_cog_url(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === 'Enter' && new_cog_url.trim()) {
-									handle_add_cog_layer()
-								}
-								if (e.key === 'Escape') {
-									set_is_add_cog_open(false)
-									set_new_cog_url('')
-								}
-							}}
-							placeholder="https://example.com/layer.tif"
-							className={`w-full bg-transparent border rounded px-3 py-2 text-sm outline-none mb-4 ${
-								isDarkMode
-									? 'border-zinc-700 text-zinc-100 placeholder-zinc-500'
-									: 'border-zinc-300 text-zinc-900 placeholder-zinc-400'
-							}`}
-						/>
-						<div className="flex justify-end gap-3">
-							<button
-								onClick={() => {
-									set_is_add_cog_open(false)
-									set_new_cog_url('')
-								}}
-								className={`px-4 py-2 rounded-md text-sm font-medium border ${border_subtle} ${text_muted} ${bg_hover} transition-colors`}
-							>
-								Cancel
-							</button>
-							<button
-								onClick={handle_add_cog_layer}
-								disabled={!new_cog_url.trim()}
-								className="px-4 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								Add Layer
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+			{render_add_cog_dialog({
+				is_open: is_add_cog_open,
+				new_cog_url,
+				on_url_change: set_new_cog_url,
+				on_add: handle_add_cog_layer,
+				on_close: () => {
+					set_is_add_cog_open(false)
+					set_new_cog_url('')
+				},
+				is_dark_mode: isDarkMode,
+				border_subtle,
+				bg_panel,
+				text_muted,
+				text_heading,
+				bg_hover
+			})}
+
+			{mobile_panel_buttons({
+				is_mob_classes,
+				set_is_mob_classes,
+				is_mob_right,
+				set_is_mob_right
+			})}
+			{mobile_classes_overlay({
+				is_mob_classes,
+				set_is_mob_classes,
+				left_width,
+				border_subtle,
+				bg_panel,
+				tools,
+				active_tool,
+				set_active_tool,
+				isDarkMode,
+				brush_size,
+				set_brush_size,
+				brush_opacity,
+				set_brush_opacity,
+				is_classes_open,
+				set_is_classes_open,
+				text_heading,
+				text_muted,
+				bg_hover,
+				classes,
+				active_class,
+				set_active_class,
+				annotations,
+				is_dragging_left,
+				get_current_count,
+				handle_create_class,
+				handle_rename_class,
+				handle_delete_class,
+				renaming_class_id,
+				set_renaming_class_id,
+				delete_class_id,
+				set_delete_class_id,
+				new_class_name,
+				set_new_class_name
+			})}
+			{mobile_right_overlay({
+				is_mob_right,
+				set_is_mob_right,
+				border_subtle,
+				bg_panel,
+				bg_hover,
+				text_heading,
+				text_muted,
+				is_cog_project,
+				selected_ann_id,
+				selected_prediction_id,
+				annotations,
+				classes,
+				set_annotations,
+				isDarkMode,
+				predictions,
+				set_predictions,
+				set_selected_prediction_id,
+				set_selected_ann_id,
+				is_showing_predictions,
+				set_is_showing_predictions,
+				is_layers_open,
+				set_is_layers_open,
+				get_class_color,
+				get_class_name
+			})}
+			{mobile_toolbar({ tools, active_tool, set_active_tool })}
 		</div>
 	)
 

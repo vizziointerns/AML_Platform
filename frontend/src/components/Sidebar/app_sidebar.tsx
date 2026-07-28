@@ -31,7 +31,7 @@ export function app_sidebar({
 
 	return (
 		<aside
-			className={`fixed lg:static top-0 left-0 z-50 h-full shrink-0 flex flex-col border-r transition-all duration-300 ease-in-out ${sidebar_classes} ${width_expanded} ${aside_shadow}`}
+			className={`hidden lg:flex fixed lg:static top-0 left-0 z-50 h-full shrink-0 flex-col border-r transition-all duration-300 ease-in-out ${sidebar_classes} ${width_expanded} ${aside_shadow}`}
 		>
 			<div className={`h-16 flex items-center border-b ${border_color} shrink-0 ${expanded_pad}`}>
 				<button
@@ -43,7 +43,11 @@ export function app_sidebar({
 					</div>
 					{is_now_expanded && (
 						<div className="flex flex-col items-start overflow-hidden">
-							<span className="text-sm font-semibold truncate w-32 text-left">AML Platform</span>
+							<span
+								className={`text-sm font-semibold truncate w-32 text-left ${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'}`}
+							>
+								AML Platform
+							</span>
 							<span className="text-[10px] text-zinc-500 truncate w-32 text-left">
 								Production Workspace
 							</span>
