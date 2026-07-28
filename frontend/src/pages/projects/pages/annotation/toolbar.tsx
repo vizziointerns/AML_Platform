@@ -41,9 +41,9 @@ export function render_top_toolbar(
 ) {
 	return (
 		<div
-			className={`h-14 border-b ${border_subtle} ${bg_panel} flex items-center justify-between px-4 shrink-0 z-10 box-border`}
+			className={`h-14 border-b ${border_subtle} ${bg_panel} flex items-center justify-between px-4 shrink-0 z-10 box-border overflow-x-auto hide-scrollbar`}
 		>
-			<div className="flex items-center gap-4">
+			<div className="flex items-center gap-4 min-w-max">
 				<div className="flex items-center gap-2">
 					{on_back && (
 						<button
@@ -122,7 +122,7 @@ export function render_top_toolbar(
 					</button>
 				</div>
 			</div>
-			<div className="flex items-center gap-3">
+			<div className="flex items-center gap-3 shrink-0">
 				<div className={`flex items-center rounded-md border ${border_subtle} overflow-hidden h-8`}>
 					<button
 						onClick={() => set_zoom_level((z) => Math.max(z - 0.5, 0.5))}
@@ -152,7 +152,7 @@ export function render_top_toolbar(
 				<div className={`w-px h-5 mx-1 ${border_subtle}`}></div>
 				<button
 					onClick={on_start_training}
-					className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 text-sm font-medium rounded-md hover:bg-emerald-600/20 transition-colors"
+					className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 text-sm font-medium rounded-md hover:bg-emerald-600/20 transition-colors shrink-0"
 				>
 					<CheckCircle2 size={16} /> Start Training
 				</button>

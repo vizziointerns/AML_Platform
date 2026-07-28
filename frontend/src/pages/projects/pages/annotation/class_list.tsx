@@ -192,7 +192,8 @@ export function render_left_panel(
 	delete_class_id: string | undefined,
 	set_delete_class_id: (id: string | undefined) => void,
 	new_class_name: string,
-	set_new_class_name: (name: string) => void
+	set_new_class_name: (name: string) => void,
+	classes_only = false
 ) {
 	const input_ref = useRef<HTMLInputElement>(undefined!)
 
@@ -209,19 +210,21 @@ export function render_left_panel(
 			style={{ width: left_width }}
 			className={`shrink-0 border-r ${border_subtle} ${bg_panel} flex flex-col z-10 relative`}
 		>
-			<div className={`p-3 border-b ${border_subtle} flex flex-wrap gap-2`}>
-				{tools.map((tool) => (
-					<button
-						key={tool.id}
-						onClick={() => set_active_tool(tool.id)}
-						title={tool.label}
-						className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active_tool === tool.id ? 'bg-blue-600 text-white shadow-sm' : `${bg_hover} ${text_muted} ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'}`}`}
-					>
-						<tool.icon size={18} />
-					</button>
-				))}
-			</div>
-			{(active_tool === 'brush' || active_tool === 'eraser') && (
+			{!classes_only && (
+				<div className={`p-3 border-b ${border_subtle} flex flex-wrap gap-2`}>
+					{tools.map((tool) => (
+						<button
+							key={tool.id}
+							onClick={() => set_active_tool(tool.id)}
+							title={tool.label}
+							className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active_tool === tool.id ? 'bg-blue-600 text-white shadow-sm' : `${bg_hover} ${text_muted} ${isDarkMode ? 'hover:text-zinc-100' : 'hover:text-zinc-900'}`}`}
+						>
+							<tool.icon size={18} />
+						</button>
+					))}
+				</div>
+			)}
+			{!classes_only && (active_tool === 'brush' || active_tool === 'eraser') && (
 				<div className={`p-4 border-b ${border_subtle} space-y-4`}>
 					<div className="space-y-2">
 						<div className="flex items-center justify-between">

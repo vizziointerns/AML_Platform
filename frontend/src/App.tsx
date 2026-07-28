@@ -4,6 +4,7 @@ import { CheckCircle2, X } from 'lucide-react'
 import AuthFlow from './pages/AuthFlow'
 import Uploader from './components/Uploader'
 import CreateProjectWizard from './components/CreateProjectWizard'
+import { mobile_drawer as MobileDrawer } from './components/Sidebar/mobile_drawer'
 import { APP_CONTEXT } from './contexts/app_context'
 import type { AppContextValue, UploaderOptions } from './contexts/app_context'
 import { auth_provider as AuthProvider, use_auth } from './contexts/auth_context'
@@ -105,6 +106,8 @@ function app_content() {
 									</Route>
 								</Routes>
 							</div>
+
+							<MobileDrawer />
 
 							<Uploader
 								isOpen={is_uploader_open}

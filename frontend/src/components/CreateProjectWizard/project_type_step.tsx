@@ -67,7 +67,7 @@ export default function project_type_step({
 
 	function render_type_cards() {
 		return (
-			<div className="grid grid-cols-3 gap-3">
+			<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
 				{PROJECT_TYPES.map((pt) => {
 					const { icon: ICON, desc } = TYPE_META[pt]!
 					const is_selected = type === pt
