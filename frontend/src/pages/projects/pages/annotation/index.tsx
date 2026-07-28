@@ -769,7 +769,7 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 				set_active_class,
 				annotations,
 				is_dragging_left,
-				get_current_count,
+				theme_current_count: get_current_count,
 				handle_create_class,
 				handle_rename_class,
 				handle_delete_class,

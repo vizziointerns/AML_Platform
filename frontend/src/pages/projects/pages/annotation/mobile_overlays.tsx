@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { type Dispatch, type SetStateAction } from 'react'
 import { BookMarked, PanelRight, X } from 'lucide-react'
 import type { Mode, Annotation, ClassInfo, Prediction } from './types'
 import { render_left_panel } from './class_list'
@@ -42,9 +42,9 @@ export function mobile_toolbar(params: {
 
 export function mobile_panel_buttons(params: {
 	is_mob_classes: boolean
-	set_is_mob_classes: (v: boolean) => void
+	set_is_mob_classes: Dispatch<SetStateAction<boolean>>
 	is_mob_right: boolean
-	set_is_mob_right: (v: boolean) => void
+	set_is_mob_right: Dispatch<SetStateAction<boolean>>
 }) {
 	const { is_mob_classes, set_is_mob_classes, is_mob_right, set_is_mob_right } = params
 	return (
@@ -69,7 +69,7 @@ export function mobile_panel_buttons(params: {
 
 export function mobile_classes_overlay(params: {
 	is_mob_classes: boolean
-	set_is_mob_classes: (v: boolean) => void
+	set_is_mob_classes: Dispatch<SetStateAction<boolean>>
 	left_width: number
 	border_subtle: string
 	bg_panel: string
@@ -166,7 +166,7 @@ export function mobile_classes_overlay(params: {
 
 export function mobile_right_overlay(params: {
 	is_mob_right: boolean
-	set_is_mob_right: (v: boolean) => void
+	set_is_mob_right: Dispatch<SetStateAction<boolean>>
 	border_subtle: string
 	bg_panel: string
 	bg_hover: string
