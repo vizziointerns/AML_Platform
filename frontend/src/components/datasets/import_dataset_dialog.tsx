@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Database, Download, Upload, Loader2 } from 'lucide-react'
+import { X, Database, Download, Loader2 } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
 import { use_auth } from '../../contexts/auth_context'
 
@@ -28,6 +28,8 @@ export function import_dataset_dialog({
 	on_imported: () => void
 }) {
 	const [option, set_option] = useState<'new' | 'existing'>('new')
+	const [new_ds_name, set_new_ds_name] = useState('')
+	const [new_ds_desc, set_new_ds_desc] = useState('')
 	const [existing_datasets, set_existing_datasets] = useState<ExistingDataset[]>([])
 	const [is_loading_datasets, set_is_loading_datasets] = useState(false)
 	const [selected_ds_id, set_selected_ds_id] = useState<string | undefined>(undefined)
@@ -41,6 +43,7 @@ export function import_dataset_dialog({
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
 	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
 	const bg_subtle = is_dark_mode ? 'bg-zinc-800/50' : 'bg-zinc-50'
+	const input_bg = is_dark_mode ? 'bg-zinc-950' : 'bg-white'
 
 	useEffect(() => {
 		if (is_open && option === 'existing' && !has_fetched.current) {
@@ -50,6 +53,8 @@ export function import_dataset_dialog({
 			has_fetched.current = false
 			set_selected_ds_id(undefined)
 			set_option('new')
+			set_new_ds_name('')
+			set_new_ds_desc('')
 			set_existing_datasets([])
 		}
 	}, [is_open, option])
@@ -108,7 +113,77 @@ export function import_dataset_dialog({
 	}
 
 	function handle_confirm() {
-		void handle_import_existing()
+		if (option === 'new') {
+			on_close()
+			on_upload('__new__', { folder_only: true, title: 'Import Dataset' })
+		} else {
+			void handle_import_existing()
+		}
+	}
+
+	function render_new_dataset_fields() {
+		return (
+			<div className="space-y-3 pl-0">
+				<div>
+					<label className={`text-xs font-medium ${text_heading} block mb-1`}>
+						Dataset Name <span className="text-red-500">*</span>
+					</label>
+					<input
+						type="text"
+						value={new_ds_name}
+						onChange={(e) => set_new_ds_name(e.target.value)}
+						placeholder="e.g. Training Images"
+						className={`w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors
+							${border_subtle}
+							${input_bg}
+							${is_dark_mode ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'}
+							focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50`}
+					/>
+				</div>
+				<div>
+					<label className={`text-xs font-medium ${text_heading} block mb-1`}>Description</label>
+					<textarea
+						value={new_ds_desc}
+						onChange={(e) => set_new_ds_desc(e.target.value)}
+						placeholder="Optional description"
+						rows={2}
+						className={`w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors resize-none
+							${border_subtle}
+							${input_bg}
+							${is_dark_mode ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'}
+							focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50`}
+					/>
+				</div>
+			</div>
+		)
+	}
+
+	function render_existing_dataset_list() {
+		return (
+			<div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+				{existing_datasets.map((ds) => (
+					<button
+						key={ds.id}
+						type="button"
+						onClick={() => set_selected_ds_id(ds.id)}
+						className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-colors ${
+							selected_ds_id === ds.id
+								? 'bg-blue-500/10 text-blue-500'
+								: `${hover_bg} ${text_heading}`
+						}`}
+					>
+						<div className="flex items-center gap-2 min-w-0">
+							<Database size={14} className="shrink-0" />
+							<span className="truncate">{ds.name}</span>
+						</div>
+						<span className={`text-xs shrink-0 ml-2 ${text_muted}`}>
+							{ds.image_count ?? 0} images
+							{ds.class_count ? ` · ${ds.class_count} classes` : ''}
+						</span>
+					</button>
+				))}
+			</div>
+		)
 	}
 
 	if (!is_open) return undefined
@@ -121,13 +196,18 @@ export function import_dataset_dialog({
 			/>
 			<div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
 				<div
-					className={`pointer-events-auto w-full max-w-lg rounded-xl shadow-2xl border ${border_subtle} ${bg_card} animate-in zoom-in-95 duration-300`}
+					className={`pointer-events-auto w-full max-w-xl rounded-xl shadow-2xl border ${border_subtle} ${bg_card} animate-in zoom-in-95 duration-300`}
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div className={`px-5 py-4 border-b ${border_subtle} flex justify-between items-center`}>
-						<h2 className={`text-base font-semibold tracking-tight ${text_heading}`}>
-							Import Dataset
-						</h2>
+					<div className={`px-6 py-4 border-b ${border_subtle} flex justify-between items-center`}>
+						<div>
+							<h2 className={`text-lg font-semibold tracking-tight ${text_heading}`}>
+								Import Dataset
+							</h2>
+							<p className={`text-xs ${text_muted} mt-0.5`}>
+								Choose how you want to add a dataset to this project
+							</p>
+						</div>
 						<button
 							onClick={on_close}
 							disabled={is_importing}
@@ -137,9 +217,9 @@ export function import_dataset_dialog({
 						</button>
 					</div>
 
-					<div className="px-5 py-4 space-y-3">
+					<div className="px-6 py-5 space-y-3">
 						<label
-							className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+							className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
 								option === 'new'
 									? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/20'
 									: `${border_subtle} ${hover_bg}`
@@ -149,25 +229,22 @@ export function import_dataset_dialog({
 								type="radio"
 								name="import_option"
 								checked={option === 'new'}
-								onChange={() => {
-									on_close()
-									on_upload('__new__', { folder_only: true, title: 'Import Dataset' })
-								}}
+								onChange={() => set_option('new')}
 								className="mt-0.5 accent-blue-600"
 							/>
-							<div className="flex-1">
-								<div className="flex items-center gap-2">
-									<Upload size={16} className="text-blue-500" />
+							<div className="flex-1 space-y-3">
+								<div>
 									<span className={`text-sm font-medium ${text_heading}`}>Upload new dataset</span>
+									<p className={`text-xs ${text_muted}`}>
+										Create a dataset and upload images from your computer or Google Drive
+									</p>
 								</div>
-								<p className={`text-xs ${text_muted} mt-1`}>
-									Upload images from your computer or Google Drive
-								</p>
+								{option === 'new' && render_new_dataset_fields()}
 							</div>
 						</label>
 
 						<label
-							className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+							className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
 								option === 'existing'
 									? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/20'
 									: `${border_subtle} ${hover_bg}`
@@ -186,58 +263,33 @@ export function import_dataset_dialog({
 								className="mt-0.5 accent-blue-600"
 							/>
 							<div className="flex-1">
-								<div className="flex items-center gap-2">
-									<Database size={16} className="text-emerald-500" />
+								<div className="mb-2">
 									<span className={`text-sm font-medium ${text_heading}`}>
 										Use existing dataset
 									</span>
-								</div>
-								<p className={`text-xs ${text_muted} mt-1`}>
-									Select a dataset from any of your other projects
-								</p>
-							</div>
-						</label>
-
-						{option === 'existing' && (
-							<div className="pl-1">
-								{is_loading_datasets ? (
-									<div className="flex items-center justify-center py-6">
-										<Loader2 size={18} className="animate-spin text-zinc-400" />
-									</div>
-								) : existing_datasets.length === 0 ? (
-									<p className={`text-xs ${text_muted} py-3 text-center`}>
-										No datasets found in other projects
+									<p className={`text-xs ${text_muted}`}>
+										Select a dataset from any of your other projects
 									</p>
-								) : (
-									<div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-										{existing_datasets.map((ds) => (
-											<button
-												key={ds.id}
-												type="button"
-												onClick={() => set_selected_ds_id(ds.id)}
-												className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-colors ${
-													selected_ds_id === ds.id
-														? 'bg-blue-500/10 text-blue-500'
-														: `${hover_bg} ${text_heading}`
-												}`}
-											>
-												<div className="flex items-center gap-2 min-w-0">
-													<Database size={14} className="shrink-0" />
-													<span className="truncate">{ds.name}</span>
-												</div>
-												<span className={`text-xs shrink-0 ml-2 ${text_muted}`}>
-													{ds.image_count ?? 0} images
-												</span>
-											</button>
-										))}
-									</div>
+								</div>
+								{option === 'existing' && (
+									is_loading_datasets ? (
+										<div className="flex items-center justify-center py-6">
+											<Loader2 size={18} className="animate-spin text-zinc-400" />
+										</div>
+									) : existing_datasets.length === 0 ? (
+										<p className={`text-xs ${text_muted} py-3 text-center`}>
+											No datasets found in other projects
+										</p>
+									) : (
+										render_existing_dataset_list()
+									)
 								)}
 							</div>
-						)}
+						</label>
 					</div>
 
 					<div
-						className={`px-5 py-3.5 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}
+						className={`px-6 py-4 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}
 					>
 						<button
 							onClick={on_close}
@@ -248,7 +300,12 @@ export function import_dataset_dialog({
 						</button>
 						<button
 							onClick={handle_confirm}
-							disabled={is_importing || !selected_ds_id || is_loading_datasets}
+							disabled={
+								is_importing ||
+								is_loading_datasets ||
+								(option === 'new' && !new_ds_name.trim()) ||
+								(option === 'existing' && !selected_ds_id)
+							}
 							className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{is_importing ? (
@@ -259,7 +316,7 @@ export function import_dataset_dialog({
 							) : (
 								<>
 									<Download size={14} />
-									Import Dataset
+									{option === 'new' ? 'Open Uploader' : 'Import Dataset'}
 								</>
 							)}
 						</button>
