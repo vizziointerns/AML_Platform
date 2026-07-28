@@ -12,6 +12,7 @@ interface VirtualGalleryProps {
 	on_open_annotation?: (img: MockImage) => void
 	on_delete_selected?: (image_ids: string[]) => Promise<void>
 	is_deleting_selected?: boolean
+	on_focus_change?: (image_id: string | undefined) => void
 }
 
 export default function virtual_gallery({
@@ -19,7 +20,8 @@ export default function virtual_gallery({
 	images: external_images,
 	on_open_annotation,
 	on_delete_selected,
-	is_deleting_selected = false
+	is_deleting_selected = false,
+	on_focus_change
 }: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
 	const [status_filter, set_status_filter] = useState<StatusFilter>('all')
@@ -84,6 +86,20 @@ export default function virtual_gallery({
 		}
 		return () => observer.disconnect()
 	}, [])
+
+	const focused_image_id = useMemo(() => {
+		if (focused_index === undefined) return undefined
+		const img = filtered_images[focused_index]
+		return img ? String(img.id) : undefined
+	}, [focused_index, filtered_images])
+
+	const prev_focused_ref = useRef<string | undefined>(undefined)
+	useEffect(() => {
+		if (focused_image_id !== prev_focused_ref.current) {
+			prev_focused_ref.current = focused_image_id
+			on_focus_change?.(focused_image_id)
+		}
+	}, [focused_image_id, on_focus_change])
 
 	const row_count = Math.ceil(filtered_images.length / column_count)
 

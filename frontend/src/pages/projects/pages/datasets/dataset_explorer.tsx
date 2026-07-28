@@ -15,7 +15,8 @@ export function dataset_explorer_view({
 	images,
 	on_delete_images,
 	is_deleting_images,
-	on_open_annotation
+	on_open_annotation,
+	on_focus_change
 }: {
 	drive_statuses?: Record<string, 'uploading' | 'uploaded' | 'failed'>
 	dataset: DatasetInfo
@@ -28,6 +29,7 @@ export function dataset_explorer_view({
 	on_delete_images: (image_ids: string[]) => Promise<void>
 	is_deleting_images: boolean
 	on_open_annotation: (image_id: string) => void
+	on_focus_change?: (image_id: string | undefined) => void
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
@@ -107,6 +109,7 @@ export function dataset_explorer_view({
 					on_delete_selected={on_delete_images}
 					is_deleting_selected={is_deleting_images}
 					on_open_annotation={handle_open_annotation}
+					on_focus_change={on_focus_change}
 				/>
 			</div>
 		</div>
