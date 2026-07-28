@@ -108,12 +108,7 @@ export function import_dataset_dialog({
 	}
 
 	function handle_confirm() {
-		if (option === 'new') {
-			on_close()
-			on_upload('__new__', { folder_only: true, title: 'Import Dataset' })
-		} else {
-			void handle_import_existing()
-		}
+		void handle_import_existing()
 	}
 
 	if (!is_open) return undefined
@@ -154,7 +149,10 @@ export function import_dataset_dialog({
 								type="radio"
 								name="import_option"
 								checked={option === 'new'}
-								onChange={() => set_option('new')}
+								onChange={() => {
+									on_close()
+									on_upload('__new__', { folder_only: true, title: 'Import Dataset' })
+								}}
 								className="mt-0.5 accent-blue-600"
 							/>
 							<div className="flex-1">
@@ -250,9 +248,7 @@ export function import_dataset_dialog({
 						</button>
 						<button
 							onClick={handle_confirm}
-							disabled={
-								is_importing || (option === 'existing' && !selected_ds_id) || is_loading_datasets
-							}
+							disabled={is_importing || !selected_ds_id || is_loading_datasets}
 							className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{is_importing ? (
@@ -263,7 +259,7 @@ export function import_dataset_dialog({
 							) : (
 								<>
 									<Download size={14} />
-									{option === 'new' ? 'Open Uploader' : 'Import Dataset'}
+									Import Dataset
 								</>
 							)}
 						</button>
