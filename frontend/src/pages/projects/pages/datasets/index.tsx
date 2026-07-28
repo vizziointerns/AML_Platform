@@ -403,7 +403,6 @@ export default function datasets_view({
 		on_close: () => set_is_import_dialog_open(false),
 		is_dark_mode,
 		project_id,
-		on_upload,
 		on_imported: () => {
 			window.dispatchEvent(new CustomEvent('datasets-changed'))
 			refresh()

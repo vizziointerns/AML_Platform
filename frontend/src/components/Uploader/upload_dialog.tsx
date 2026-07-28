@@ -128,6 +128,7 @@ export default function upload_dialog({
 	is_all_complete,
 	hide_dataset_selector,
 	folder_only = false,
+	accept_images_only = false,
 	title = 'Upload to Dataset'
 }: {
 	title?: string
@@ -169,6 +170,7 @@ export default function upload_dialog({
 	is_all_complete: boolean
 	hide_dataset_selector?: boolean
 	folder_only?: boolean
+	accept_images_only?: boolean
 	projects?: { id: string; name: string }[]
 	target_project_id?: string
 	on_target_project_id_change?: (v: string) => void
@@ -182,7 +184,7 @@ export default function upload_dialog({
 	)
 
 	const show_dataset_options =
-		!hide_dataset_selector || target_dataset === '__new__' || datasets.length > 0
+		!hide_dataset_selector || target_dataset === '__new__'
 
 	useEffect(() => {
 		if (upload_mode === 'new') {
@@ -214,7 +216,9 @@ export default function upload_dialog({
 							<p className={`text-sm ${text_muted}`}>
 								{is_all_complete
 									? 'Upload complete. You can close this dialog.'
-									: 'Upload images to a dataset in your project.'}
+									: accept_images_only
+										? 'Add images to your dataset. Only image files are accepted.'
+										: 'Upload images to a dataset in your project.'}
 							</p>
 						</div>
 						<div className="flex items-center gap-2 text-zinc-400">
@@ -353,6 +357,7 @@ export default function upload_dialog({
 							on_drop={on_drop}
 							on_file_change={on_file_change}
 							folder_only={folder_only}
+							accept_images_only={accept_images_only}
 						/>
 
 						{upload_queue_section({

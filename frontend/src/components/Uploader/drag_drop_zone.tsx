@@ -15,7 +15,8 @@ export default function drag_drop_zone({
 	on_drag_leave,
 	on_drop,
 	on_file_change,
-	folder_only = false
+	folder_only = false,
+	accept_images_only = false
 }: {
 	is_drag_active: boolean
 	is_dark_mode: boolean
@@ -32,6 +33,7 @@ export default function drag_drop_zone({
 	on_drop: (e: React.DragEvent) => void
 	on_file_change: (e: React.ChangeEvent<HTMLInputElement>) => void
 	folder_only?: boolean
+	accept_images_only?: boolean
 }) {
 	const drag_bg = is_drag_active
 		? `border-blue-500 ${bg_drag}`
@@ -54,7 +56,7 @@ export default function drag_drop_zone({
 				<input
 					type="file"
 					multiple
-					accept="image/*,.zip,.tif,.tiff"
+					accept={accept_images_only ? 'image/*,.tif,.tiff' : 'image/*,.zip,.tif,.tiff'}
 					className="hidden"
 					ref={file_input_ref}
 					onChange={on_file_change}
@@ -76,12 +78,18 @@ export default function drag_drop_zone({
 			</div>
 
 			<h3 className={`text-lg font-medium mb-1 ${text_heading}`}>
-				{folder_only ? 'Drag and drop a folder here' : 'Click to browse or drag and drop'}
+				{folder_only
+					? 'Drag and drop a folder here'
+					: accept_images_only
+						? 'Drag & drop images here or click to browse'
+						: 'Click to browse or drag and drop'}
 			</h3>
 			<p className={`text-sm ${text_muted} max-w-[300px] mb-6`}>
 				{folder_only
 					? 'Import a folder of JPG, PNG, WEBP, or TIFF images as a new dataset. Folder hierarchy is preserved.'
-					: 'Support for JPG, PNG, WEBP, TIFF, or ZIP archives containing images. Folders preserve hierarchy.'}
+					: accept_images_only
+						? 'Support for JPG, PNG, WEBP, BMP, or TIFF images'
+						: 'Support for JPG, PNG, WEBP, TIFF, or ZIP archives containing images. Folders preserve hierarchy.'}
 			</p>
 
 			<div className="flex gap-3">
