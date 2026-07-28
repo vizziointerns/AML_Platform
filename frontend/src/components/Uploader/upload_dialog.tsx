@@ -18,8 +18,14 @@ function project_selector(params: {
 	text_heading: string
 	border_subtle: string
 }) {
-	const { projects, target_project_id, on_target_project_id_change, is_dark_mode, text_heading, border_subtle } =
-		params
+	const {
+		projects,
+		target_project_id,
+		on_target_project_id_change,
+		is_dark_mode,
+		text_heading,
+		border_subtle
+	} = params
 	return (
 		<div className="flex items-center justify-between text-sm">
 			<span className={`font-medium ${text_heading} flex items-center gap-1.5`}>
@@ -247,7 +253,9 @@ export default function upload_dialog({
 					<div className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6">
 						{render_complete_banner()}
 
-						{!url_project_id && projects && projects.length > 0 &&
+						{!url_project_id &&
+							projects &&
+							projects.length > 0 &&
 							project_selector({
 								projects,
 								target_project_id,
