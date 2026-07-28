@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-	X, Database, Download, Loader2, Upload, FileImage, AlertCircle,
-	FileArchive, CheckCircle2, ArrowLeft, Folder
+	X,
+	Database,
+	Download,
+	Loader2,
+	Upload,
+	FileImage,
+	AlertCircle,
+	FileArchive,
+	CheckCircle2,
+	ArrowLeft,
+	Folder
 } from 'lucide-react'
 import { supabase } from '../../utils/supabase'
 import { use_auth } from '../../contexts/auth_context'
@@ -287,7 +296,9 @@ export function import_dataset_dialog({
 
 		let thumbnail: React.ReactNode
 		if (item.previewUrl && !is_zip) {
-			thumbnail = <img src={item.previewUrl} alt={item.name} className="w-full h-full object-cover" />
+			thumbnail = (
+				<img src={item.previewUrl} alt={item.name} className="w-full h-full object-cover" />
+			)
 		} else if (is_zip) {
 			thumbnail = <FileArchive size={18} className={text_muted} />
 		} else {
@@ -315,12 +326,18 @@ export function import_dataset_dialog({
 					</div>
 					{is_uploading && (
 						<div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-							<div className="h-full rounded-full bg-blue-500 transition-all duration-300" style={{ width: `${item.progress}%` }} />
+							<div
+								className="h-full rounded-full bg-blue-500 transition-all duration-300"
+								style={{ width: `${item.progress}%` }}
+							/>
 						</div>
 					)}
 					{is_error && (
 						<div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-							<div className="h-full rounded-full bg-red-500 transition-all duration-300" style={{ width: `${item.progress}%` }} />
+							<div
+								className="h-full rounded-full bg-red-500 transition-all duration-300"
+								style={{ width: `${item.progress}%` }}
+							/>
 						</div>
 					)}
 				</div>
@@ -352,26 +369,32 @@ export function import_dataset_dialog({
 					onDrop={on_drop}
 					className={`w-full py-8 rounded-xl border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-2 ${drag_bg}`}
 				>
-					<div className={`p-3 rounded-full ${is_drag_active ? 'bg-blue-500/20 text-blue-500' : is_dark_mode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}>
+					<div
+						className={`p-3 rounded-full ${is_drag_active ? 'bg-blue-500/20 text-blue-500' : is_dark_mode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}
+					>
 						<Upload size={24} />
 					</div>
 					<span className={`text-sm font-medium ${text_heading}`}>
 						{is_drag_active ? 'Drop files here' : 'Click to browse or drag and drop'}
 					</span>
-					<span className={`text-xs ${text_muted}`}>
-						Support for JPG, PNG, WEBP, TIFF, or ZIP
-					</span>
+					<span className={`text-xs ${text_muted}`}>Support for JPG, PNG, WEBP, TIFF, or ZIP</span>
 					<div className="flex gap-3 mt-1">
 						<button
 							type="button"
-							onClick={(e) => { e.stopPropagation(); file_input_ref.current?.click() }}
+							onClick={(e) => {
+								e.stopPropagation()
+								file_input_ref.current?.click()
+							}}
 							className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} transition-colors ${text_heading}`}
 						>
 							Browse Files
 						</button>
 						<button
 							type="button"
-							onClick={(e) => { e.stopPropagation(); folder_input_ref.current?.click() }}
+							onClick={(e) => {
+								e.stopPropagation()
+								folder_input_ref.current?.click()
+							}}
 							className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} transition-colors ${text_heading} flex items-center gap-2`}
 						>
 							<Folder size={16} /> Upload Folder
@@ -389,7 +412,10 @@ export function import_dataset_dialog({
 				<input
 					ref={folder_input_ref}
 					type="file"
-					{...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
+					{...({
+						webkitdirectory: '',
+						directory: ''
+					} as React.InputHTMLAttributes<HTMLInputElement>)}
 					multiple
 					onChange={on_files_select}
 					hidden
@@ -476,7 +502,9 @@ export function import_dataset_dialog({
 						</div>
 					</label>
 				</div>
-				<div className={`px-6 py-4 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}>
+				<div
+					className={`px-6 py-4 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}
+				>
 					<button
 						onClick={on_close}
 						className={`px-3 py-2 text-sm font-medium rounded-lg ${hover_bg} transition-colors ${text_muted}`}
@@ -543,13 +571,17 @@ export function import_dataset_dialog({
 							<p className={`text-xs font-medium ${text_muted}`}>
 								{upload_items.length} file{upload_items.length > 1 ? 's' : ''} selected
 								{uploading_count > 0 && ` · Uploading ${uploading_count}/${upload_items.length}`}
-								{completed_count > 0 && completed_count < upload_items.length && ` · ${completed_count} done`}
+								{completed_count > 0 &&
+									completed_count < upload_items.length &&
+									` · ${completed_count} done`}
 							</p>
 							<div className="space-y-2">{upload_items.map((item) => render_file_item(item))}</div>
 						</div>
 					)}
 				</div>
-				<div className={`px-6 py-4 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}>
+				<div
+					className={`px-6 py-4 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}
+				>
 					<button
 						onClick={on_close}
 						disabled={is_busy}
@@ -565,7 +597,10 @@ export function import_dataset_dialog({
 						{is_busy ? (
 							<>
 								<Loader2 size={14} className="animate-spin" />
-								Creating{uploading_count > 0 ? ` (${completed_count + uploading_count}/${upload_items.length})` : '...'}
+								Creating
+								{uploading_count > 0
+									? ` (${completed_count + uploading_count}/${upload_items.length})`
+									: '...'}
 							</>
 						) : (
 							<>
@@ -618,7 +653,9 @@ export function import_dataset_dialog({
 						</div>
 					)}
 				</div>
-				<div className={`px-6 py-4 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}>
+				<div
+					className={`px-6 py-4 border-t ${border_subtle} ${bg_subtle} rounded-b-xl flex items-center justify-end gap-3`}
+				>
 					<button
 						onClick={on_close}
 						disabled={is_importing}

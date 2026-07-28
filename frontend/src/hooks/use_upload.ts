@@ -193,48 +193,56 @@ export function use_upload(on_close: () => void, initial_dataset_id?: string, fo
 		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 	}, [])
 
-	const process_files = useCallback((new_files: File[]) => {
-		const is_add_data = !!initial_dataset_id
-		const processed: UploadFile[] = new_files.map((f) => {
-			const is_image = f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(f.name)
-			const is_zip = f.name.endsWith('.zip')
-			const is_tiff = /\.tiff?$/i.test(f.name)
-			let preview_url
-			if (is_image && !is_tiff) {
-				preview_url = URL.createObjectURL(f)
-			}
-			let status: 'pending' | 'error'
-			let error: string | undefined
-			if (is_add_data) {
-				status = is_image ? 'pending' : 'error'
-				error = !is_image ? 'Only image files are accepted. Supported formats: JPG, PNG, WEBP, BMP, TIFF' : undefined
-			} else {
-				status = is_image || is_zip || is_tiff ? 'pending' : 'error'
-				error = !is_image && !is_zip && !is_tiff ? 'Unsupported file format.' : undefined
-			}
-			return {
-				id: crypto.randomUUID(),
-				file: f,
-				name: f.name,
-				size: f.size,
-				previewUrl: preview_url,
-				progress: 0,
-				status,
-				error
-			}
-		})
-		set_files((prev) => [...prev, ...processed])
+	const process_files = useCallback(
+		(new_files: File[]) => {
+			const is_add_data = !!initial_dataset_id
+			const processed: UploadFile[] = new_files.map((f) => {
+				const is_image =
+					f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(f.name)
+				const is_zip = f.name.endsWith('.zip')
+				const is_tiff = /\.tiff?$/i.test(f.name)
+				let preview_url
+				if (is_image && !is_tiff) {
+					preview_url = URL.createObjectURL(f)
+				}
+				let status: 'pending' | 'error'
+				let error: string | undefined
+				if (is_add_data) {
+					status = is_image ? 'pending' : 'error'
+					error = !is_image
+						? 'Only image files are accepted. Supported formats: JPG, PNG, WEBP, BMP, TIFF'
+						: undefined
+				} else {
+					status = is_image || is_zip || is_tiff ? 'pending' : 'error'
+					error = !is_image && !is_zip && !is_tiff ? 'Unsupported file format.' : undefined
+				}
+				return {
+					id: crypto.randomUUID(),
+					file: f,
+					name: f.name,
+					size: f.size,
+					previewUrl: preview_url,
+					progress: 0,
+					status,
+					error
+				}
+			})
+			set_files((prev) => [...prev, ...processed])
 
-		for (const item of processed) {
-			if (/\.tiff?$/i.test(item.name)) {
-				generate_tiff_preview(item.file).then((url) => {
-					if (url) {
-						set_files((prev) => prev.map((f) => (f.id === item.id ? { ...f, previewUrl: url } : f)))
-					}
-				})
+			for (const item of processed) {
+				if (/\.tiff?$/i.test(item.name)) {
+					generate_tiff_preview(item.file).then((url) => {
+						if (url) {
+							set_files((prev) =>
+								prev.map((f) => (f.id === item.id ? { ...f, previewUrl: url } : f))
+							)
+						}
+					})
+				}
 			}
-		}
-	}, [initial_dataset_id])
+		},
+		[initial_dataset_id]
+	)
 
 	const process_loose_files_as_errors = useCallback((new_files: File[]) => {
 		const processed: UploadFile[] = new_files.map((f) => ({

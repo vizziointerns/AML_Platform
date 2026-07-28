@@ -170,8 +170,7 @@ export default function upload_dialog({
 		target_dataset === '__new__' || !target_dataset ? 'new' : 'existing'
 	)
 
-	const should_show_dataset_options =
-		!hide_dataset_selector || target_dataset === '__new__'
+	const should_show_dataset_options = !hide_dataset_selector || target_dataset === '__new__'
 
 	useEffect(() => {
 		if (upload_mode === 'new') {
@@ -231,9 +230,7 @@ export default function upload_dialog({
 					<div className="flex-1">
 						<div className="flex items-center gap-2">
 							<Upload size={16} className="text-blue-500" />
-							<span className={`text-sm font-medium ${text_heading}`}>
-								Create a new dataset
-							</span>
+							<span className={`text-sm font-medium ${text_heading}`}>Create a new dataset</span>
 						</div>
 						<p className={`text-xs ${text_muted} mt-0.5`}>
 							Upload images to a brand new dataset in the current project
@@ -276,9 +273,7 @@ export default function upload_dialog({
 					<div className="flex-1">
 						<div className="flex items-center gap-2">
 							<Database size={16} className="text-emerald-500" />
-							<span className={`text-sm font-medium ${text_heading}`}>
-								Add to existing dataset
-							</span>
+							<span className={`text-sm font-medium ${text_heading}`}>Add to existing dataset</span>
 						</div>
 						<p className={`text-xs ${text_muted} mt-0.5`}>
 							Select an existing dataset to add images to
