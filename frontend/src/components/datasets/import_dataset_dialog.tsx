@@ -135,6 +135,20 @@ export function import_dataset_dialog({
 		set_upload_items((prev) => prev.filter((item) => item.id !== id))
 	}
 
+	async function load_dataset_counts(dataset_list: ExistingDataset[]) {
+		const dataset_ids = dataset_list.map((d) => d.id)
+		const count_map: Record<string, number> = {}
+		if (dataset_ids.length === 0) return count_map
+		const { data: image_rows } = await supabase
+			.from('dataset_images')
+			.select('dataset_id')
+			.in('dataset_id', dataset_ids)
+		for (const row of image_rows ?? []) {
+			count_map[row.dataset_id] = (count_map[row.dataset_id] ?? 0) + 1
+		}
+		return count_map
+	}
+
 	async function fetch_existing_datasets() {
 		if (!project_id || !user) return
 		set_is_loading_datasets(true)
@@ -153,19 +167,9 @@ export function import_dataset_dialog({
 				.neq('project_id', project_id)
 				.order('updated_at', { ascending: false })
 			const dataset_list = (data ?? []) as ExistingDataset[]
-			const dataset_ids = dataset_list.map((d) => d.id)
-			if (dataset_ids.length > 0) {
-				const { data: image_rows } = await supabase
-					.from('dataset_images')
-					.select('dataset_id')
-					.in('dataset_id', dataset_ids)
-				const count_map: Record<string, number> = {}
-				for (const row of image_rows ?? []) {
-					count_map[row.dataset_id] = (count_map[row.dataset_id] ?? 0) + 1
-				}
-				for (const ds of dataset_list) {
-					ds.image_count = count_map[ds.id] ?? 0
-				}
+			const count_map = await load_dataset_counts(dataset_list)
+			for (const ds of dataset_list) {
+				ds.image_count = count_map[ds.id] ?? 0
 			}
 			set_existing_datasets(dataset_list)
 		} catch {
@@ -198,7 +202,7 @@ export function import_dataset_dialog({
 				.insert({
 					project_id,
 					name: new_ds_name.trim(),
-					description: new_ds_desc.trim() || null,
+					description: new_ds_desc.trim() || undefined,
 					status: 'ready',
 					image_count: 0,
 					class_count: 0
@@ -244,6 +248,37 @@ export function import_dataset_dialog({
 		}
 	}
 
+	function render_status_indicator(item: UploadFile) {
+		if (item.status === 'success') {
+			return (
+				<div className="flex items-center gap-1.5 shrink-0">
+					<CheckCircle2 size={14} className="text-emerald-500" />
+					<span className="text-xs font-medium text-emerald-500">Done</span>
+				</div>
+			)
+		}
+		if (item.status === 'error') {
+			return (
+				<div className="flex items-center gap-1.5 shrink-0">
+					<AlertCircle size={14} className="text-red-500" />
+					<span className="text-xs font-medium text-red-500">Failed</span>
+				</div>
+			)
+		}
+		if (item.status === 'uploading') {
+			return (
+				<div className="flex items-center gap-1.5 shrink-0">
+					<span className="text-xs font-medium text-blue-500">{item.progress}%</span>
+				</div>
+			)
+		}
+		return (
+			<div className="flex items-center gap-1.5 shrink-0">
+				<span className="text-xs font-medium text-zinc-500">Pending</span>
+			</div>
+		)
+	}
+
 	function render_file_item(item: UploadFile) {
 		const is_uploading = item.status === 'uploading'
 		const is_error = item.status === 'error'
@@ -259,19 +294,6 @@ export function import_dataset_dialog({
 			thumbnail = <FileImage size={18} className={text_muted} />
 		}
 
-		let status_color = 'text-zinc-500'
-		let status_label = 'Pending'
-		if (is_success) {
-			status_color = 'text-emerald-500'
-			status_label = 'Done'
-		} else if (is_error) {
-			status_color = 'text-red-500'
-			status_label = 'Failed'
-		} else if (is_uploading) {
-			status_color = 'text-blue-500'
-			status_label = `${item.progress}%`
-		}
-
 		return (
 			<div
 				key={item.id}
@@ -283,11 +305,7 @@ export function import_dataset_dialog({
 				<div className="flex-1 min-w-0 space-y-1">
 					<div className="flex items-center justify-between gap-2">
 						<span className={`text-sm font-medium truncate ${text_heading}`}>{item.name}</span>
-						<div className="flex items-center gap-1.5 shrink-0">
-							{is_success && <CheckCircle2 size={14} className="text-emerald-500" />}
-							{is_error && <AlertCircle size={14} className="text-red-500" />}
-							<span className={`text-xs font-medium ${status_color}`}>{status_label}</span>
-						</div>
+						{render_status_indicator(item)}
 					</div>
 					<div className="flex items-center justify-between gap-2">
 						<span className={`text-xs ${text_muted}`}>{format_file_size(item.size)}</span>
@@ -295,12 +313,14 @@ export function import_dataset_dialog({
 							<span className="text-xs text-red-500 truncate max-w-[200px]">{item.error}</span>
 						)}
 					</div>
-					{(is_uploading || is_error) && (
+					{is_uploading && (
 						<div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-							<div
-								className={`h-full rounded-full transition-all duration-300 ${is_error ? 'bg-red-500' : 'bg-blue-500'}`}
-								style={{ width: `${item.progress}%` }}
-							/>
+							<div className="h-full rounded-full bg-blue-500 transition-all duration-300" style={{ width: `${item.progress}%` }} />
+						</div>
+					)}
+					{is_error && (
+						<div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+							<div className="h-full rounded-full bg-red-500 transition-all duration-300" style={{ width: `${item.progress}%` }} />
 						</div>
 					)}
 				</div>
