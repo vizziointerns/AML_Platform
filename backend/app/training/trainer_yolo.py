@@ -208,7 +208,7 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
             Path(tempfile.gettempdir()) / f"yolo_output_{cfg.run_id}_{timestamp}"
         )
 
-        from ultralytics import YOLO
+        from ultralytics import YOLO  # type: ignore[attr-defined]
 
         db = SessionLocal()
         start_time = time.time()
