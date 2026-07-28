@@ -2,6 +2,7 @@ import type { ClassInfo } from './types'
 import type { ModelOption } from './render'
 import { fetch_classes, save_classes_to_backend } from '../../../../api/classes'
 import { fetch_training_runs } from '../../../../api/training'
+import { load_classes } from './utils'
 
 export function fetch_dataset_classes_effect(
 	dataset_id: string | undefined,
@@ -10,12 +11,16 @@ export function fetch_dataset_classes_effect(
 	classes_fetched: React.MutableRefObject<boolean>
 ): (() => void) | undefined {
 	if (!dataset_id) return undefined
+
+	classes_fetched.current = true
+	set_classes([])
+	set_active_class('')
+
 	let is_cancelled = false
 	fetch_classes(dataset_id)
 		.then((backend_classes) => {
 			if (is_cancelled) return
 			if (backend_classes.length > 0) {
-				classes_fetched.current = true
 				set_classes(backend_classes)
 				set_active_class((prev) =>
 					backend_classes.some((c) => c.id === prev) ? prev : (backend_classes[0]?.id ?? '')
@@ -23,7 +28,15 @@ export function fetch_dataset_classes_effect(
 			}
 		})
 		.catch(() => {
-			/* fall back to localStorage */
+			if (is_cancelled) return
+			const saved = load_classes()
+			if (saved.length > 0) {
+				set_classes(saved)
+				set_active_class(saved[0]?.id ?? '')
+				classes_fetched.current = true
+			} else {
+				classes_fetched.current = false
+			}
 		})
 	return () => {
 		is_cancelled = true
