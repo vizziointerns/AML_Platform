@@ -341,7 +341,10 @@ export function import_dataset_dialog({
 					<input
 						ref={folder_input_ref}
 						type="file"
-						{...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
+						{...({
+							webkitdirectory: '',
+							directory: ''
+						} as React.InputHTMLAttributes<HTMLInputElement>)}
 						multiple
 						onChange={on_files_select}
 						hidden
@@ -482,9 +485,7 @@ export function import_dataset_dialog({
 					className={`pointer-events-auto w-full max-w-2xl rounded-xl shadow-2xl border ${border_subtle} ${bg_card} animate-in zoom-in-95 duration-300`}
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div
-						className={`px-6 py-4 border-b ${border_subtle} flex justify-between items-center`}
-					>
+					<div className={`px-6 py-4 border-b ${border_subtle} flex justify-between items-center`}>
 						<div>
 							<h2 className={`text-lg font-semibold tracking-tight ${text_heading}`}>
 								Import Dataset
@@ -519,10 +520,7 @@ export function import_dataset_dialog({
 						</button>
 						<button
 							onClick={handle_submit}
-							disabled={
-								is_busy ||
-								(option === 'new' ? !is_new_valid : !is_existing_valid)
-							}
+							disabled={is_busy || (option === 'new' ? !is_new_valid : !is_existing_valid)}
 							className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{is_busy ? (
