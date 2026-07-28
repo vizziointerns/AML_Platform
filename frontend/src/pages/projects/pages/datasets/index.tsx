@@ -7,6 +7,7 @@ import { use_datasets } from '../../../../hooks/use_datasets'
 import { use_dataset_images } from '../../../../hooks/use_dataset_images'
 import { DatasetToolbar, type StatusFilter } from '../../../../components/datasets'
 import { create_dataset_dialog } from '../../../../components/datasets/create_dataset_dialog'
+import { import_dataset_dialog } from '../../../../components/datasets/import_dataset_dialog'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
 import { dataset_explorer_view } from './dataset_explorer'
 import { dataset_grid_view } from './dataset_grid'
@@ -207,6 +208,7 @@ export default function datasets_view({
 	const { images, delete_images } = use_dataset_images(selected_dataset?.id)
 	const [view_mode, set_view_mode] = useState<'grid' | 'list'>('grid')
 	const [is_create_dialog_open, set_is_create_dialog_open] = useState(false)
+	const [is_import_dialog_open, set_is_import_dialog_open] = useState(false)
 	const [toasts, set_toasts] = useState<Toast[]>([])
 
 	const gen_id = () => {
@@ -262,7 +264,7 @@ export default function datasets_view({
 	}, [refresh, show_toast])
 
 	const handle_import = () => {
-		on_upload('__new__', { folder_only: true, title: 'Import Dataset' })
+		set_is_import_dialog_open(true)
 	}
 
 	const handle_add_data = () => {
@@ -396,6 +398,19 @@ export default function datasets_view({
 		}
 	})
 
+	const import_dialog_element = import_dataset_dialog({
+		is_open: is_import_dialog_open,
+		on_close: () => set_is_import_dialog_open(false),
+		is_dark_mode,
+		project_id,
+		on_upload,
+		on_imported: () => {
+			window.dispatchEvent(new CustomEvent('datasets-changed'))
+			refresh()
+			show_toast('Dataset imported')
+		}
+	})
+
 	const [drive_statuses, set_drive_statuses] = useState<
 		Record<string, 'uploading' | 'uploaded' | 'failed'>
 	>({})
@@ -446,6 +461,7 @@ export default function datasets_view({
 		return (
 			<>
 				{toast_container(toasts, set_toasts, is_dark_mode)}
+				{import_dialog_element}
 				{dataset_explorer_view({
 					drive_statuses,
 					dataset: selected_dataset,
@@ -513,6 +529,7 @@ export default function datasets_view({
 			</div>
 
 			{dialog_element}
+			{import_dialog_element}
 			{rename_dialog({
 				is_dark_mode,
 				target: rename_target,
