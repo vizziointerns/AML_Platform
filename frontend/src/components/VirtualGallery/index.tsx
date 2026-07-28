@@ -21,7 +21,7 @@ export default function virtual_gallery({
 	on_open_annotation,
 	on_delete_selected,
 	is_deleting_selected = false,
-	on_focus_change,
+	on_focus_change
 }: VirtualGalleryProps) {
 	const [search_query, set_search_query] = useState('')
 	const [status_filter, set_status_filter] = useState<StatusFilter>('all')
