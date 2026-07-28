@@ -201,6 +201,11 @@ export function import_dataset_dialog({
 		}
 	}
 
+	function handle_submit() {
+		if (option === 'new') return handle_create_dataset()
+		return handle_import_existing()
+	}
+
 	function render_status_indicator(item: UploadFile) {
 		if (item.status === 'success') {
 			return (
@@ -513,7 +518,7 @@ export function import_dataset_dialog({
 							Cancel
 						</button>
 						<button
-							onClick={option === 'new' ? handle_create_dataset : handle_import_existing}
+							onClick={handle_submit}
 							disabled={
 								is_busy ||
 								(option === 'new' ? !is_new_valid : !is_existing_valid)
