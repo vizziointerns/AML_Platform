@@ -20,15 +20,25 @@ MAX_RENDER_SIZE = 4096
 
 class TileInfo:
     __slots__ = (
-        "tile_name", "x", "y", "w", "h",
-        "img_width", "img_height", "original_image_id",
+        "tile_name",
+        "x",
+        "y",
+        "w",
+        "h",
+        "img_width",
+        "img_height",
+        "original_image_id",
     )
 
     def __init__(
         self,
         tile_name: str,
-        x: int, y: int, w: int, h: int,
-        img_width: int, img_height: int,
+        x: int,
+        y: int,
+        w: int,
+        h: int,
+        img_width: int,
+        img_height: int,
         original_image_id: str,
     ) -> None:
         self.tile_name = tile_name
@@ -48,6 +58,7 @@ def is_cog_file(file_name: str) -> bool:
 
 def _download_cog_http(file_url: str, dest: Path) -> None:
     import httpx
+
     CHUNK_SIZE = 256 * 1024
     with httpx.Client(timeout=600, follow_redirects=True) as client:
         with client.stream("GET", file_url) as resp:
@@ -59,9 +70,14 @@ def _download_cog_http(file_url: str, dest: Path) -> None:
 
 def _download_cog_drive(file_id: str, dest: Path) -> None:
     import httpx
-    from app.utils.google_service_account import get_auth_headers
+    from app.utils.google_drive_auth import get_drive_access_token
+
     drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
-    headers = get_auth_headers()
+    access_token = get_drive_access_token()
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "User-Agent": "AML-Platform/1.0",
+    }
     CHUNK_SIZE = 256 * 1024
     with httpx.Client(timeout=600) as client:
         with client.stream("GET", drive_url, headers=headers) as resp:
@@ -90,8 +106,7 @@ def _assert_cog_url(url: str) -> None:
     if not host:
         raise ValueError(f"Could not parse host from URL: {url}")
     if not any(
-        host == allowed or host.endswith("." + allowed)
-        for allowed in COG_ALLOWED_HOSTS
+        host == allowed or host.endswith("." + allowed) for allowed in COG_ALLOWED_HOSTS
     ):
         raise ValueError(f"URL host not in allowed list: {host}")
 
@@ -137,6 +152,7 @@ def render_cog_to_rgb(
     max_size: int = MAX_RENDER_SIZE,
 ) -> tuple[int, int]:
     import tifffile
+
     with tifffile.TiffFile(cog_path) as tif:
         num_pages = len(tif.pages)
         target_page = 0
@@ -156,7 +172,11 @@ def render_cog_to_rgb(
         if c <= 4 and h > c and w > c:
             rgb_data = np.transpose(data[:3], (1, 2, 0))
         else:
-            rgb_data = data[..., :3] if data.shape[-1] >= 3 else np.stack([data[..., 0]] * 3, axis=-1)
+            rgb_data = (
+                data[..., :3]
+                if data.shape[-1] >= 3
+                else np.stack([data[..., 0]] * 3, axis=-1)
+            )
     elif data.ndim == 2:
         h, w = data.shape
         rgb_data = np.stack([data, data, data], axis=-1)
@@ -215,12 +235,18 @@ def tile_image(
             tile = img.crop((x, y, x + tw, y + th))
             tile_name = f"{prefix}_tile_{tile_idx:04d}_{x}_{y}_{tw}_{th}.png"
             tile.save(str(output_dir / tile_name))
-            tiles.append(TileInfo(
-                tile_name=tile_name,
-                x=x, y=y, w=tw, h=th,
-                img_width=img_w, img_height=img_h,
-                original_image_id="",
-            ))
+            tiles.append(
+                TileInfo(
+                    tile_name=tile_name,
+                    x=x,
+                    y=y,
+                    w=tw,
+                    h=th,
+                    img_width=img_w,
+                    img_height=img_h,
+                    original_image_id="",
+                )
+            )
             tile_idx += 1
     return tiles
 
@@ -270,7 +296,9 @@ def remap_annotations_to_tile_yolo(
         cy_norm = local_cy / th
         nw_norm = local_nw / tw
         nh_norm = local_nh / th
-        lines.append(f"{cls_idx} {cx_norm:.6f} {cy_norm:.6f} {nw_norm:.6f} {nh_norm:.6f}")
+        lines.append(
+            f"{cls_idx} {cx_norm:.6f} {cy_norm:.6f} {nw_norm:.6f} {nh_norm:.6f}"
+        )
     return lines
 
 
@@ -280,6 +308,7 @@ def _build_tile_mask(
 ) -> np.ndarray | None:
     """Shared annotation rasterisation: returns a ``(th, tw)`` uint8 mask or ``None``."""
     import cv2
+
     tx, ty = tile.x, tile.y
     tw, th = tile.w, tile.h
     img_w, img_h = tile.img_width, tile.img_height
@@ -370,15 +399,17 @@ def prepare_cog_dataset(
         for tile in tiles:
             tile.original_image_id = iid
             tile_id = f"{iid}_tile_{tile.x}_{tile.y}"
-            expanded_images.append({
-                "id": tile_id,
-                "file_name": tile.tile_name,
-                "file_url": "",  # tiles are local files
-                "width": tile.w,
-                "height": tile.h,
-                "_tile_info": tile,
-                "_is_cog_tile": True,
-            })
+            expanded_images.append(
+                {
+                    "id": tile_id,
+                    "file_name": tile.tile_name,
+                    "file_url": "",  # tiles are local files
+                    "width": tile.w,
+                    "height": tile.h,
+                    "_tile_info": tile,
+                    "_is_cog_tile": True,
+                }
+            )
             if ann_type == "bbox":
                 label_lines = remap_annotations_to_tile_yolo(img_anns, tile, class_map)
                 if label_lines:
@@ -435,15 +466,17 @@ def prepare_cog_dataset_sam(
         for tile in tiles:
             tile.original_image_id = iid
             tile_id = f"{iid}_tile_{tile.x}_{tile.y}"
-            expanded_images.append({
-                "id": tile_id,
-                "file_name": tile.tile_name,
-                "file_url": "",
-                "width": tile.w,
-                "height": tile.h,
-                "_tile_info": tile,
-                "_is_cog_tile": True,
-            })
+            expanded_images.append(
+                {
+                    "id": tile_id,
+                    "file_name": tile.tile_name,
+                    "file_url": "",
+                    "width": tile.w,
+                    "height": tile.h,
+                    "_tile_info": tile,
+                    "_is_cog_tile": True,
+                }
+            )
             mask_data = _create_tile_mask_from_polygons(img_anns, tile)
             if mask_data is not None:
                 expanded_masks[tile_id] = mask_data
@@ -471,6 +504,7 @@ def _create_tile_mask_from_polygons(
 
 class _MaskProxy:
     __slots__ = ("mask_data", "bbox_prompt")
+
     def __init__(self, mask_data: str, bbox_prompt: str) -> None:
         self.mask_data = mask_data
         self.bbox_prompt = bbox_prompt

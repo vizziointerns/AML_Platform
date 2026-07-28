@@ -21,7 +21,7 @@ from app.training.trainer import MODELS_DIR, TrainingConfig, start_training_back
 from app.training.sam_loader import load_sam_model
 from app.training.trainer_yolo import _validate_image_url, _extract_drive_file_id
 from app.training.trainer_sam import mask_to_rle
-from app.utils.google_service_account import get_auth_headers
+from app.utils.google_drive_auth import get_drive_access_token
 
 router = APIRouter()
 
@@ -109,7 +109,11 @@ def predict_segmentation(
     try:
         if file_id:
             drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
-            headers = get_auth_headers()
+            access_token = get_drive_access_token()
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": "AML-Platform/1.0",
+            }
             with httpx.Client(timeout=60) as client:
                 with client.stream(
                     "GET",

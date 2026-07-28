@@ -2,6 +2,7 @@ import ipaddress
 import json
 import os
 import random
+import shutil
 import socket
 import tempfile
 import time
@@ -95,10 +96,17 @@ def _make_validate_url_hook() -> Any:
 
 
 def _download_drive_file(file_id: str, dest_path: Path) -> None:
-    from app.utils.google_service_account import get_auth_headers
+    from app.utils.google_drive_auth import get_drive_access_token
 
     drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
-    headers = get_auth_headers()
+    try:
+        access_token = get_drive_access_token()
+    except Exception as exc:
+        raise RuntimeError(f"Failed to authenticate with Google Drive: {exc}") from exc
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "User-Agent": "AML-Platform/1.0",
+    }
     MAX_IMAGE_SIZE = 10 * 1024 * 1024
     CHUNK_SIZE = 64 * 1024
     with httpx.Client(timeout=60) as client:
@@ -133,7 +141,13 @@ def _download_image(
     )
 
     if file_id:
-        _download_drive_file(file_id, dest_path)
+        try:
+            _download_drive_file(file_id, dest_path)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Download failed for image '{img.get('id', '?')}' "
+                f"(file_id={file_id}, url={file_url}): {exc}"
+            ) from exc
     else:
         MAX_IMAGE_SIZE = 10 * 1024 * 1024
         CHUNK_SIZE = 64 * 1024
@@ -256,7 +270,9 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
             train_end = max(1, int(n * 0.7))
             val_end = max(train_end + 1, int(n * 0.85))
             train_groups = all_groups[:train_end]
-            val_groups = all_groups[train_end:val_end] if val_end <= n else all_groups[-1:]
+            val_groups = (
+                all_groups[train_end:val_end] if val_end <= n else all_groups[-1:]
+            )
 
         train_images = [img for g in train_groups for img in g]
         val_images = [img for g in val_groups for img in g]
@@ -276,21 +292,22 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
                 if img.get("_is_cog_tile"):
                     tile_info = img.get("_tile_info")
                     if tile_info:
-                        src_tile = (
-                            work_dir / "cog_tiles" / tile_info.tile_name
-                        )
+                        src_tile = work_dir / "cog_tiles" / tile_info.tile_name
                         dest_name = f"{Path(img['file_name']).stem}.png"
                         dest_img = img_dir / dest_name
                         if src_tile.exists():
-                            import shutil
                             shutil.copy2(str(src_tile), str(dest_img))
                             label_lines: "list[str]" = anns_by_image.get(img["id"], [])  # type: ignore[assignment]
                             label_path = label_dir / f"{Path(dest_name).stem}.txt"
-                            label_path.write_text("\n".join(label_lines), encoding="utf-8")
+                            label_path.write_text(
+                                "\n".join(label_lines), encoding="utf-8"
+                            )
                         else:
                             missing_tiles.append(tile_info.tile_name)
                     else:
-                        print(f"Warning: missing tile_info for {img.get('id', 'unknown')}")
+                        print(
+                            f"Warning: missing tile_info for {img.get('id', 'unknown')}"
+                        )
                     continue
 
                 img_anns = anns_by_image.get(img["id"], [])
@@ -311,7 +328,10 @@ def run_yolo_training(cfg: TrainingConfig) -> None:
                 try:
                     _download_image(img, img_dir)
                 except Exception as exc:
-                    print(f"Warning: failed to download {img['file_name']}: {exc}")
+                    print(
+                        f"Warning: failed to download image "
+                        f"'{img.get('id', '?')}' ({img.get('file_name', '?')}): {exc}"
+                    )
 
         if missing_tiles:
             raise RuntimeError(
