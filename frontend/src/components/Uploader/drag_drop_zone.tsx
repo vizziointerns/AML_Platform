@@ -6,7 +6,8 @@ export default function drag_drop_zone({
 	bg_drag,
 	text_heading,
 	text_muted,
-	folder_only = false
+	folder_only = false,
+	on_click
 }: {
 	is_drag_active: boolean
 	is_dark_mode: boolean
@@ -14,6 +15,7 @@ export default function drag_drop_zone({
 	text_heading: string
 	text_muted: string
 	folder_only?: boolean
+	on_click?: () => void
 }) {
 	const drag_bg = is_drag_active
 		? `border-blue-500 ${bg_drag}`
@@ -22,6 +24,7 @@ export default function drag_drop_zone({
 	return (
 		<div
 			className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center text-center transition-colors cursor-pointer ${drag_bg}`}
+			onClick={on_click}
 		>
 			<div
 				className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors ${
