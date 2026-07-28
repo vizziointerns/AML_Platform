@@ -256,12 +256,11 @@ export default function upload_dialog({
 					</div>
 
 					<div
-						className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6 cursor-pointer"
+						className="flex-1 overflow-y-auto px-6 py-6 pb-2 space-y-6"
 						onDragEnter={on_drag_enter}
 						onDragOver={on_drag_over}
 						onDragLeave={on_drag_leave}
 						onDrop={on_drop}
-						onClick={handle_content_click}
 					>
 						{!folder_only && (
 							<input
@@ -350,6 +349,7 @@ export default function upload_dialog({
 							text_heading={text_heading}
 							text_muted={text_muted}
 							folder_only={folder_only}
+							on_click={handle_content_click}
 						/>
 
 						{upload_queue_section({
