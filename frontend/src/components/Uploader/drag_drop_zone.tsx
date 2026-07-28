@@ -1,105 +1,48 @@
-import { UploadCloud, Folder } from 'lucide-react'
+import { UploadCloud } from 'lucide-react'
 
 export default function drag_drop_zone({
 	is_drag_active,
 	is_dark_mode,
 	bg_drag,
-	bg_card,
-	border_subtle,
 	text_heading,
 	text_muted,
-	file_input_ref,
-	folder_input_ref,
-	on_drag_enter,
-	on_drag_over,
-	on_drag_leave,
-	on_drop,
-	on_file_change,
 	folder_only = false
 }: {
 	is_drag_active: boolean
 	is_dark_mode: boolean
 	bg_drag: string
-	bg_card: string
-	border_subtle: string
 	text_heading: string
 	text_muted: string
-	file_input_ref: React.RefObject<HTMLInputElement>
-	folder_input_ref: React.RefObject<HTMLInputElement>
-	on_drag_enter: (e: React.DragEvent) => void
-	on_drag_over: (e: React.DragEvent) => void
-	on_drag_leave: (e: React.DragEvent) => void
-	on_drop: (e: React.DragEvent) => void
-	on_file_change: (e: React.ChangeEvent<HTMLInputElement>) => void
 	folder_only?: boolean
 }) {
 	const drag_bg = is_drag_active
 		? `border-blue-500 ${bg_drag}`
-		: `${is_dark_mode ? 'border-zinc-800 hover:border-zinc-700 bg-zinc-900' : 'border-zinc-300 hover:border-zinc-400 bg-zinc-50'}`
-	const icon_container_bg = is_drag_active
-		? 'bg-blue-500/20 text-blue-500'
-		: is_dark_mode
-			? 'bg-zinc-800 text-zinc-400 group-hover:bg-zinc-700'
-			: 'bg-zinc-200 text-zinc-500 group-hover:bg-zinc-300'
+		: `${is_dark_mode ? 'border-zinc-800 bg-zinc-900' : 'border-zinc-300 bg-zinc-50'}`
 
 	return (
 		<div
-			onDragEnter={on_drag_enter}
-			onDragOver={on_drag_over}
-			onDragLeave={on_drag_leave}
-			onDrop={on_drop}
-			className={`relative border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group ${drag_bg}`}
+			className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center text-center transition-colors cursor-pointer ${drag_bg}`}
 		>
-			{!folder_only && (
-				<input
-					type="file"
-					multiple
-					accept="image/*,.zip,.tif,.tiff"
-					className="hidden"
-					ref={file_input_ref}
-					onChange={on_file_change}
-				/>
-			)}
-			<input
-				type="file"
-				{...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
-				multiple
-				className="hidden"
-				ref={folder_input_ref}
-				onChange={on_file_change}
-			/>
-
 			<div
-				className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors ${icon_container_bg}`}
+				className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors ${
+					is_drag_active
+						? 'bg-blue-500/20 text-blue-500'
+						: is_dark_mode
+							? 'bg-zinc-800 text-zinc-400'
+							: 'bg-zinc-200 text-zinc-500'
+				}`}
 			>
 				<UploadCloud size={32} />
 			</div>
 
 			<h3 className={`text-lg font-medium mb-1 ${text_heading}`}>
-				{folder_only ? 'Drag and drop a folder here' : 'Click to browse or drag and drop'}
+				{folder_only ? 'Drop a folder here' : 'Drop files or a folder here'}
 			</h3>
-			<p className={`text-sm ${text_muted} max-w-[300px] mb-6`}>
+			<p className={`text-sm ${text_muted} max-w-[300px]`}>
 				{folder_only
-					? 'Import a folder of JPG, PNG, WEBP, or TIFF images as a new dataset. Folder hierarchy is preserved.'
-					: 'Support for JPG, PNG, WEBP, TIFF, or ZIP archives containing images. Folders preserve hierarchy.'}
+					? 'Imports JPG, PNG, WEBP, or TIFF images. Folder hierarchy is preserved.'
+					: 'Supports JPG, PNG, WEBP, TIFF, or ZIP archives. Folders preserve hierarchy.'}
 			</p>
-
-			<div className="flex gap-3">
-				{!folder_only && (
-					<button
-						onClick={() => file_input_ref.current?.click()}
-						className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${text_heading}`}
-					>
-						Browse Files
-					</button>
-				)}
-				<button
-					onClick={() => folder_input_ref.current?.click()}
-					className={`px-4 py-2 text-sm font-medium rounded-lg border ${border_subtle} ${bg_card} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${text_heading} flex items-center gap-2`}
-				>
-					<Folder size={16} /> Upload Folder
-				</button>
-			</div>
 		</div>
 	)
 }
