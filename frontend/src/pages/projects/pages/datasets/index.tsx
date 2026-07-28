@@ -284,6 +284,7 @@ export default function datasets_view({
 	const [rename_name, set_rename_name] = useState('')
 	const [is_renaming, set_is_renaming] = useState(false)
 	const [is_deleting_images, set_is_deleting_images] = useState(false)
+	const [focused_image_id, set_focused_image_id] = useState<string | undefined>()
 
 	useEffect(() => {
 		if (!open_menu_id) return
@@ -421,9 +422,11 @@ export default function datasets_view({
 					on_back: deselect_dataset,
 					on_add_data: handle_add_data,
 					on_start_annotating: () => {
-						const first_image = images[0]
-						if (first_image) {
-							navigate(`/projects/${project_id}/annotation/${first_image.id}`)
+						const target = focused_image_id
+							? images.find((img) => img.id === focused_image_id)
+							: images[images.length - 1]
+						if (target) {
+							navigate(`/projects/${project_id}/annotation/${target.id}`)
 						}
 					},
 					on_start_training: () => navigate(`/projects/${project_id}/models`),
@@ -431,7 +434,8 @@ export default function datasets_view({
 					on_delete_images: handle_delete_images,
 					is_deleting_images,
 					on_open_annotation: (image_id: string) =>
-						navigate(`/projects/${project_id}/annotation/${image_id}`)
+						navigate(`/projects/${project_id}/annotation/${image_id}`),
+					on_focus_change: set_focused_image_id
 				})}
 			</>
 		)
