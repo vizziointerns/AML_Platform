@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Box, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { use_app_context } from '../../contexts/app_context'
 import { APP_NAV_ITEMS, APP_BOTTOM_ITEMS } from '../../config/navigation'
 import { nav_section } from './shared'
@@ -27,9 +27,11 @@ export function mobile_drawer() {
 					className={`h-16 flex items-center justify-between border-b px-4 shrink-0 ${is_dark_mode ? 'border-zinc-800/60' : 'border-zinc-200'}`}
 				>
 					<div className="flex items-center gap-3">
-						<div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-							<Box size={16} className="text-white" />
-						</div>
+						<img
+							src="/fav.png"
+							alt="AML Platform Logo"
+							className="h-8 w-8 object-contain shrink-0"
+						/>
 						<div className="flex flex-col">
 							<span
 								className={`text-sm font-semibold text-left ${is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'}`}

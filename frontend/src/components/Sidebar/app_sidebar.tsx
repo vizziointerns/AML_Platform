@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { Box } from 'lucide-react'
+
 import { APP_NAV_ITEMS, APP_BOTTOM_ITEMS } from '../../config/navigation'
 import { nav_section } from './shared'
 
@@ -38,9 +38,7 @@ export function app_sidebar({
 					onClick={on_logo_click}
 					className={`w-full flex items-center gap-3 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${logo_pad}`}
 				>
-					<div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-						<Box size={16} className="text-white" />
-					</div>
+					<img src="/fav.png" alt="AML Platform Logo" className="h-8 w-8 object-contain shrink-0" />
 					{is_now_expanded && (
 						<div className="flex flex-col items-start overflow-hidden">
 							<span
