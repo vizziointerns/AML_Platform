@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from threading import Lock
 from typing import Any, cast
 
@@ -12,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 
 _token_cache: dict[str, str] = {}
 _cache_lock = Lock()
@@ -30,7 +33,13 @@ def _load_service_account_info() -> dict[str, Any]:
         )
     if raw.startswith("{"):
         return cast("dict[str, Any]", json.loads(raw))
-    with open(raw) as f:
+    key_path = raw if os.path.isabs(raw) else str(BACKEND_DIR / raw)
+    if not os.path.exists(key_path):
+        raise RuntimeError(
+            f"Service account key file not found at: {key_path} "
+            f"(resolved from '{raw}'). Check GOOGLE_SERVICE_ACCOUNT_KEY."
+        )
+    with open(key_path) as f:
         return cast("dict[str, Any]", json.load(f))
 
 
