@@ -19,7 +19,7 @@ import {
 	stat_card,
 	compute_selected_stats,
 	empty_runs_state,
-	render_model_selector
+	model_selector as ModelSelector
 } from './training_stats'
 
 async function perform_load_runs(
@@ -184,12 +184,12 @@ function render_training_page_content(props: RenderTrainingProps) {
 						? 'Showing metrics for the selected model'
 						: 'Aggregate metrics across all models'}
 				</p>
-				{render_model_selector({
-					runs: props.runs,
-					selected_id: props.selected_model_id,
-					on_select: props.set_selected_model_id,
-					is_dark_mode: props.is_dark_mode
-				})}
+				<ModelSelector
+					runs={props.runs}
+					selected_id={props.selected_model_id}
+					on_select={props.set_selected_model_id}
+					is_dark_mode={props.is_dark_mode}
+				/>
 			</div>
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				{stat_card({

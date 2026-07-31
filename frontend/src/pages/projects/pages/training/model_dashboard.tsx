@@ -15,7 +15,7 @@ import {
 	download_weights_url,
 	type TrainingRun
 } from '../../../../api/training'
-import { stat_card, render_model_selector } from './training_stats'
+import { stat_card, model_selector as ModelSelector } from './training_stats'
 import { parse_run_metrics, status_tag } from './run_card'
 
 function dashboard_theme(is_dark_mode: boolean) {
@@ -156,15 +156,15 @@ function dashboard_header({
 				</div>
 			</div>
 			<div className="flex items-center gap-2">
-				{render_model_selector({
-					runs,
-					selected_id: selected_run?.id,
-					on_select: (id) => {
+				<ModelSelector
+					runs={runs}
+					selected_id={selected_run?.id}
+					on_select={(id) => {
 						if (id) on_select_model(id)
-					},
-					is_dark_mode,
-					show_all: false
-				})}
+					}}
+					is_dark_mode={is_dark_mode}
+					show_all={false}
+				/>
 				{selected_run?.status === 'Completed' && (
 					<button onClick={on_download} className="btn-primary inline-flex">
 						<Download size={16} /> Weights

@@ -41,6 +41,6 @@
 	}
 
 	.stat-card {
-		@apply p-5 rounded-xl border flex flex-col;
+		@apply p-5 rounded-xl flex flex-col;
 	}
 }

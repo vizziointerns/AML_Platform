@@ -1,4 +1,6 @@
-import { Plus, Cpu } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { Plus, Cpu, Check, ChevronDown } from 'lucide-react'
 import type { TrainingRun } from '../../../../api/training'
 
 export function stat_card({
@@ -59,7 +61,94 @@ export function compute_selected_stats(selected_run: TrainingRun | undefined, ru
 	}
 }
 
-export function render_model_selector({
+function selector_label({
+	has_models,
+	selected_run,
+	show_all
+}: {
+	has_models: boolean
+	selected_run: TrainingRun | undefined
+	show_all: boolean
+}): string {
+	if (!has_models) return 'No models'
+	if (selected_run) return `${selected_run.name} — ${selected_run.status}`
+	return show_all ? 'All models (aggregate)' : 'Select model'
+}
+
+function render_selector_menu({
+	is_open,
+	pos,
+	has_models,
+	runs,
+	selected_id,
+	on_select,
+	show_all,
+	menu_ref,
+	text_heading,
+	hover_bg,
+	border_subtle,
+	bg_card,
+	set_is_open
+}: {
+	is_open: boolean
+	pos: { top: number; right: number } | undefined
+	has_models: boolean
+	runs: TrainingRun[]
+	selected_id: number | undefined
+	on_select: (id: number | undefined) => void
+	show_all: boolean
+	menu_ref: { current: HTMLDivElement | null }
+	text_heading: string
+	hover_bg: string
+	border_subtle: string
+	bg_card: string
+	set_is_open: (v: boolean) => void
+}) {
+	if (!is_open || !pos || !has_models) return undefined
+	return createPortal(
+		<div
+			ref={menu_ref}
+			style={{ position: 'fixed', top: pos.top, right: pos.right }}
+			className={`min-w-[220px] max-w-[320px] rounded-xl border ${border_subtle} ${bg_card} shadow-lg z-50 py-1`}
+		>
+			{show_all && (
+				<button
+					onClick={() => {
+						on_select(undefined)
+						set_is_open(false)
+					}}
+					className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors ${text_heading} ${hover_bg}`}
+				>
+					<span className="w-4 shrink-0">
+						{selected_id === undefined && <Check size={14} className="text-blue-500" />}
+					</span>
+					<span className="truncate">All models (aggregate)</span>
+				</button>
+			)}
+			{runs.map((r) => (
+				<button
+					key={r.id}
+					onClick={() => {
+						on_select(r.id)
+						set_is_open(false)
+					}}
+					className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors ${text_heading} ${hover_bg}`}
+				>
+					<span className="w-4 shrink-0">
+						{r.id === selected_id && <Check size={14} className="text-blue-500" />}
+					</span>
+					<span className="truncate">
+						{r.name} — {r.status}
+						{r.accuracy !== undefined ? ` (${(r.accuracy * 100).toFixed(1)}%)` : ''}
+					</span>
+				</button>
+			))}
+		</div>,
+		document.body
+	)
+}
+
+export function model_selector({
 	runs,
 	selected_id,
 	on_select,
@@ -72,30 +161,72 @@ export function render_model_selector({
 	is_dark_mode: boolean
 	show_all?: boolean
 }) {
+	const [is_open, set_is_open] = useState(false)
+	const [pos, set_pos] = useState<{ top: number; right: number } | undefined>(undefined)
+	const btn_ref = useRef<HTMLButtonElement>(undefined!)
+	const menu_ref = useRef<HTMLDivElement>(undefined!)
+
+	useEffect(() => {
+		if (!is_open) return
+		const handler = (e: MouseEvent) => {
+			const t = e.target as Node
+			if (!btn_ref.current?.contains(t) && !menu_ref.current?.contains(t)) set_is_open(false)
+		}
+		document.addEventListener('mousedown', handler)
+		return () => document.removeEventListener('mousedown', handler)
+	}, [is_open])
+
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
-	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
 	const bg_card = is_dark_mode ? 'bg-zinc-900' : 'bg-white'
+	const border_subtle = is_dark_mode ? 'border-zinc-800' : 'border-zinc-200'
+	const hover_bg = is_dark_mode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50'
+	const has_models = runs.length > 0
+	const selected_run = runs.find((r) => r.id === selected_id)
+	const label = selector_label({ has_models, selected_run, show_all })
 	return (
-		<div
-			className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${border_subtle} ${bg_card}`}
-		>
-			<Cpu size={16} className={`shrink-0 ${text_muted}`} />
-			<select
-				value={selected_id ?? ''}
-				onChange={(e) => on_select(e.target.value ? Number(e.target.value) : undefined)}
-				className={`bg-transparent text-sm outline-none cursor-pointer max-w-[240px] truncate ${text_heading}`}
+		<>
+			<button
+				ref={btn_ref}
+				disabled={!has_models}
+				onClick={() => {
+					const will_open = !is_open
+					if (will_open) {
+						const r = btn_ref.current.getBoundingClientRect()
+						set_pos({ top: r.bottom + 4, right: window.innerWidth - r.right })
+					}
+					set_is_open(will_open)
+				}}
+				className={`flex items-center gap-2 px-3 py-2 rounded-xl ${bg_card} text-sm transition-colors ${
+					has_models
+						? 'cursor-pointer hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50'
+						: 'cursor-not-allowed opacity-60'
+				}`}
 				title="Select model to view metrics"
 			>
-				{show_all && <option value="">All models (aggregate)</option>}
-				{runs.map((r) => (
-					<option key={r.id} value={r.id}>
-						{r.name} — {r.status}
-						{r.accuracy !== undefined ? ` (${(r.accuracy * 100).toFixed(1)}%)` : ''}
-					</option>
-				))}
-			</select>
-		</div>
+				<Cpu size={16} className={`shrink-0 ${text_muted}`} />
+				<span className={`max-w-[200px] truncate ${text_heading}`}>{label}</span>
+				<ChevronDown
+					size={14}
+					className={`shrink-0 transition-transform ${text_muted} ${is_open ? 'rotate-180' : ''}`}
+				/>
+			</button>
+			{render_selector_menu({
+				is_open,
+				pos,
+				has_models,
+				runs,
+				selected_id,
+				on_select,
+				show_all,
+				menu_ref,
+				text_heading,
+				hover_bg,
+				border_subtle,
+				bg_card,
+				set_is_open
+			})}
+		</>
 	)
 }
 
