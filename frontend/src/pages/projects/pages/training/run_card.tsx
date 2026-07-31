@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { Square, Download, Clock, Activity, Trash2, BarChart3 } from 'lucide-react'
 import { download_weights_url, type TrainingRun } from '../../../../api/training'
 
-function status_tag(status: string) {
+export function status_tag(status: string) {
 	switch (status) {
 		case 'Running':
 			return (
@@ -104,17 +104,23 @@ function mini_svg_line_chart(
 	)
 }
 
-function training_chart(run: TrainingRun, is_dark_mode: boolean) {
-	if (!run.metrics) return undefined
-	let chart_data: { epoch: number; accuracy?: number; loss?: number }[] = []
+export function parse_run_metrics(
+	run: TrainingRun
+): { epoch: number; accuracy?: number; loss?: number }[] {
+	if (!run.metrics) return []
 	try {
 		const parsed = JSON.parse(run.metrics)
 		if (Array.isArray(parsed)) {
-			chart_data = parsed
+			return parsed
 		}
 	} catch {
 		/* ignore */
 	}
+	return []
+}
+
+function training_chart(run: TrainingRun, is_dark_mode: boolean) {
+	const chart_data = parse_run_metrics(run)
 	if (chart_data.length < 2) return undefined
 
 	const acc_data = chart_data
@@ -145,7 +151,8 @@ function table_row({
 	text_muted,
 	deleting_id,
 	on_delete,
-	on_error
+	on_error,
+	on_open
 }: {
 	run: TrainingRun
 	is_dark_mode: boolean
@@ -154,13 +161,17 @@ function table_row({
 	deleting_id: number | undefined
 	on_delete: (id: number) => void
 	on_error: (msg: string) => void
+	on_open: (run_id: number) => void
 }) {
 	const pct = run.epochs > 0 ? Math.round((run.current_epoch / run.epochs) * 100) : 0
 	const bar_color = progress_bar_color(run.status)
 	const progress_bg = is_dark_mode ? 'bg-zinc-800' : 'bg-zinc-200'
 	return (
 		<>
-			<tr className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors`}>
+			<tr
+				className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer`}
+				onClick={() => on_open(run.id)}
+			>
 				<td className="px-6 py-4">
 					<div className={`font-medium ${text_heading}`}>{run.name}</div>
 				</td>
@@ -188,7 +199,7 @@ function table_row({
 				</td>
 				<td className={`px-6 py-4 ${text_muted}`}>{run.duration || '—'}</td>
 				<td className="px-6 py-4">{status_tag(run.status)}</td>
-				<td className="px-6 py-4">
+				<td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
 					<div className="flex items-center gap-1">
 						{run.status === 'Completed' && (
 							<button
@@ -246,13 +257,15 @@ export function training_runs_table({
 	is_dark_mode,
 	deleting_id,
 	handle_delete,
-	handle_error
+	handle_error,
+	handle_open
 }: {
 	runs: TrainingRun[]
 	is_dark_mode: boolean
 	deleting_id: number | undefined
 	handle_delete: (id: number) => void
 	handle_error: (msg: string) => void
+	handle_open: (run_id: number) => void
 }) {
 	const text_muted = is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	const text_heading = is_dark_mode ? 'text-zinc-100' : 'text-zinc-900'
@@ -295,7 +308,8 @@ export function training_runs_table({
 									text_muted,
 									deleting_id,
 									on_delete: handle_delete,
-									on_error: handle_error
+									on_error: handle_error,
+									on_open: handle_open
 								})}
 								{(run.status === 'Running' || run.status === 'Completed') &&
 									training_chart(run, is_dark_mode)}
