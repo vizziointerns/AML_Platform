@@ -117,11 +117,12 @@ export function handle_sam_auto_segment(
 	set_selected_ann_id: (id: string | undefined) => void,
 	set_active_tool: (mode: Mode) => void,
 	is_current_image: () => boolean,
-	model_version: string = 'sam2.1'
+	model_version: string = 'sam2.1',
+	class_name?: string
 ) {
 	set_is_running_segmentation(true)
 	set_is_model_selector_open(false)
-	run_auto_segmentation(image_url, active_class, model_version)
+	run_auto_segmentation(image_url, class_name ?? active_class, model_version)
 		.then((polygons) => {
 			if (!is_current_image()) return
 			const new_annotations: Annotation[] = polygons.map((poly) => {
