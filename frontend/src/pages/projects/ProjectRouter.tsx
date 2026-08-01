@@ -13,6 +13,7 @@ import DatasetsView from './pages/datasets'
 import AnnotationStudio from './pages/annotation'
 import ModelsPage from './pages/models'
 import TrainingPage from './pages/training'
+import ModelDashboard from './pages/training/model_dashboard'
 import PlaceholderPage from '../../components/page_placeholder'
 
 export default function project_router() {
@@ -72,11 +73,15 @@ export default function project_router() {
 	const second_last = path_segments[path_segments.length - 2] ?? ''
 	const has_annotation = path_segments.includes('annotation')
 	const image_id = has_annotation && path_segments.length >= 4 ? last_segment : undefined
+	const has_training = path_segments.includes('training')
+	const training_run_id = has_training && path_segments.length >= 4 ? last_segment : undefined
 	const sub_route = has_annotation
 		? 'annotation'
 		: second_last === 'datasets'
 			? 'datasets'
-			: last_segment || 'dashboard'
+			: has_training
+				? 'training'
+				: last_segment || 'dashboard'
 	const is_annotation = sub_route === 'annotation'
 
 	const render_page = () => {
@@ -112,7 +117,15 @@ export default function project_router() {
 			return <ModelsPage is_dark_mode={is_dark_mode} />
 		}
 		if (sub_route === 'training') {
-			return <TrainingPage is_dark_mode={is_dark_mode} />
+			return training_run_id ? (
+				<ModelDashboard
+					project_id={project_id ?? ''}
+					run_id={training_run_id}
+					is_dark_mode={is_dark_mode}
+				/>
+			) : (
+				<TrainingPage is_dark_mode={is_dark_mode} />
+			)
 		}
 		return (
 			<div className="h-full">
