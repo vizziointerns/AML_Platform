@@ -15,7 +15,12 @@ import { use_datasets } from '../../../../hooks/use_datasets'
 import type { DatasetInfo } from '../../../../hooks/use_datasets'
 import { new_training_dialog, perform_create } from './create_run_dialog'
 import { training_runs_table } from './run_card'
-import { stat_card, compute_stats, empty_runs_state } from './training_stats'
+import {
+	stat_card,
+	compute_selected_stats,
+	empty_runs_state,
+	model_selector as ModelSelector
+} from './training_stats'
 
 async function perform_load_runs(
 	project_id: string,
@@ -138,6 +143,9 @@ interface RenderTrainingProps {
 		epochs: number
 	}) => void
 	handle_delete: (id: number) => void
+	handle_open: (run_id: number) => void
+	selected_model_id: number | undefined
+	set_selected_model_id: (id: number | undefined) => void
 	navigate: (path: string) => void
 }
 
@@ -170,6 +178,19 @@ function render_training_page_content(props: RenderTrainingProps) {
 	const text_muted = props.is_dark_mode ? 'text-zinc-400' : 'text-zinc-500'
 	return (
 		<>
+			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+				<p className={`text-sm ${text_muted}`}>
+					{props.selected_model_id !== undefined
+						? 'Showing metrics for the selected model'
+						: 'Aggregate metrics across all models'}
+				</p>
+				<ModelSelector
+					runs={props.runs}
+					selected_id={props.selected_model_id}
+					on_select={props.set_selected_model_id}
+					is_dark_mode={props.is_dark_mode}
+				/>
+			</div>
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				{stat_card({
 					label: 'Active Jobs',
@@ -210,7 +231,8 @@ function render_training_page_content(props: RenderTrainingProps) {
 					is_dark_mode: props.is_dark_mode,
 					deleting_id: props.deleting_id,
 					handle_delete: props.handle_delete,
-					handle_error: props.set_error
+					handle_error: props.set_error,
+					handle_open: props.handle_open
 				})}
 		</>
 	)
@@ -299,6 +321,7 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 	const [is_new_dialog_open, set_is_new_dialog_open] = useState(false)
 	const [is_creating, set_is_creating] = useState(false)
 	const [deleting_id, set_deleting_id] = useState<number | undefined>(undefined)
+	const [selected_model_id, set_selected_model_id] = useState<number | undefined>(undefined)
 
 	const [new_run_dataset_id, set_new_run_dataset_id] = useState('')
 	const [new_run_name, set_new_run_name] = useState('')
@@ -363,6 +386,12 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 		return () => clearInterval(interval)
 	}, [load_runs])
 
+	useEffect(() => {
+		if (selected_model_id !== undefined && !runs.some((r) => r.id === selected_model_id)) {
+			set_selected_model_id(undefined)
+		}
+	}, [runs, selected_model_id])
+
 	const handle_create = async (payload: {
 		dataset_id: string
 		name: string
@@ -394,7 +423,15 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 		await perform_delete(project_id, run_id, set_deleting_id, set_error, load_runs)
 	}
 
-	const stats = compute_stats(runs)
+	const handle_open = useCallback(
+		(run_id: number) => {
+			navigate(`/projects/${project_id}/training/${run_id}`)
+		},
+		[navigate, project_id]
+	)
+
+	const selected_run = runs.find((r) => r.id === selected_model_id)
+	const stats = compute_selected_stats(selected_run, runs)
 
 	return render_training_page({
 		project_id: project_id ?? '',
@@ -423,6 +460,9 @@ export default function training_page({ is_dark_mode }: { is_dark_mode: boolean 
 		handle_export,
 		handle_create,
 		handle_delete,
+		handle_open,
+		selected_model_id,
+		set_selected_model_id,
 		navigate
 	})
 }
