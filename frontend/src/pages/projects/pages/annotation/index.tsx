@@ -309,6 +309,21 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 		[classes]
 	)
 
+	const handle_sam3_prompt_class = useCallback(
+		(prompt: string) => {
+			const existing = classes.find((c) => c.name.toLowerCase() === prompt.toLowerCase())
+			if (existing) {
+				set_active_class(existing.id)
+				return existing.id
+			}
+			const new_class = class_create(prompt, classes)
+			set_classes((prev) => [...prev, new_class])
+			set_active_class(new_class.id)
+			return new_class.id
+		},
+		[classes]
+	)
+
 	const handle_rename_class = useCallback((id: string, new_name: string) => {
 		set_classes((prev) => class_rename(prev, id, new_name))
 		set_renaming_class_id(undefined)
@@ -690,21 +705,23 @@ export default function annotation_studio({ isDarkMode, imageId, project }: Anno
 							'sam2.1'
 						)
 					} else if (selected_model_id === -2) {
-						const sam3_class = sam3_prompt || active_class
-						if (!sam3_class) {
+						const prompt = sam3_prompt.trim()
+						const target_class_id = prompt ? handle_sam3_prompt_class(prompt) : active_class
+						if (!target_class_id) {
 							alert('Please enter a text prompt or select a class for SAM3 segmentation.')
 							return
 						}
 						handle_sam_auto_segment(
 							api_image_url,
-							sam3_class,
+							target_class_id,
 							set_is_running_segmentation,
 							set_is_model_selector_open,
 							set_annotations,
 							set_selected_ann_id,
 							set_active_tool,
 							() => api_image_url === image_url_ref.current,
-							'sam3'
+							'sam3',
+							prompt || undefined
 						)
 						set_sam3_prompt('')
 					} else {
